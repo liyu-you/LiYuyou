@@ -282,6 +282,10 @@ void SettingsDialog::setupUI()
     m_menuBarTransparentCheck->setStyleSheet(checkStyle);
     m_menuBarTransparentCheck->setToolTip("文件/编辑/视图/帮助菜单栏透出背景图");
     appearanceLayout->addWidget(m_menuBarTransparentCheck);
+    m_menuBarAutoHideCheck = new QCheckBox("菜单栏半隐藏（自动隐藏）");
+    m_menuBarAutoHideCheck->setStyleSheet(checkStyle);
+    m_menuBarAutoHideCheck->setToolTip("隐藏顶部文件/编辑/视图/帮助菜单栏，改用导航栏最左侧 ☰ 按钮打开菜单");
+    appearanceLayout->addWidget(m_menuBarAutoHideCheck);
     m_navToolbarTransparentCheck = new QCheckBox("导航栏透明");
     m_navToolbarTransparentCheck->setStyleSheet(checkStyle);
     m_navToolbarTransparentCheck->setToolTip("画布/笔记/库/阅读/音乐导航栏透出背景图");
@@ -1379,6 +1383,8 @@ void SettingsDialog::setAcrylicOpacity(int opacity)
 
 bool SettingsDialog::menuBarTransparent() const { return m_menuBarTransparentCheck ? m_menuBarTransparentCheck->isChecked() : true; }
 void SettingsDialog::setMenuBarTransparent(bool v) { if (m_menuBarTransparentCheck) m_menuBarTransparentCheck->setChecked(v); }
+bool SettingsDialog::menuBarAutoHide() const { return m_menuBarAutoHideCheck ? m_menuBarAutoHideCheck->isChecked() : false; }
+void SettingsDialog::setMenuBarAutoHide(bool v) { if (m_menuBarAutoHideCheck) m_menuBarAutoHideCheck->setChecked(v); }
 bool SettingsDialog::navToolbarTransparent() const { return m_navToolbarTransparentCheck ? m_navToolbarTransparentCheck->isChecked() : true; }
 void SettingsDialog::setNavToolbarTransparent(bool v) { if (m_navToolbarTransparentCheck) m_navToolbarTransparentCheck->setChecked(v); }
 bool SettingsDialog::libraryStatusBarTransparent() const { return m_libraryStatusBarTransparentCheck ? m_libraryStatusBarTransparentCheck->isChecked() : true; }

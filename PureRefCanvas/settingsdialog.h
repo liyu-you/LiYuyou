@@ -46,6 +46,8 @@ public:
     // Panel transparency (透出背景图)
     bool menuBarTransparent() const;
     void setMenuBarTransparent(bool v);
+    bool menuBarAutoHide() const;
+    void setMenuBarAutoHide(bool v);
     bool navToolbarTransparent() const;
     void setNavToolbarTransparent(bool v);
     bool libraryStatusBarTransparent() const;
@@ -202,6 +204,7 @@ private:
     QSlider *m_acrylicOpacitySlider;
     QLabel *m_acrylicOpacityLabel;
     QCheckBox *m_menuBarTransparentCheck;
+    QCheckBox *m_menuBarAutoHideCheck;
     QCheckBox *m_navToolbarTransparentCheck;
     QCheckBox *m_libraryStatusBarTransparentCheck;
     QCheckBox *m_libraryGridTransparentCheck;

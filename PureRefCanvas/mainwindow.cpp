@@ -609,6 +609,7 @@ MainWindow::MainWindow(QWidget *parent)
     applyBgImage(m_bgImagePath);
     applyEditorSettings(m_noteDefaultFont, m_noteDefaultFontSize);
     applyTransparencySettings();
+    applyMenuBarMode();
     setupAutoSaveTimer();
 
     // Startup restore
@@ -694,6 +695,36 @@ void MainWindow::setupNavigation()
     QHBoxLayout *brandLayout = new QHBoxLayout(brandWidget);
     brandLayout->setContentsMargins(0, 0, 12, 0);
     brandLayout->setSpacing(8);
+    // ☰ 半隐藏菜单按钮（开启"菜单栏半隐藏"后才可见）
+    m_menuHamburger = new QToolButton(brandWidget);
+    m_menuHamburger->setText("☰");
+    m_menuHamburger->setToolTip("菜单（文件/编辑/视图/帮助）");
+    m_menuHamburger->setAutoRaise(true);
+    m_menuHamburger->setCursor(Qt::PointingHandCursor);
+    m_menuHamburger->setFixedSize(30, 30);
+    m_menuHamburger->setStyleSheet(
+        "QToolButton { font-size: 16px; color: #374151; border: none; border-radius: 6px; background: transparent; }"
+        "QToolButton:hover { background: rgba(0,0,0,0.06); }");
+    connect(m_menuHamburger, &QToolButton::clicked, this, [this]() {
+        QMenu popup;
+        QMenu *f = popup.addMenu("文件(&F)");
+        f->addAction(m_actions.value(0));  f->addSeparator();
+        f->addAction(m_actions.value(1)); f->addAction(m_actions.value(2)); f->addAction(m_actions.value(3));
+        f->addSeparator(); f->addAction(m_actions.value(4)); f->addSeparator(); f->addAction(m_actions.value(5));
+        QMenu *e = popup.addMenu("编辑(&E)");
+        e->addAction(m_actions.value(6)); e->addSeparator();
+        e->addAction(m_actions.value(8)); e->addAction(m_actions.value(9)); e->addAction(m_actions.value(10));
+        e->addSeparator(); e->addAction(m_actions.value(7)); e->addSeparator();
+        e->addAction(m_actions.value(11)); e->addAction(m_actions.value(12)); e->addSeparator();
+        e->addAction(m_actions.value(18)); e->addSeparator(); e->addAction(m_actions.value(19));
+        QMenu *v = popup.addMenu("视图(&V)");
+        v->addAction(m_actions.value(13)); v->addAction(m_actions.value(14));
+        v->addAction(m_actions.value(15)); v->addAction(m_actions.value(16));
+        QMenu *h = popup.addMenu("帮助(&H)");
+        h->addAction(m_actions.value(17));
+        popup.exec(m_menuHamburger->mapToGlobal(QPoint(0, m_menuHamburger->height())));
+    });
+    brandLayout->addWidget(m_menuHamburger);
     // App icon
     QLabel *brandIcon = new QLabel;
     brandIcon->setFixedSize(26, 26);
@@ -1792,6 +1823,7 @@ void MainWindow::openSettings()
     dlg.setAcrylicEnabled(m_acrylicEnabled);
     dlg.setAcrylicOpacity(m_acrylicOpacity);
     dlg.setMenuBarTransparent(m_menuBarTransparent);
+    dlg.setMenuBarAutoHide(m_menuBarAutoHide);
     dlg.setNavToolbarTransparent(m_navToolbarTransparent);
     dlg.setLibraryStatusBarTransparent(m_libraryStatusBarTransparent);
     dlg.setLibraryGridTransparent(m_libraryGridTransparent);
@@ -1948,6 +1980,7 @@ void MainWindow::openSettings()
         m_acrylicOpacity = dlg.acrylicOpacity();
         applyAcrylic();
         m_menuBarTransparent = dlg.menuBarTransparent();
+        m_menuBarAutoHide = dlg.menuBarAutoHide();
         m_navToolbarTransparent = dlg.navToolbarTransparent();
         m_libraryStatusBarTransparent = dlg.libraryStatusBarTransparent();
         m_libraryGridTransparent = dlg.libraryGridTransparent();
@@ -1956,6 +1989,7 @@ void MainWindow::openSettings()
         m_notePanelsTransparent = dlg.notePanelsTransparent();
         m_readerPanelsTransparent = dlg.readerPanelsTransparent();
         applyTransparencySettings();
+        applyMenuBarMode();
         m_materialDir = dlg.materialDir();
         m_booksDir = dlg.booksDir();
         m_musicDir = dlg.musicDir();
@@ -2194,6 +2228,7 @@ void MainWindow::loadSettings()
     m_acrylicEnabled = settings.value("acrylicEnabled", false).toBool();
     m_acrylicOpacity = settings.value("acrylicOpacity", 73).toInt();
     m_menuBarTransparent = settings.value("menuBarTransparent", true).toBool();
+    m_menuBarAutoHide = settings.value("menuBarAutoHide", false).toBool();
     m_navToolbarTransparent = settings.value("navToolbarTransparent", true).toBool();
     m_libraryStatusBarTransparent = settings.value("libraryStatusBarTransparent", true).toBool();
     m_libraryGridTransparent = settings.value("libraryGridTransparent", true).toBool();
@@ -2268,6 +2303,7 @@ void MainWindow::saveSettings()
     settings.setValue("acrylicEnabled", m_acrylicEnabled);
     settings.setValue("acrylicOpacity", m_acrylicOpacity);
     settings.setValue("menuBarTransparent", m_menuBarTransparent);
+    settings.setValue("menuBarAutoHide", m_menuBarAutoHide);
     settings.setValue("navToolbarTransparent", m_navToolbarTransparent);
     settings.setValue("libraryStatusBarTransparent", m_libraryStatusBarTransparent);
     settings.setValue("libraryGridTransparent", m_libraryGridTransparent);
@@ -2442,6 +2478,18 @@ void MainWindow::applyTransparencySettings()
     // Reader page panels
     if (m_readerWidget)
         m_readerWidget->setPanelsTransparent(m_readerPanelsTransparent);
+}
+
+void MainWindow::applyMenuBarMode()
+{
+    // 半隐藏：隐藏原生菜单栏，用导航栏上的 ☰ 按钮承载菜单；否则显示原生菜单栏。
+    if (m_menuBarAutoHide) {
+        if (menuBar()) menuBar()->hide();
+        if (m_menuHamburger) m_menuHamburger->show();
+    } else {
+        if (menuBar()) menuBar()->show();
+        if (m_menuHamburger) m_menuHamburger->hide();
+    }
 }
 
 void MainWindow::applyEditorSettings(const QString &font, int fontSize)

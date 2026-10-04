@@ -6,6 +6,7 @@
 class QStackedWidget;
 class QPushButton;
 class QToolBar;
+class QToolButton;
 class QSystemTrayIcon;
 class QShortcut;
 class CanvasScene;
@@ -107,6 +108,7 @@ private:
     void applyBgImage(const QString &path);
     void applyAcrylic();
     void applyTransparencySettings();
+    void applyMenuBarMode();   // 普通菜单栏 <-> ☰ 半隐藏按钮
     void applyEditorSettings(const QString &font, int fontSize);
     void refreshCanvasItemList();
     void showAccountDialog();
@@ -175,6 +177,7 @@ private:
     bool m_acrylicEnabled = true;
     int m_acrylicOpacity = 73;
     bool m_menuBarTransparent = true;
+    bool m_menuBarAutoHide = false;   // 半隐藏：菜单栏折叠成 ☰ 按钮
     bool m_navToolbarTransparent = true;
     bool m_libraryStatusBarTransparent = true;
     bool m_libraryGridTransparent = true;
@@ -183,6 +186,7 @@ private:
     bool m_notePanelsTransparent = true;
     bool m_readerPanelsTransparent = true;
     QToolBar *m_navToolBar = nullptr;
+    QToolButton *m_menuHamburger = nullptr;  // 半隐藏模式下的 ☰ 菜单按钮
     int m_minimapOpacity = 70;
     int m_zoomBarOpacity = 85;
     bool m_minimapVisible = true;
