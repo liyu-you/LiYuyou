@@ -30,6 +30,7 @@ qt_add_executable(PureRefCanvas
     musicplayer.h musicplayer.cpp
     songinfo.h songmetadata.h songmetadata.cpp
     musiclibrarydb.h musiclibrarydb.cpp
+    cueparser.h cueparser.cpp
     coverart.h
     playpausebutton.h
     playerwidgets.h

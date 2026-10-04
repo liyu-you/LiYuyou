@@ -3,6 +3,7 @@
 #include "fullscreenplayer.h"
 #include "songmetadata.h"
 #include "musiclibrarydb.h"
+#include "cueparser.h"
 #include "coverart.h"
 
 #include <QFile>
@@ -1229,6 +1230,18 @@ void MusicPlayerWidget::scanMusicFolder()
         existing.insert(f);
         added = true;
     }
+    // CUE sheets: append virtual tracks for each .cue found next to audio files.
+    const QFileInfoList cues = d.entryInfoList(QStringList() << "*.cue", QDir::Files | QDir::NoDotAndDotDot);
+    for (const QFileInfo &cueFi : cues) {
+        const QList<SongInfo> virtualTracks = CueParser::parse(cueFi.absoluteFilePath());
+        for (const auto &vt : virtualTracks) {
+            if (!existing.contains(vt.path)) {
+                m_allSongs << vt;
+                existing.insert(vt.path);
+                added = true;
+            }
+        }
+    }
     if (added) {
         saveLibrary();
         refreshSongTable();
@@ -1817,8 +1830,23 @@ void MusicPlayerWidget::playSongAt(int index)
         m_currentIndex = -1;
         return;
     }
-    m_player->setSource(QUrl::fromLocalFile(song.path));
+    QString playPath = song.path;
+    qint64 cueStartMs = 0;
+    qint64 cueEndMs = 0;
+    if (CueParser::isCueVirtualPath(song.path)) {
+        QString realPath;
+        if (!CueParser::resolveVirtual(song.path, realPath, cueStartMs, cueEndMs)) {
+            QMessageBox::information(this, "无法播放", QString("CUE 曲目解析失败：%1").arg(song.path));
+            return;
+        }
+        playPath = realPath;
+    }
+    m_player->setSource(QUrl::fromLocalFile(playPath));
+    if (cueStartMs > 0) {
+        m_player->setPosition(cueStartMs);
+    }
     m_player->play();
+    m_cueEndMs = cueEndMs;
     // ReplayGain: apply volume normalization (ported from mpz gain.h).
     if (m_audioOutput) {
         double db = 0.0;
@@ -2065,6 +2093,12 @@ void MusicPlayerWidget::updateNowPlaying()
 void MusicPlayerWidget::onPositionChanged(qint64 pos)
 {
     const qint64 dur = m_player->duration();
+    // CUE track boundary: auto-advance when we reach the virtual track end.
+    if (m_cueEndMs > 0 && pos >= m_cueEndMs) {
+        m_cueEndMs = 0;
+        playNext();
+        return;
+    }
     if (!m_seekBar->isSliding() && dur > 0)
         m_seekBar->setValue(int(pos * 1000 / dur));
     m_curTimeLabel->setText(formatTime(pos));

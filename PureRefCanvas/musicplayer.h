@@ -136,6 +136,7 @@ private:
     qint64 m_songPlayStartedAt = 0;
     QString m_nextPreCachedPath;
     int m_nextPreCachedIndex = -1;
+    qint64 m_cueEndMs = 0; // >0: stop auto-advance when position crosses this
     QFileSystemWatcher *m_musicWatcher = nullptr;
     QTimer *m_musicScanTimer = nullptr;
     QList<PlaylistInfo> m_playlists;
