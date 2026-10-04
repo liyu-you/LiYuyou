@@ -733,19 +733,29 @@ void MainWindow::setupNavigation()
     brandLayout->addWidget(m_menuHamburger);
     // Brand button — doubles as the sidebar toggle (ZCode-style: click the
     // logo to fold/unfold the current page's left panel, or press Ctrl+8).
-    // app.ico is a photo-style image that turns to mush at 24px, so the brand
-    // chip uses the app-green "里" letter square instead (window/taskbar
-    // icons keep app.ico).
+    // Uses the same artwork as the desktop shortcut (app.ico): take the
+    // largest frame and downscale it ourselves with smooth transformation —
+    // QIcon::pixmap at small sizes picks a crisper-but-muddier path.
     m_brandBtn = new QToolButton(brandWidget);
-    m_brandBtn->setFixedSize(26, 26);
+    m_brandBtn->setFixedSize(28, 28);
+    m_brandBtn->setIconSize(QSize(26, 26));
     m_brandBtn->setCursor(Qt::PointingHandCursor);
     m_brandBtn->setToolTip("切换侧边栏 (Ctrl+8)");
-    m_brandBtn->setText("里");
-    m_brandBtn->setStyleSheet(
-        "QToolButton { background: #2FA66A; color: #FFFFFF; border: none; border-radius: 8px;"
-        " font-size: 14px; font-weight: 600; }"
-        "QToolButton:hover { background: #27945D; }"
-        "QToolButton:pressed { background: #1F7A4B; }");
+    const QPixmap brandArt = QIcon(":/app.ico").pixmap(64, 64);
+    if (!brandArt.isNull()) {
+        m_brandBtn->setIcon(QIcon(brandArt.scaled(26, 26, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+        m_brandBtn->setStyleSheet(
+            "QToolButton { border: none; border-radius: 8px; background: transparent; }"
+            "QToolButton:hover { background: rgba(0,0,0,0.08); }"
+            "QToolButton:pressed { background: rgba(0,0,0,0.16); }");
+    } else { // icon resource missing → branded letter chip fallback
+        m_brandBtn->setText("里");
+        m_brandBtn->setStyleSheet(
+            "QToolButton { background: #2FA66A; color: #FFFFFF; border: none; border-radius: 8px;"
+            " font-size: 14px; font-weight: 600; }"
+            "QToolButton:hover { background: #27945D; }"
+            "QToolButton:pressed { background: #1F7A4B; }");
+    }
     connect(m_brandBtn, &QToolButton::clicked, this, &MainWindow::toggleSidebar);
     brandLayout->addWidget(m_brandBtn);
     // Brand name
