@@ -89,7 +89,8 @@ void NoteWidget::setupUI()
     // Sidebar
     m_sidebar = new QWidget;
     m_sidebar->setFixedWidth(220);
-    m_sidebar->setStyleSheet("background: #1a1a1a; border-right: 1px solid #333;");
+    m_sidebar->setObjectName("noteSidebar");
+    m_sidebar->setStyleSheet("QWidget#noteSidebar { background: #FFFFFF; border-right: 1px solid #E5E7EB; } QLabel { background: transparent; }");
     setupSidebar();
     mainLayout->addWidget(m_sidebar);
 
@@ -101,11 +102,11 @@ void NoteWidget::setupUI()
     m_gridScroll = new QScrollArea;
     m_gridScroll->setWidgetResizable(true);
     m_gridScroll->setFrameShape(QFrame::NoFrame);
-    m_gridScroll->setStyleSheet("QScrollArea { background: transparent; } QScrollBar:vertical { background: transparent; width: 8px; } QScrollBar::handle:vertical { background: #555; border-radius: 4px; min-height: 30px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
+    m_gridScroll->setStyleSheet("QScrollArea { background: #F5F7FA; border: none; } QScrollBar:vertical { background: transparent; width: 10px; } QScrollBar::handle:vertical { background: #D1D5DB; border-radius: 5px; min-height: 32px; margin: 2px; } QScrollBar::handle:vertical:hover { background: #9CA3AF; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
     m_gridWidget = new QWidget;
-    m_gridWidget->setStyleSheet("background: transparent;");
+    m_gridWidget->setStyleSheet("background: #F5F7FA;");
     m_gridLayout = new QGridLayout(m_gridWidget);
-    m_gridLayout->setContentsMargins(20, 20, 20, 20);
+    m_gridLayout->setContentsMargins(24, 22, 24, 22);
     m_gridLayout->setSpacing(14);
     m_gridLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     m_gridScroll->setWidget(m_gridWidget);
@@ -223,29 +224,57 @@ void NoteWidget::setupUI()
 void NoteWidget::setupSidebar()
 {
     QVBoxLayout *sideLayout = new QVBoxLayout(m_sidebar);
-    sideLayout->setContentsMargins(12, 16, 12, 12);
-    sideLayout->setSpacing(10);
+    sideLayout->setContentsMargins(16, 20, 16, 20);
+    sideLayout->setSpacing(18);
+
+    // Section header
+    QLabel *browserLabel = new QLabel("内容浏览器");
+    browserLabel->setStyleSheet("font-size:13px; font-weight:500; color:#6B7280;");
+    sideLayout->addWidget(browserLabel);
+
+    // Active "笔记" row
+    QWidget *activeRow = new QWidget;
+    activeRow->setStyleSheet("background:#EAF3DE; border-radius:10px;");
+    QHBoxLayout *al = new QHBoxLayout(activeRow);
+    al->setContentsMargins(12,8,8,8); al->setSpacing(8);
+    QLabel *ai = new QLabel("▮"); ai->setStyleSheet("color:#27500A; font-size:14px;");
+    QLabel *at = new QLabel("笔记"); at->setStyleSheet("color:#27500A; font-size:14px; font-weight:500;");
+    al->addWidget(ai); al->addWidget(at); al->addStretch();
+    QLabel *ch = new QLabel("›"); ch->setStyleSheet("color:#27500A; font-size:16px;");
+    al->addWidget(ch);
+    sideLayout->addWidget(activeRow);
+
+    // Stats row: total notes + starred
+    QHBoxLayout *statsRow = new QHBoxLayout; statsRow->setSpacing(12);
+    {
+        QWidget *s1 = new QWidget; s1->setStyleSheet("background:#F3F4F6; border-radius:10px;");
+        QVBoxLayout *s1l = new QVBoxLayout(s1); s1l->setContentsMargins(12,12,12,12);
+        QLabel *l1 = new QLabel("0 篇");
+        l1->setAlignment(Qt::AlignCenter);
+        l1->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
+        s1l->addWidget(l1); statsRow->addWidget(s1,1);
+
+        QWidget *s2 = new QWidget; s2->setStyleSheet("background:#F3F4F6; border-radius:10px;");
+        QVBoxLayout *s2l = new QVBoxLayout(s2); s2l->setContentsMargins(12,12,12,12);
+        QLabel *l2 = new QLabel("0 收藏");
+        l2->setAlignment(Qt::AlignCenter);
+        l2->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
+        s2l->addWidget(l2); statsRow->addWidget(s2,1);
+    }
+    sideLayout->addLayout(statsRow);
 
     // Search
     m_searchEdit = new QLineEdit;
     m_searchEdit->setPlaceholderText("搜索笔记");
     m_searchEdit->setFixedHeight(34);
-    m_searchEdit->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.06); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.14); border-radius: 17px; padding: 4px 14px; font-size: 13px; } QLineEdit:focus { border-color: #66c0f4; background: rgba(42,71,94,0.4); }");
+    m_searchEdit->setStyleSheet("QLineEdit { background:#F3F4F6; color:#374151; border:1px solid transparent; border-radius:17px; padding:4px 14px; font-size:13px; } QLineEdit:focus { border:1px solid #2FA66A; background:#fff; }");
     connect(m_searchEdit, &QLineEdit::textChanged, this, &NoteWidget::onSearchChanged);
     sideLayout->addWidget(m_searchEdit);
 
-    // New button
-    m_newNoteBtn = new QPushButton("新建笔记");
-    m_newNoteBtn->setFixedHeight(36);
-    m_newNoteBtn->setCursor(Qt::PointingHandCursor);
-    m_newNoteBtn->setStyleSheet("QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2a475e, stop:1 #3a576e); color: #eaf2f8; border: none; border-radius: 18px; font-size: 14px; font-weight: 600; } QPushButton:hover { background: #3a576e; color: #fff; }");
-    connect(m_newNoteBtn, &QPushButton::clicked, this, &NoteWidget::newNote);
-    sideLayout->addWidget(m_newNoteBtn);
-
-    // Category list
+    // Category list (全部/收藏/最近编辑)
     m_categoryList = new QListWidget;
-    m_categoryList->setFixedHeight(120);
-    m_categoryList->setStyleSheet("QListWidget { background: transparent; border: none; outline: none; } QListWidget::item { color: #aab4bd; padding: 8px 14px; border-radius: 8px; font-size: 13px; margin: 1px 2px; } QListWidget::item:selected { background: rgba(42,71,94,0.85); color: #66c0f4; font-weight: 600; } QListWidget::item:hover:!selected { background: rgba(255,255,255,0.06); color: #e0e0e0; }");
+    m_categoryList->setFixedHeight(108);
+    m_categoryList->setStyleSheet("QListWidget { background:transparent; border:none; outline:none; } QListWidget::item { color:#6B7280; padding:7px 12px; border-radius:8px; font-size:13px; margin:1px 0; } QListWidget::item:selected { background:#EAF3DE; color:#27500A; font-weight:600; } QListWidget::item:hover:!selected { background:#F3F4F6; }");
     m_categoryList->addItem("全部笔记");
     m_categoryList->addItem("收藏");
     m_categoryList->addItem("最近编辑");
@@ -263,12 +292,12 @@ void NoteWidget::setupSidebar()
 
     // Folder label
     QLabel *folderLabel = new QLabel("文件夹");
-    folderLabel->setStyleSheet("color: #6b7885; font-size: 12px; font-weight: 600; padding: 8px 12px 4px 12px;");
+    folderLabel->setStyleSheet("font-size:13px; font-weight:500; color:#6B7280;");
     sideLayout->addWidget(folderLabel);
 
-    // Folder list (自定义文件夹：右键新建/重命名/删除)
+    // Folder list
     m_folderList = new QListWidget;
-    m_folderList->setStyleSheet("QListWidget { background: transparent; border: none; outline: none; } QListWidget::item { color: #aab4bd; padding: 7px 14px; border-radius: 8px; font-size: 13px; margin: 1px 2px; } QListWidget::item:selected { background: rgba(42,71,94,0.85); color: #66c0f4; font-weight: 600; } QListWidget::item:hover:!selected { background: rgba(255,255,255,0.06); color: #e0e0e0; }");
+    m_folderList->setStyleSheet("QListWidget { background:transparent; border:none; outline:none; } QListWidget::item { color:#6B7280; padding:6px 12px; border-radius:8px; font-size:13px; margin:1px 0; } QListWidget::item:selected { background:#EAF3DE; color:#27500A; font-weight:600; } QListWidget::item:hover:!selected { background:#F3F4F6; }");
     m_folderList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_folderList, &QListWidget::customContextMenuRequested, this, &NoteWidget::onFolderMenu);
     connect(m_folderList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *cur, QListWidgetItem *) {
@@ -280,34 +309,35 @@ void NoteWidget::setupSidebar()
     });
     sideLayout->addWidget(m_folderList, 1);
 
-    // 新建文件夹 quick button (text-link style)
-    QPushButton *newFolderBtn = new QPushButton("新建文件夹");
-    newFolderBtn->setFixedHeight(28);
-    newFolderBtn->setCursor(Qt::PointingHandCursor);
-    newFolderBtn->setStyleSheet("QPushButton { background: transparent; color: #66c0f4; border: none; border-radius: 14px; font-size: 12px; } QPushButton:hover { background: rgba(42,71,94,0.7); color: #fff; }");
-    connect(newFolderBtn, &QPushButton::clicked, this, &NoteWidget::newFolder);
-    sideLayout->addWidget(newFolderBtn);
+    sideLayout->addStretch();
 
-    // Sort combo (主流平台标准：自定义排序)
+    // New note button (green, like reader import)
+    m_newNoteBtn = new QPushButton("+ 新建笔记");
+    m_newNoteBtn->setFixedHeight(38);
+    m_newNoteBtn->setCursor(Qt::PointingHandCursor);
+    m_newNoteBtn->setStyleSheet("QPushButton { background:#2FA66A; color:#fff; border:none; border-radius:19px; font-size:13px; font-weight:500; } QPushButton:hover { background:#27945D; } QPushButton:pressed { background:#1F7A4B; }");
+    connect(m_newNoteBtn, &QPushButton::clicked, this, &NoteWidget::newNote);
+    sideLayout->addWidget(m_newNoteBtn);
+
+    // Sort combo
     QHBoxLayout *sortRow = new QHBoxLayout;
-    sortRow->setContentsMargins(4, 4, 4, 0);
+    sortRow->setContentsMargins(0,0,0,0);
     QLabel *sortLabel = new QLabel("排序");
-    sortLabel->setStyleSheet("color: #6b7885; font-size: 12px;");
+    sortLabel->setStyleSheet("color:#6B7280; font-size:12px;");
     m_sortCombo = new QComboBox;
     m_sortCombo->addItems({"最近更新", "最近创建", "标题 A-Z", "收藏优先"});
     m_sortCombo->setFixedHeight(28);
-    m_sortCombo->setStyleSheet("QComboBox { background: rgba(255,255,255,0.06); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 2px 10px; font-size: 12px; } QComboBox:hover { border-color: #66c0f4; } QComboBox QAbstractItemView { background: #1b2838; color: #e0e0e0; selection-background-color: #2a475e; selection-color: #66c0f4; outline: none; border: 1px solid #2a475e; }");
+    m_sortCombo->setStyleSheet("QComboBox { background:#F3F4F6; color:#374151; border:none; border-radius:14px; padding:2px 10px; font-size:12px; } QComboBox:hover { background:#E5E7EB; } QComboBox QAbstractItemView { background:#fff; color:#374151; selection-background-color:#EAF3DE; selection-color:#27500A; outline:none; border:1px solid #E5E7EB; }");
     connect(m_sortCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &NoteWidget::onSortChanged);
-    sortRow->addWidget(sortLabel);
-    sortRow->addWidget(m_sortCombo, 1);
+    sortRow->addWidget(sortLabel); sortRow->addWidget(m_sortCombo, 1);
     sideLayout->addLayout(sortRow);
 
-    // Export all
+    // Export all (ghost button)
     m_exportAllBtn = new QPushButton("导出全部笔记");
-    m_exportAllBtn->setFixedHeight(34);
+    m_exportAllBtn->setFixedHeight(32);
     m_exportAllBtn->setCursor(Qt::PointingHandCursor);
     m_exportAllBtn->setToolTip("将所有笔记导出为一份 Markdown 文件（按文件夹分组）");
-    m_exportAllBtn->setStyleSheet("QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2a475e, stop:1 #3a576e); color: #eaf2f8; border: none; border-radius: 17px; font-size: 13px; font-weight: 600; } QPushButton:hover { background: #3a576e; color: #fff; }");
+    m_exportAllBtn->setStyleSheet("QPushButton { background:transparent; color:#6B7280; border:1px solid #E5E7EB; border-radius:16px; font-size:12px; } QPushButton:hover { border-color:#2FA66A; color:#2FA66A; }");
     connect(m_exportAllBtn, &QPushButton::clicked, this, &NoteWidget::exportAllNotes);
     sideLayout->addWidget(m_exportAllBtn);
 }
@@ -452,8 +482,8 @@ QWidget *NoteWidget::createCard(const NoteData &note)
     card->setMinimumHeight(160);
     card->setCursor(Qt::PointingHandCursor);
     card->setStyleSheet(R"(
-        QWidget { background: rgba(40,40,40,0.9); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); }
-        QWidget:hover { background: rgba(55,55,55,0.95); border: 1px solid #66c0f4; }
+        QWidget { background: #FFFFFF; border-radius: 14px; border: 1px solid #E5E7EB; }
+        QWidget:hover { border: 1px solid #2FA66A; background: #FAFBFC; }
     )");
 
     QVBoxLayout *cardLayout = new QVBoxLayout(card);
@@ -462,7 +492,7 @@ QWidget *NoteWidget::createCard(const NoteData &note)
 
     // Title
     QLabel *titleLabel = new QLabel(note.title.isEmpty() ? "无标题" : note.title);
-    titleLabel->setStyleSheet("color: #e0e0e0; font-size: 14px; font-weight: 600; background: transparent;");
+    titleLabel->setStyleSheet("color: #111827; font-size: 14px; font-weight: 600; background: transparent;");
     titleLabel->setWordWrap(true);
     titleLabel->setMaximumHeight(40);
     cardLayout->addWidget(titleLabel);
@@ -470,7 +500,7 @@ QWidget *NoteWidget::createCard(const NoteData &note)
     // Preview
     QString preview = htmlToPreview(note.content);
     QLabel *previewLabel = new QLabel(preview);
-    previewLabel->setStyleSheet("color: #999; font-size: 12px; background: transparent;");
+    previewLabel->setStyleSheet("color: #9CA3AF; font-size: 12px; background: transparent;");
     previewLabel->setWordWrap(true);
     previewLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     cardLayout->addWidget(previewLabel, 1);
@@ -480,13 +510,13 @@ QWidget *NoteWidget::createCard(const NoteData &note)
     bottomLayout->setContentsMargins(0, 0, 0, 0);
     bottomLayout->setSpacing(8);
     if (note.starred) {
-        QLabel *starTag = new QLabel("已收藏");
-        starTag->setStyleSheet("background: rgba(255,193,7,0.15); color: #ffc107; font-size: 11px; padding: 2px 8px; border-radius: 8px;");
+        QLabel *starTag = new QLabel("★ 已收藏");
+        starTag->setStyleSheet("background: #FEF3C7; color: #B45309; font-size: 11px; padding: 2px 8px; border-radius: 8px;");
         bottomLayout->addWidget(starTag);
     }
     bottomLayout->addStretch();
     QLabel *dateLabel = new QLabel(note.updatedAt.toString("MM-dd"));
-    dateLabel->setStyleSheet("color: #6b7885; font-size: 11px; background: transparent;");
+    dateLabel->setStyleSheet("color: #9CA3AF; font-size: 11px; background: transparent;");
     bottomLayout->addWidget(dateLabel);
     cardLayout->addLayout(bottomLayout);
 
@@ -553,9 +583,9 @@ void NoteWidget::refreshCards()
             m_emptyLabel->setStyleSheet("background: transparent; color: #7a8794; font-size: 13px;");
             m_gridScroll->viewport()->installEventFilter(this);
         }
-        m_emptyLabel->setText(
-            "<div style='color:#8f98a0; font-size:14px; font-weight:600; margin-bottom:6px;'>还没有笔记</div>"
-            "<div style='color:#6b7885; font-size:12px;'>点击「新建笔记」开始记录，<br>或把文字、图片拖进编辑器</div>");
+            m_emptyLabel->setText(
+            "<div style='color:#6B7280; font-size:14px; font-weight:600; margin-bottom:6px;'>还没有笔记</div>"
+            "<div style='color:#9CA3AF; font-size:12px;'>点击「新建笔记」开始记录，<br>或把文字、图片拖进编辑器</div>");
         m_emptyLabel->setGeometry(m_gridScroll->viewport()->rect());
         m_emptyLabel->show();
         m_emptyLabel->raise();
