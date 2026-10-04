@@ -737,8 +737,8 @@ void MainWindow::setupNavigation()
     // largest frame and downscale it ourselves with smooth transformation —
     // QIcon::pixmap at small sizes picks a crisper-but-muddier path.
     m_brandBtn = new QToolButton(brandWidget);
-    m_brandBtn->setFixedSize(30, 30);
-    m_brandBtn->setIconSize(QSize(28, 28));
+    m_brandBtn->setFixedSize(64, 64);
+    m_brandBtn->setIconSize(QSize(60, 60));
     m_brandBtn->setCursor(Qt::PointingHandCursor);
     m_brandBtn->setToolTip("切换侧边栏 (Ctrl+8)");
     const QPixmap brandArt = QIcon(":/app.ico").pixmap(64, 64);
