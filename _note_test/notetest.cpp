@@ -460,6 +460,21 @@ int main(int argc, char **argv)
         }
     }
 
+    // ---- Sidebar toggle (Ctrl+8 folds/unfolds the content browser) ----
+    {
+        QWidget *sb = w.findChild<QWidget *>("noteSidebar");
+        CHECK(sb != nullptr);
+        if (sb) {
+            const bool wasVisible = sb->isVisible();
+            invoke(&w, "toggleSidebar");
+            CHECK(sb->isVisible() != wasVisible);
+            invoke(&w, "toggleSidebar");
+            CHECK(sb->isVisible() == wasVisible);
+            // width restored to the pre-fold value
+            if (wasVisible) CHECK(sb->width() >= 200);
+        }
+    }
+
     // ---- Persistence: destructor saves; a fresh instance loads; JSON valid ----
     {
         invoke(&w, "newNote");

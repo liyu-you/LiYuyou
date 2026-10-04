@@ -43,6 +43,7 @@ protected:
 
 private slots:
     void switchToPage(int index);
+    void toggleSidebar();  // 折叠/展开当前页的左侧栏（Ctrl+8，ZCode 风格）
 
     // File operations
     void openImages();
@@ -186,6 +187,7 @@ private:
     bool m_notePanelsTransparent = true;
     bool m_readerPanelsTransparent = true;
     QToolBar *m_navToolBar = nullptr;
+    QToolButton *m_brandBtn = nullptr;  // 应用图标按钮 = 切换侧边栏
     QToolButton *m_menuHamburger = nullptr;  // 半隐藏模式下的 ☰ 菜单按钮
     int m_minimapOpacity = 70;
     int m_zoomBarOpacity = 85;

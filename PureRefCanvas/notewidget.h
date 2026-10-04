@@ -84,6 +84,7 @@ public slots:
     void journalToday();  // Logseq-style: open/create today's daily note
     void openFindBar(bool withReplace = false);  // Word-style Ctrl+F / Ctrl+H
     void openOrCreateByTitle(const QString &title);  // [[wiki-link]] resolver
+    void toggleSidebar();  // 折叠/展开左侧内容浏览器（Ctrl+8）
 
 private slots:
     void onTextChanged();
@@ -244,6 +245,7 @@ private:
     QLabel *m_statusLabel;
 
     // Data
+    int m_sidebarWidth = 220;   // 侧栏折叠前宽度（toggleSidebar 恢复用）
     QString m_libraryRoot;
     QList<NoteData> m_notes;
     QStringList m_folders;          // 自定义文件夹（持久化）

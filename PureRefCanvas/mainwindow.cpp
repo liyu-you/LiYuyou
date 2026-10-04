@@ -538,6 +538,7 @@ private:
         addShortcut("切换到库", "Ctrl+3");
         addShortcut("切换到阅读", "Ctrl+4");
         addShortcut("切换到音乐", "Ctrl+5");
+addShortcut("切换侧边栏", "Ctrl+8");
 
         addHeader("画布操作");
         addShortcut("拖拽平移", "空格 + 拖拽 / 中键");
@@ -596,10 +597,15 @@ MainWindow::MainWindow(QWidget *parent)
     cmdSc->setContext(Qt::ApplicationShortcut);
     connect(cmdSc, &QShortcut::activated, this, &MainWindow::openCommandPalette);
 
-    // Shortcut panel shortcut (Ctrl+/)
-    QShortcut *scPanelSc = new QShortcut(QKeySequence("Ctrl+/"), this);
-    scPanelSc->setContext(Qt::ApplicationShortcut);
-    connect(scPanelSc, &QShortcut::activated, this, &MainWindow::openShortcutPanel);
+// Shortcut panel shortcut (Ctrl+/)
+QShortcut *scPanelSc = new QShortcut(QKeySequence("Ctrl+/"), this);
+scPanelSc->setContext(Qt::ApplicationShortcut);
+connect(scPanelSc, &QShortcut::activated, this, &MainWindow::openShortcutPanel);
+
+// Sidebar toggle (Ctrl+8) — folds/unfolds the current page's left panel
+QShortcut *sidebarSc = new QShortcut(QKeySequence("Ctrl+8"), this);
+sidebarSc->setContext(Qt::ApplicationShortcut);
+connect(sidebarSc, &QShortcut::activated, this, &MainWindow::toggleSidebar);
 
     applyTheme(m_currentTheme);
     applyFontSize(m_fontSize);
@@ -725,19 +731,26 @@ void MainWindow::setupNavigation()
         popup.exec(m_menuHamburger->mapToGlobal(QPoint(0, m_menuHamburger->height())));
     });
     brandLayout->addWidget(m_menuHamburger);
-    // App icon
-    QLabel *brandIcon = new QLabel;
-    brandIcon->setFixedSize(26, 26);
-    brandIcon->setScaledContents(true);
-    QPixmap iconPix = QIcon(":/app.ico").pixmap(26, 26);
+    // App icon — doubles as the sidebar toggle (ZCode-style: click the logo to
+    // fold/unfold the current page's left panel, or press Ctrl+8)
+    m_brandBtn = new QToolButton(brandWidget);
+    m_brandBtn->setFixedSize(26, 26);
+    m_brandBtn->setIconSize(QSize(24, 24));
+    m_brandBtn->setAutoRaise(true);
+    m_brandBtn->setCursor(Qt::PointingHandCursor);
+    m_brandBtn->setToolTip("切换侧边栏 (Ctrl+8)");
+    const QPixmap iconPix = QIcon(":/app.ico").pixmap(24, 24);
     if (!iconPix.isNull()) {
-        brandIcon->setPixmap(iconPix);
+        m_brandBtn->setIcon(QIcon(iconPix));
     } else {
-        brandIcon->setText("里");
-        brandIcon->setAlignment(Qt::AlignCenter);
-        brandIcon->setStyleSheet("background: #2FA66A; color: #FFFFFF; border-radius: 8px; font-size: 14px; font-weight: 500;");
+        m_brandBtn->setText("里");
+        m_brandBtn->setStyleSheet(
+            "QToolButton { background: #2FA66A; color: #FFFFFF; border: none; border-radius: 8px;"
+            " font-size: 14px; font-weight: 500; }"
+            "QToolButton:hover { background: #27945D; }");
     }
-    brandLayout->addWidget(brandIcon);
+    connect(m_brandBtn, &QToolButton::clicked, this, &MainWindow::toggleSidebar);
+    brandLayout->addWidget(m_brandBtn);
     // Brand name
     QLabel *brandName = new QLabel("里与由");
     brandName->setStyleSheet("color: #1F2933; font-size: 14px; font-weight: 500; letter-spacing: 1px;");
@@ -1010,6 +1023,31 @@ void MainWindow::setupPages()
     if (m_musicWidget) {
         m_musicWidget->setVolume(m_defaultVolume);
         m_musicWidget->setInitialPlayMode(m_defaultPlayMode);
+    }
+}
+
+// 折叠/展开当前页的左侧栏（ZCode 风格 Ctrl+8）：
+// 画布/库页折叠全局素材浏览器，笔记页折叠内容浏览器侧栏；阅读/音乐页布局
+// 不同（无独立左侧栏），按键不动作。
+void MainWindow::toggleSidebar()
+{
+    switch (currentPage()) {
+    case CanvasPage:
+    case MaterialPage:
+        if (m_contentBrowser) {
+            if (m_contentBrowser->isVisible())
+                m_contentBrowser->hide();
+            else
+                m_contentBrowser->show();
+        }
+        break;
+    case NotePage:
+        if (m_noteWidget)
+            m_noteWidget->toggleSidebar();
+        break;
+    case BookPage:
+    case MusicPage:
+        break;
     }
 }
 

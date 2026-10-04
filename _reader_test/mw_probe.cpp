@@ -191,6 +191,18 @@ int main(int argc, char **argv)
                 if (b->text().contains(QStringLiteral("导出")))
                     printf("  button: %s\n", qPrintable(b->text())); fflush(stdout);
             }
+            // sidebar toggle (Ctrl+8): fold → unfold, width must come back
+            QWidget *sb = nw->findChild<QWidget *>(QStringLiteral("noteSidebar"));
+            if (sb) {
+                const bool before = sb->isVisible();
+                QMetaObject::invokeMethod(&w, "toggleSidebar");
+                for (int i = 0; i < 5; ++i) app.processEvents();
+                const bool folded = sb->isVisible();
+                QMetaObject::invokeMethod(&w, "toggleSidebar");
+                for (int i = 0; i < 5; ++i) app.processEvents();
+                printf("  sidebar toggle: before=%d folded=%d restored=%d\n",
+                       int(before), int(folded), int(sb->isVisible())); fflush(stdout);
+            }
         } else {
             printf("NoteWidget NOT FOUND\n"); fflush(stdout);
         }

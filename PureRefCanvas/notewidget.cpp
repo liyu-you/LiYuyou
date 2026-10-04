@@ -2436,9 +2436,23 @@ void NoteWidget::setEditorBackground(const QString &path)
 void NoteWidget::hideSidebar()
 {
     if (m_sidebar) {
+        if (m_sidebar->isVisible() && m_sidebar->width() > 0)
+            m_sidebarWidth = m_sidebar->width();  // remember for toggleSidebar()
         m_sidebar->setMaximumWidth(0);
         m_sidebar->setMinimumWidth(0);
         m_sidebar->hide();    }
+}
+
+void NoteWidget::toggleSidebar()
+{
+    if (!m_sidebar) return;
+    if (m_sidebar->isVisible()) {
+        hideSidebar();
+    } else {
+        m_sidebar->setMinimumWidth(m_sidebarWidth);
+        m_sidebar->setMaximumWidth(m_sidebarWidth);
+        m_sidebar->show();
+    }
 }
 
 bool NoteWidget::eventFilter(QObject *obj, QEvent *event)
