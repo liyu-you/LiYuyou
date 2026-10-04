@@ -200,7 +200,9 @@ void SettingsDialog::setupUI()
         scroll = new QScrollArea;
         scroll->setWidgetResizable(true);
         scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setStyleSheet("background: #1b2838;");
         QWidget *page = new QWidget;
+        page->setStyleSheet("background: #1b2838;");
         layout = new QVBoxLayout(page);
         layout->setContentsMargins(0, 8, 0, 20);
         layout->setSpacing(0);
