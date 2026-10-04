@@ -71,6 +71,7 @@ signals:
 
 public slots:
     void newNote();
+    void journalToday();  // Logseq-style: open/create today's daily note
 
 private slots:
     void onTextChanged();
@@ -135,6 +136,8 @@ private:
     QString noteToMarkdown(const NoteData &note) const;
     QString htmlToMarkdown(const QString &html) const;
     QWidget *createCard(const NoteData &note);
+    void openOrCreateByTitle(const QString &title);  // [[wiki-link]] resolver
+    void insertWikiLinkDialog();
 
     QColor m_currentColor;
 

@@ -319,6 +319,13 @@ void NoteWidget::setupSidebar()
     connect(m_newNoteBtn, &QPushButton::clicked, this, &NoteWidget::newNote);
     sideLayout->addWidget(m_newNoteBtn);
 
+    QPushButton *journalBtn = new QPushButton("📔 今日日记");
+    journalBtn->setFixedHeight(32);
+    journalBtn->setCursor(Qt::PointingHandCursor);
+    journalBtn->setStyleSheet("QPushButton { background:#fff; color:#2FA66A; border:1px solid #2FA66A; border-radius:16px; font-size:12px; } QPushButton:hover { background:#EAF7F0; }");
+    connect(journalBtn, &QPushButton::clicked, this, &NoteWidget::journalToday);
+    sideLayout->addWidget(journalBtn);
+
     // Sort combo
     QHBoxLayout *sortRow = new QHBoxLayout;
     sortRow->setContentsMargins(0,0,0,0);
@@ -636,6 +643,35 @@ void NoteWidget::newNote()
     openNote(note.id);
     m_titleEdit->selectAll();
     m_titleEdit->setFocus();
+}
+
+void NoteWidget::journalToday()
+{
+    // Logseq-style daily journal: title "日记 YYYY-MM-DD".
+    const QString title = QStringLiteral("日记 %1").arg(QDate::currentDate().toString("yyyy-MM-dd"));
+    openOrCreateByTitle(title);
+}
+
+void NoteWidget::openOrCreateByTitle(const QString &title)
+{
+    auto it = std::find_if(m_notes.begin(), m_notes.end(), [&](const NoteData &n) {
+        return n.title.compare(title, Qt::CaseInsensitive) == 0;
+    });
+    if (it != m_notes.end()) {
+        openNote(it->id);
+        return;
+    }
+    saveCurrentNote();
+    NoteData note;
+    note.id = generateId();
+    note.title = title;
+    note.content = "";
+    note.createdAt = QDateTime::currentDateTime();
+    note.updatedAt = QDateTime::currentDateTime();
+    note.folder = "日记";
+    m_notes.prepend(note);
+    saveNotes();
+    openNote(note.id);
 }
 
 void NoteWidget::deleteNote()
