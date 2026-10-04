@@ -1019,11 +1019,11 @@ void MainWindow::switchToPage(int index)
 
     m_stack->setCurrentIndex(index);
 
-    // The reader has its own dedicated sidebar; hide the material browser
-    // (left panel) so the reading shelf gets the full width.
+    // The reader and music pages have their own dedicated sidebars; hide the
+    // material browser (left panel) so those shelves get the full width.
     if (m_contentBrowser) {
         m_contentBrowser->setShowImages(index == 0);
-        if (index == BookPage)
+        if (index == BookPage || index == MusicPage)
             m_contentBrowser->hide();
         else
             m_contentBrowser->show();
