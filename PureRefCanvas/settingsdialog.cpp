@@ -39,6 +39,50 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
 void SettingsDialog::setupUI()
 {
+    QSettings settings("PureRefCanvas", "里与由");
+    const bool light = settings.value("themeMode", "dark").toString() == "light";
+
+    if (light) {
+        // Light theme stylesheet
+        setStyleSheet(R"(
+            QDialog { background: #f5f7fa; }
+            QListWidget { background: #ffffff; border: none; outline: none; border-right: 1px solid #e5e7eb; }
+            QListWidget::item { color: #4b5563; padding: 14px 20px 14px 24px; border: none; font-size: 13px; font-weight: 500; }
+            QListWidget::item:selected { background: #eaf7f0; color: #2FA66A; border-left: 3px solid #2FA66A; padding-left: 21px; }
+            QListWidget::item:hover:!selected { background: rgba(0,0,0,0.04); color: #1f2937; }
+            QLabel { color: #1f2937; background: transparent; }
+            QCheckBox { color: #1f2937; spacing: 8px; font-size: 13px; }
+            QCheckBox::indicator { width: 16px; height: 16px; border-radius: 3px; border: 1px solid #d1d5db; background: #ffffff; }
+            QCheckBox::indicator:checked { background: #2FA66A; border-color: #2FA66A; }
+            QRadioButton { color: #1f2937; spacing: 8px; font-size: 13px; }
+            QRadioButton::indicator { width: 16px; height: 16px; border-radius: 8px; border: 1px solid #d1d5db; background: #ffffff; }
+            QRadioButton::indicator:checked { background: #2FA66A; border-color: #2FA66A; }
+            QPushButton { background: #f3f4f6; color: #1f2937; border: 1px solid #d1d5db; border-radius: 5px; padding: 7px 16px; font-size: 13px; font-weight: 500; }
+            QPushButton:hover { background: #e5e7eb; border-color: #2FA66A; color: #000; }
+            QPushButton:pressed { background: #d1d5db; }
+            QPushButton#okBtn {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3FCB84, stop:0.5 #2FA66A, stop:1 #27945D);
+                border: 1px solid #2FA66A; border-radius: 6px; color: #fff;
+                font-weight: 600; font-size: 13px; padding: 8px 24px;
+            }
+            QPushButton#cancelBtn {
+                background: #fff; border: 1px solid #d1d5db; border-radius: 6px;
+                color: #1f2937; font-weight: 500; font-size: 13px; padding: 8px 24px;
+            }
+            QComboBox { background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 5px; padding: 6px 12px; font-size: 13px; min-width: 100px; }
+            QComboBox:hover { border-color: #2FA66A; }
+            QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox QAbstractItemView { background: #fff; color: #1f2937; border: 1px solid #d1d5db; selection-background-color: #eaf7f0; selection-color: #2FA66A; padding: 4px; }
+            QLineEdit { background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 5px; padding: 6px 10px; font-size: 13px; }
+            QLineEdit:focus { border-color: #2FA66A; }
+            QScrollArea { border: none; background: #f5f7fa; }
+            QScrollBar:vertical { background: transparent; width: 10px; margin: 4px; }
+            QScrollBar::handle:vertical { background: #d1d5db; border-radius: 5px; min-height: 30px; }
+            QScrollBar::handle:vertical:hover { background: #9ca3af; }
+            QFrame#separator { background: #e5e7eb; max-height: 1px; min-height: 1px; border: none; margin: 0 20px; }
+        )");
+    } else {
     setStyleSheet(R"(
         QDialog { background: #1b2838; }
         QListWidget { background: #16202d; border: none; outline: none; border-right: 1px solid #2a475e; }
@@ -108,6 +152,7 @@ void SettingsDialog::setupUI()
         QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
         QFrame#separator { background: #2a475e; max-height: 1px; min-height: 1px; border: none; margin: 0 20px; }
     )");
+    } // end dark theme
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -196,13 +241,14 @@ void SettingsDialog::setupUI()
     };
 
     // Helper: create scroll page
-    auto makePage = [](QScrollArea *&scroll, QVBoxLayout *&layout) {
+    auto makePage = [&light](QScrollArea *&scroll, QVBoxLayout *&layout) {
         scroll = new QScrollArea;
         scroll->setWidgetResizable(true);
         scroll->setFrameShape(QFrame::NoFrame);
-        scroll->setStyleSheet("background: #1b2838;");
+        const QString bg = light ? "#f5f7fa" : "#1b2838";
+        scroll->setStyleSheet("background: " + bg + ";");
         QWidget *page = new QWidget;
-        page->setStyleSheet("background: #1b2838;");
+        page->setStyleSheet("background: " + bg + ";");
         layout = new QVBoxLayout(page);
         layout->setContentsMargins(0, 8, 0, 20);
         layout->setSpacing(0);
