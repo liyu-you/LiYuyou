@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QCoreApplication>
+#include <cmath>
 #include <QPainterPath>
 #include <QPixmap>
 #include <QDir>
@@ -1818,6 +1819,18 @@ void MusicPlayerWidget::playSongAt(int index)
     }
     m_player->setSource(QUrl::fromLocalFile(song.path));
     m_player->play();
+    // ReplayGain: apply volume normalization (ported from mpz gain.h).
+    if (m_audioOutput) {
+        double db = 0.0;
+        double peak = 0.0;
+        if (song.hasTrackGain)      { db = song.trackGainDb; peak = song.trackPeak; }
+        else if (song.hasAlbumGain) { db = song.albumGainDb; peak = song.albumPeak; }
+        double linear = std::pow(10.0, db / 20.0);
+        // Anti-clip: don't exceed 0 dBFS when peak known.
+        if (peak > 0.0 && linear * peak > 1.0) linear = 1.0 / peak;
+        linear = qBound(0.0, linear, 2.0);
+        m_audioOutput->setVolume(static_cast<float>(linear));
+    }
     // Persist play stats for the song we're leaving (Mineradio-style).
     if (!m_currentSongPath.isEmpty() && m_currentSongPath != song.path) {
         const qint64 listenedMs = QDateTime::currentMSecsSinceEpoch() - m_songPlayStartedAt;

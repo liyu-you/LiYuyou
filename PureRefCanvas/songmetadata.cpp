@@ -91,6 +91,21 @@ QString decodeId3Text(const QByteArray &data, int &pos, int len)
 }
 
 // Map ID3v2.2 two-char frames to v2.3/v2.4 four-char equivalents.
+// Apply a ReplayGain tag value ("+3.50 dB" / "-2.00" / "0.8921 peak") to song.
+static void applyReplayGainTag(SongInfo &song, const QString &key, const QString &raw)
+{
+    QString s = raw.trimmed();
+    if (s.endsWith(QLatin1String("dB"), Qt::CaseInsensitive)) {
+        s.chop(2); s = s.trimmed();
+    }
+    bool ok = false;
+    const double v = s.toDouble(&ok);
+    if (!ok || !std::isfinite(v)) return;
+    if (key == "REPLAYGAIN_TRACK_GAIN")    { song.trackGainDb = v; song.hasTrackGain = true; }
+    else if (key == "REPLAYGAIN_TRACK_PEAK")  song.trackPeak = v;
+    else if (key == "REPLAYGAIN_ALBUM_GAIN")   { song.albumGainDb = v; song.hasAlbumGain = true; }
+    else if (key == "REPLAYGAIN_ALBUM_PEAK")   song.albumPeak = v;
+}
 QString normalizeId3FrameId(const QByteArray &id, int verMajor)
 {
     if (verMajor == 2 && id.size() == 3) {
@@ -151,6 +166,34 @@ void parseId3v2Frames(const QByteArray &body, int verMajor, SongInfo &song)
                 }
                 const QString v = decodeId3TextBytes(payload.mid(cp), enc);
                 if (!v.isEmpty()) song.comment = v;
+            }
+        }
+        else if (fid == "TXXX") {
+            // TXXX: enc(1) + description(NUL) + text(NUL). Description identifies the RG field.
+            if (payload.size() > 1) {
+                int cp = 0;
+                const uchar enc = uchar(payload[cp]); cp++;
+                int descEnd = -1;
+                if (enc == 0 || enc == 3) {
+                    descEnd = payload.indexOf('\0', cp);
+                } else {
+                    // UTF-16: find double-NUL
+                    for (int i = cp; i + 1 < payload.size(); i += 2) {
+                        if (payload[i] == '\0' && payload[i+1] == '\0') { descEnd = i; break; }
+                    }
+                }
+                if (descEnd > cp) {
+                    const QByteArray descRaw = payload.mid(cp, descEnd - cp);
+                    QString desc;
+                    if (enc == 0 || enc == 3) desc = QString::fromLatin1(descRaw).toUpper();
+                    else desc = decodeId3TextBytes(descRaw, enc).toUpper();
+                    int textStart = descEnd + 1;
+                    if (enc != 0 && enc != 3) textStart = descEnd + 2; // skip double-NUL
+                    if (textStart < payload.size()) {
+                        const QString text = decodeId3TextBytes(payload.mid(textStart), enc);
+                        if (desc.startsWith("REPLAYGAIN_")) applyReplayGainTag(song, desc, text);
+                    }
+                }
             }
         }
         else if (fid == "APIC") {
@@ -281,6 +324,7 @@ void parseVorbisComments(const QByteArray &d, SongInfo &song)
         else if (key == "DATE" || key == "YEAR") song.year = val.left(4);
         else if (key == "COMPOSER") song.composer = val;
         else if (key == "COMMENT") song.comment = val;
+        else if (key.startsWith("REPLAYGAIN_")) applyReplayGainTag(song, key, val);
     }
 }
 
@@ -407,6 +451,27 @@ void walkMp4Atoms(const QByteArray &d, int start, int end, const QByteArray &pat
                         }
                     }
                     dp += dsz;
+                }
+            }
+            else if (name == "----") {
+                // iTunes custom tag: contains 'mean' (com.apple.iTunes) and 'name' (e.g. replaygain_track_gain).
+                QString mean, tagName;
+                QByteArray dataVal;
+                int sp = p + hdr;
+                while (sp + 8 <= p + sz) {
+                    const quint32 ssz = readBE32(d, sp);
+                    const QByteArray sn = d.mid(sp + 4, 4);
+                    if (ssz < 8 || sp + ssz > p + sz) break;
+                    if (sn == "mean") mean = QString::fromUtf8(d.mid(sp + 8, ssz - 8)).trimmed();
+                    else if (sn == "name") tagName = QString::fromUtf8(d.mid(sp + 8, ssz - 8)).trimmed();
+                    else if (sn == "data") dataVal = d.mid(sp + 16, ssz - 16);
+                    sp += ssz;
+                }
+                if (mean == "com.apple.iTunes" && !tagName.isEmpty()) {
+                    const QString upper = tagName.toUpper();
+                    if (upper.startsWith("REPLAYGAIN_")) {
+                        applyReplayGainTag(song, upper, QString::fromUtf8(dataVal));
+                    }
                 }
             }
         } else if (name == "moov" || name == "udta" || name == "meta" || name == "ilst") {

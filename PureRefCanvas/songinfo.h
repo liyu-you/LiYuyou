@@ -38,6 +38,14 @@ struct SongInfo {
 
     // Sidecar cover path on disk (cached by the caller after first parse).
     QString coverPath;
+
+    // ReplayGain (0.0 = not present). Linear peak in [0,1]; gain in dB.
+    double trackGainDb = 0.0;
+    double trackPeak = 0.0;
+    double albumGainDb = 0.0;
+    double albumPeak = 0.0;
+    bool hasTrackGain = false;
+    bool hasAlbumGain = false;
 };
 
 struct PlaylistInfo {
