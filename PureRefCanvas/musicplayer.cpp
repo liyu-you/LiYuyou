@@ -4,6 +4,7 @@
 #include "songmetadata.h"
 #include "musiclibrarydb.h"
 #include "cueparser.h"
+#include "gaplessengine.h"
 #include "coverart.h"
 
 #include <QFile>
@@ -94,6 +95,33 @@ MusicPlayerWidget::MusicPlayerWidget(const QString &libraryRoot, QWidget *parent
     m_audioOutput = new QAudioOutput(this);
     m_player->setAudioOutput(m_audioOutput);
     m_audioOutput->setVolume(0.7);
+
+    // Gapless engine (used for local file playback).
+    m_engine = new GaplessEngine(this);
+    connect(m_engine, &GaplessEngine::trackStarted, this, [this](const QUrl &url) {
+        // Update now-playing UI when engine starts a new track.
+        const QString path = url.toLocalFile();
+        QList<SongInfo> songs = currentSongList();
+        for (int i = 0; i < songs.size(); ++i) {
+            if (songs[i].path == path || CueParser::isCueVirtualPath(songs[i].path)) {
+                // For CUE virtual paths, the URL is the real file; match by order.
+                m_currentIndex = i;
+                break;
+            }
+        }
+        updateNowPlaying();
+        updatePlayingRow();
+    });
+    connect(m_engine, &GaplessEngine::positionChanged, this, [this](qint64 ms) {
+        m_enginePosMs = ms;
+        if (!m_seekBar->isSliding() && m_engineDurationMs > 0)
+            m_seekBar->setValue(int(ms * 1000 / m_engineDurationMs));
+        m_curTimeLabel->setText(formatTime(ms));
+    });
+    connect(m_engine, &GaplessEngine::queueFinished, this, [this]() {
+        m_enginePaused = false;
+        if (m_playBtn) m_playBtn->setPlaying(false);
+    });
 
     connect(m_player, &QMediaPlayer::positionChanged, this, &MusicPlayerWidget::onPositionChanged);
     connect(m_player, &QMediaPlayer::positionChanged, this, &MusicPlayerWidget::updateLyrics);
@@ -1771,10 +1799,19 @@ void MusicPlayerWidget::togglePlay()
         }
         return;
     }
-    if (m_player->playbackState() == QMediaPlayer::PlayingState)
+    if (m_engine && m_engine->isPlaying()) {
+        m_engine->setPaused(true);
+        m_enginePaused = true;
+        if (m_playBtn) m_playBtn->setPlaying(false);
+    } else if (m_enginePaused) {
+        m_engine->setPaused(false);
+        m_enginePaused = false;
+        if (m_playBtn) m_playBtn->setPlaying(true);
+    } else if (m_player->playbackState() == QMediaPlayer::PlayingState) {
         m_player->pause();
-    else
+    } else {
         m_player->play();
+    }
 }
 
 void MusicPlayerWidget::playPrev()
@@ -1841,11 +1878,22 @@ void MusicPlayerWidget::playSongAt(int index)
         }
         playPath = realPath;
     }
-    m_player->setSource(QUrl::fromLocalFile(playPath));
-    if (cueStartMs > 0) {
-        m_player->setPosition(cueStartMs);
+    // Build gapless queue: current track + all following in current list.
+    QList<QUrl> queue;
+    for (int i = index; i < songs.size(); ++i) {
+        QString p = songs[i].path;
+        if (CueParser::isCueVirtualPath(p)) {
+            QString real; qint64 s, e;
+            if (CueParser::resolveVirtual(p, real, s, e)) p = real;
+        }
+        if (!p.isEmpty() && !songs[i].isOnline) queue << QUrl::fromLocalFile(p);
     }
-    m_player->play();
+    if (!queue.isEmpty()) {
+        m_engineDurationMs = song.duration;
+        m_engine->play(queue);
+        m_enginePaused = false;
+        if (m_playBtn) m_playBtn->setPlaying(true);
+    }
     m_cueEndMs = cueEndMs;
     // ReplayGain: apply volume normalization (ported from mpz gain.h).
     if (m_audioOutput) {
