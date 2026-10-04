@@ -26,6 +26,7 @@ class QTimer;
 class QFileSystemWatcher;
 class MusicLibraryDb;
 class GaplessEngine;
+class MaEngine;
 
 #include "songinfo.h"
 
@@ -151,9 +152,12 @@ private:
     QMediaPlayer *m_player;
     QAudioOutput *m_audioOutput;
     GaplessEngine *m_engine = nullptr;
+    MaEngine *m_ma = nullptr;
     qint64 m_enginePosMs = 0;       // position as reported by engine
     qint64 m_engineDurationMs = 0;  // current track duration
     bool m_enginePaused = false;
+    bool m_engineGotBuffer = false;
+    QTimer *m_engineWatchdog = nullptr;
     QTimer *m_searchDebounceTimer;
     class QNetworkAccessManager *m_netManager;
     class QNetworkReply *m_pendingReply;

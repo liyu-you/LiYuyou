@@ -32,6 +32,7 @@ qt_add_executable(PureRefCanvas
     musiclibrarydb.h musiclibrarydb.cpp
     cueparser.h cueparser.cpp
     gaplessengine.h gaplessengine.cpp
+    maengine.h maengine.cpp
     coverart.h
     playpausebutton.h
     playerwidgets.h
@@ -51,7 +52,8 @@ target_link_libraries(PureRefCanvas PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Ne
 if(WIN32)
     # dwmapi: acrylic blur / rounded corners. crypt32: DPAPI, used to protect the
     # password saved by "记住密码" with the current Windows user account.
-    target_link_libraries(PureRefCanvas PRIVATE dwmapi crypt32)
+    # winmm/ole32: miniaudio WASAPI backend.
+    target_link_libraries(PureRefCanvas PRIVATE dwmapi crypt32 winmm ole32)
     set_target_properties(PureRefCanvas PROPERTIES
         WIN32_EXECUTABLE TRUE
         OUTPUT_NAME "里与由"
