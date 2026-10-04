@@ -19,6 +19,7 @@ public:
 private slots:
     void onChangeAvatar();
     void onChangeBackground();
+    void onResetCover();
     void onChangeUserId();
     void onSave();
     void onChangePassword();
@@ -32,6 +33,8 @@ private:
     void setCoverBrush(const QPixmap &pix);
     void onCoverFrame();
     void applyCoverStyle(bool hasCover);
+    // 恢复封面按钮的可用性：仅当当前有封面时可点，否则置灰。
+    void updateResetCoverUi(bool hasCover);
 
     UserAuth *m_auth;
     QLabel *m_avatarLabel;
@@ -39,6 +42,7 @@ private:
     QLabel *m_coverNameLabel;
     QLabel *m_coverIdLabel;
     QLabel *m_bgHintLabel;
+    QPushButton *m_resetCoverBtn = nullptr;
     QMovie *m_coverMovie = nullptr;
     QLineEdit *m_nicknameEdit;
     QLineEdit *m_userIdEdit;
@@ -48,6 +52,8 @@ private:
     QLabel *m_lastLoginLabel;
     QString m_newAvatarPath;
     QString m_newCoverPath;
+    // 用户点了“恢复默认背景”但尚未保存：保存时需清除账号里的封面路径。
+    bool m_coverClearPending = false;
 };
 
 #endif

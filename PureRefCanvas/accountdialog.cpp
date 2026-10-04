@@ -103,6 +103,16 @@ AccountDialog::AccountDialog(UserAuth *auth, QWidget *parent)
     m_bgHintLabel->setAlignment(Qt::AlignCenter);
     m_bgHintLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 
+    // 恢复默认背景：换过封面后一键回到纯白空白底（换封面本身仍可点击封面区）。
+    // 无封面时置灰禁用，避免把“清除一个不存在的封面”做成可点的空操作。
+    m_resetCoverBtn = new QPushButton("恢复默认背景", bgBtn);
+    m_resetCoverBtn->setObjectName("resetCoverBtn");
+    m_resetCoverBtn->setGeometry(248, 108, 124, 26);
+    m_resetCoverBtn->setCursor(Qt::PointingHandCursor);
+    m_resetCoverBtn->setToolTip("清除当前封面，回到默认纯白背景");
+    m_resetCoverBtn->setEnabled(false);
+    connect(m_resetCoverBtn, &QPushButton::clicked, this, &AccountDialog::onResetCover);
+
     // Avatar overlaid on cover
     m_avatarLabel = new QLabel;
     m_avatarLabel->setFixedSize(72, 72);
@@ -294,6 +304,12 @@ void AccountDialog::applyCoverStyle(bool hasCover)
     setStyleSheet(coverStyleQss(hasCover));
 }
 
+// 恢复入口只在有封面时可点；点击封面区换图与它互不冲突。
+void AccountDialog::updateResetCoverUi(bool hasCover)
+{
+    if (m_resetCoverBtn) m_resetCoverBtn->setEnabled(hasCover);
+}
+
 void AccountDialog::setCoverBrush(const QPixmap &pix)
 {
     QPalette p = palette();
@@ -313,6 +329,7 @@ void AccountDialog::applyCover(const QString &path)
 
     if (path.isEmpty() || !QFile::exists(path)) {
         applyCoverStyle(false);
+        updateResetCoverUi(false);
         QPalette p = palette();
         p.setBrush(QPalette::Window, QBrush(Qt::white));
         setPalette(p);
@@ -325,6 +342,7 @@ void AccountDialog::applyCover(const QString &path)
         m_coverMovie = movie;
         connect(movie, &QMovie::frameChanged, this, &AccountDialog::onCoverFrame);
         applyCoverStyle(true);
+        updateResetCoverUi(true);
         movie->jumpToFrame(0);
         QPixmap first = movie->currentPixmap();
         if (!first.isNull())
@@ -337,12 +355,14 @@ void AccountDialog::applyCover(const QString &path)
     QPixmap pix(path);
     if (!pix.isNull()) {
         applyCoverStyle(true);
+        updateResetCoverUi(true);
         setCoverBrush(pix.scaled(size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
         return;
     }
 
     // 读取失败：保持空白底
     applyCoverStyle(false);
+    updateResetCoverUi(false);
 }
 
 void AccountDialog::onCoverFrame()
@@ -420,6 +440,15 @@ void AccountDialog::onChangeBackground()
     }
 }
 
+void AccountDialog::onResetCover()
+{
+    // 立即回到纯白空白底（applyCover("") 会停掉动图并禁用本按钮），
+    // 并记下“待清除”，等保存时真正写回账号数据。
+    m_coverClearPending = true;
+    m_newCoverPath.clear();
+    applyCover(QString());
+}
+
 void AccountDialog::onChangeUserId()
 {
     // ID is now edited via the input field and saved in onSave
@@ -475,6 +504,12 @@ void AccountDialog::onSave()
     // Update account cover (independent from the splash/startup background)
     if (!m_newCoverPath.isEmpty()) {
         if (!m_auth->updateAccountCover(m_auth->currentUser().username, m_newCoverPath, &error)) {
+            QMessageBox::warning(this, "保存失败", error);
+            return;
+        }
+    } else if (m_coverClearPending) {
+        // 用户点了“恢复默认背景”：把账号里的封面路径清空（启动页背景不受影响）。
+        if (!m_auth->clearAccountCover(m_auth->currentUser().username, &error)) {
             QMessageBox::warning(this, "保存失败", error);
             return;
         }
