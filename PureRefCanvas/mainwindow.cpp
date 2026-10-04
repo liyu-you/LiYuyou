@@ -731,24 +731,21 @@ void MainWindow::setupNavigation()
         popup.exec(m_menuHamburger->mapToGlobal(QPoint(0, m_menuHamburger->height())));
     });
     brandLayout->addWidget(m_menuHamburger);
-    // App icon — doubles as the sidebar toggle (ZCode-style: click the logo to
-    // fold/unfold the current page's left panel, or press Ctrl+8)
+    // Brand button — doubles as the sidebar toggle (ZCode-style: click the
+    // logo to fold/unfold the current page's left panel, or press Ctrl+8).
+    // app.ico is a photo-style image that turns to mush at 24px, so the brand
+    // chip uses the app-green "里" letter square instead (window/taskbar
+    // icons keep app.ico).
     m_brandBtn = new QToolButton(brandWidget);
     m_brandBtn->setFixedSize(26, 26);
-    m_brandBtn->setIconSize(QSize(24, 24));
-    m_brandBtn->setAutoRaise(true);
     m_brandBtn->setCursor(Qt::PointingHandCursor);
     m_brandBtn->setToolTip("切换侧边栏 (Ctrl+8)");
-    const QPixmap iconPix = QIcon(":/app.ico").pixmap(24, 24);
-    if (!iconPix.isNull()) {
-        m_brandBtn->setIcon(QIcon(iconPix));
-    } else {
-        m_brandBtn->setText("里");
-        m_brandBtn->setStyleSheet(
-            "QToolButton { background: #2FA66A; color: #FFFFFF; border: none; border-radius: 8px;"
-            " font-size: 14px; font-weight: 500; }"
-            "QToolButton:hover { background: #27945D; }");
-    }
+    m_brandBtn->setText("里");
+    m_brandBtn->setStyleSheet(
+        "QToolButton { background: #2FA66A; color: #FFFFFF; border: none; border-radius: 8px;"
+        " font-size: 14px; font-weight: 600; }"
+        "QToolButton:hover { background: #27945D; }"
+        "QToolButton:pressed { background: #1F7A4B; }");
     connect(m_brandBtn, &QToolButton::clicked, this, &MainWindow::toggleSidebar);
     brandLayout->addWidget(m_brandBtn);
     // Brand name
