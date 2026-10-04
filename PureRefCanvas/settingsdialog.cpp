@@ -1133,6 +1133,20 @@ void SettingsDialog::setupUI()
     okBtn->setDefault(true);
     okBtn->setMinimumWidth(100);
     okBtn->setMinimumHeight(38);
+    // Widget-level stylesheet: the QMainWindow light theme sets
+    // QWidget { background-color } which cascades into this dialog and
+    // overrides the gradient from the dialog-level #okBtn rule, leaving
+    // white text on a light background (invisible 确定). Widget-level rules
+    // always win the cascade. Light = white bg + black text per design.
+    okBtn->setStyleSheet(light
+        ? "QPushButton { background: #ffffff; color: #1f2937; border: 2px solid #2FA66A;"
+          " border-radius: 6px; font-weight: 600; font-size: 13px; }"
+          "QPushButton:hover { background: #eaf7f0; }"
+          "QPushButton:pressed { background: #d7f0e3; }"
+        : "QPushButton { background: #4a9fd4; color: #ffffff; border: 1px solid #66c0f4;"
+          " border-radius: 6px; font-weight: 600; font-size: 13px; }"
+          "QPushButton:hover { background: #66c0f4; }"
+          "QPushButton:pressed { background: #3a8fc4; }");
     cancelBtn->setMinimumWidth(100);
     cancelBtn->setMinimumHeight(38);
     connect(okBtn, &QPushButton::clicked, this, &QDialog::accept);
