@@ -85,6 +85,29 @@ void GaplessEngine::onBufferReady()
         }
         m_writtenFramesThisTrack += buf.frameCount();
         m_totalFramesThisTrack += buf.frameCount();
+        // Seek: discard frames until we reach target.
+        if (m_seekTargetFrames > 0) {
+            const qint64 bf = buf.frameCount();
+            if (m_writtenFramesThisTrack <= m_seekTargetFrames) {
+                // entire buffer is before seek point, drop it
+                continue;
+            }
+            // partial: skip the first part
+            const qint64 skipFrames = m_seekTargetFrames - (m_writtenFramesThisTrack - bf);
+            const int bpf = m_format.bytesPerFrame();
+            const qint64 skipBytes = skipFrames * bpf;
+            const char *src = data + skipBytes;
+            const qint64 remain = bytes - skipBytes;
+            m_out->write(src, remain);
+            m_seekTargetFrames = 0;
+        } else {
+            qint64 written = 0;
+            while (written < bytes) {
+                const qint64 w = m_out->write(data + written, bytes - written);
+                if (w <= 0) break;
+                written += w;
+            }
+        }
         emit positionChanged(positionMs());
     }
 }
@@ -149,4 +172,17 @@ qint64 GaplessEngine::currentTrackDurationMs() const
 {
     if (!m_format.isValid()) return 0;
     return m_totalFramesThisTrack * 1000 / m_format.sampleRate();
+}
+
+void GaplessEngine::seekTo(qint64 ms)
+{
+    if (!m_format.isValid() || m_queueIdx < 0) return;
+    const qint64 sr = m_format.sampleRate();
+    if (sr <= 0) return;
+    m_seekTargetFrames = ms * sr / 1000;
+    m_writtenFramesThisTrack = 0;
+    // Restart decoder for current source; onBufferReady will discard frames.
+    const QUrl url = m_queue.at(m_queueIdx);
+    m_decoder->stop();
+    m_decoder->setSource(url);
 }

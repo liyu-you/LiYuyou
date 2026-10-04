@@ -33,8 +33,8 @@ public:
     void setPaused(bool paused);
     void setVolume(float v);
     bool isPlaying() const;
-
-    qint64 positionMs() const;           // position within current track
+    void seekTo(qint64 ms);  // seek within current track
+    qint64 positionMs() const;
     qint64 currentTrackDurationMs() const;
 
 signals:
@@ -62,9 +62,10 @@ private:
     QList<QUrl> m_queue;
     int m_queueIdx = -1;
 
-    qint64 m_currentTrackStartMs = 0;  // clock when track started (for position)
+    qint64 m_currentTrackStartMs = 0;
     qint64 m_writtenFramesThisTrack = 0;
     qint64 m_totalFramesThisTrack = 0;
+    qint64 m_seekTargetFrames = 0;  // >0: discard this many frames before writing
     bool m_eof = false;
 };
 
