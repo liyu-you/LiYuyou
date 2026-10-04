@@ -40,3 +40,14 @@ qt_add_executable(mw_probe
 )
 target_include_directories(mw_probe PRIVATE ${SRC})
 target_link_libraries(mw_probe PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)
+
+# Regression test: constructing ReaderWidget must not crash in eventFilter()
+# when setProperty() delivers DynamicPropertyChange while m_readingView is null.
+qt_add_executable(readerwidget_test
+    readerwidget_test.cpp
+    ${SRC}/booklibrary.h ${SRC}/booklibrary.cpp
+    ${SRC}/readerwidget.h ${SRC}/readerwidget.cpp
+    ${SRC}/resources.qrc
+)
+target_include_directories(readerwidget_test PRIVATE ${SRC})
+target_link_libraries(readerwidget_test PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)

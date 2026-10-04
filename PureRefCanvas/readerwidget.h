@@ -132,11 +132,11 @@ private:
     enum Theme { Light, Dark, Sepia, Green, Custom };
     enum Page { ShelfPage, ReaderPage };
 
-    BookLibrary *m_library;
-    QStackedWidget *m_stack;
+    BookLibrary *m_library = nullptr;
+    QStackedWidget *m_stack = nullptr;
 
     // Shelf
-    QWidget *m_shelfPage;
+    QWidget *m_shelfPage = nullptr;
     QHBoxLayout *m_shelfLayout = nullptr;
     QWidget *m_readerSidebar = nullptr;
     QLabel *m_sidebarBookCount = nullptr;
@@ -145,9 +145,9 @@ private:
     QLabel *m_sidebarNoteCount = nullptr;
     QPushButton *m_sidebarNewGroupBtn = nullptr;
     QWidget *m_shelfContentArea = nullptr;
-    QListWidget *m_shelfGrid;
-    QPushButton *m_importBtn;
-    QLabel *m_shelfTitle;
+    QListWidget *m_shelfGrid = nullptr;
+    QPushButton *m_importBtn = nullptr;
+    QLabel *m_shelfTitle = nullptr;
     QLabel *m_shelfCountLabel = nullptr;
     QLabel *m_recentBookLabel = nullptr;
     QLabel *m_recordBadge = nullptr;
@@ -155,36 +155,36 @@ private:
     QLabel *m_recordChapterLabel = nullptr;
 
     // Reader
-    QWidget *m_readerPage;
-    QVBoxLayout *m_readerLayout;
-    QWidget *m_topBar;
-    QWidget *m_bottomBar;
-    QLabel *m_bookTitleLabel;
-    QLabel *m_chapterLabel;
-    QPushButton *m_pageLabel;   // clickable progress percent (jump-to dialog)
-    QTextEdit *m_readingView;
+    QWidget *m_readerPage = nullptr;
+    QVBoxLayout *m_readerLayout = nullptr;
+    QWidget *m_topBar = nullptr;
+    QWidget *m_bottomBar = nullptr;
+    QLabel *m_bookTitleLabel = nullptr;
+    QLabel *m_chapterLabel = nullptr;
+    QPushButton *m_pageLabel = nullptr;   // clickable progress percent (jump-to dialog)
+    QTextEdit *m_readingView = nullptr;
     QVBoxLayout *m_textLayout = nullptr;
     QWidget *m_textCard = nullptr;   // translucent paper card over a custom bg image
-    QWidget *m_annoPanel;
-    QListWidget *m_annoList;
-    QLabel *m_annoHeader;
-    QWidget *m_notePanel;
-    QListWidget *m_noteList;
-    QLabel *m_noteHeader;
-    QPushButton *m_writeNoteBtn;
-    QPushButton *m_prevBtn;
-    QPushButton *m_nextBtn;
-    QSlider *m_progressSlider;
-    QPushButton *m_fontBtn;
-    QPushButton *m_themeBtn;
-    QPushButton *m_bookmarkBtn;
-    QPushButton *m_tocBtn;
-    QPushButton *m_annoBtn;
-    QPushButton *m_noteBtn;
-    QPushButton *m_backBtn;
-    QPushButton *m_familyBtn;   // 字体 (宋体/黑体/楷体/仿宋/微软雅黑)
-    QPushButton *m_spacingBtn;  // 行距 (1.2 ~ 2.5)
-    QPushButton *m_searchBtn;   // 全文搜索
+    QWidget *m_annoPanel = nullptr;
+    QListWidget *m_annoList = nullptr;
+    QLabel *m_annoHeader = nullptr;
+    QWidget *m_notePanel = nullptr;
+    QListWidget *m_noteList = nullptr;
+    QLabel *m_noteHeader = nullptr;
+    QPushButton *m_writeNoteBtn = nullptr;
+    QPushButton *m_prevBtn = nullptr;
+    QPushButton *m_nextBtn = nullptr;
+    QSlider *m_progressSlider = nullptr;
+    QPushButton *m_fontBtn = nullptr;
+    QPushButton *m_themeBtn = nullptr;
+    QPushButton *m_bookmarkBtn = nullptr;
+    QPushButton *m_tocBtn = nullptr;
+    QPushButton *m_annoBtn = nullptr;
+    QPushButton *m_noteBtn = nullptr;
+    QPushButton *m_backBtn = nullptr;
+    QPushButton *m_familyBtn = nullptr;   // 字体 (宋体/黑体/楷体/仿宋/微软雅黑)
+    QPushButton *m_spacingBtn = nullptr;  // 行距 (1.2 ~ 2.5)
+    QPushButton *m_searchBtn = nullptr;   // 全文搜索
 
     // State
     QString m_currentBookId;

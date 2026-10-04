@@ -2208,12 +2208,12 @@ bool ReaderWidget::eventFilter(QObject *obj, QEvent *event)
         return true;
     }
 
-    if (obj == m_readingView) {
+    if (m_readingView && obj == m_readingView) {
         // Re-pin the document wrap width whenever the view is (re)sized or
         // becomes visible — hidden reader pages miss resize events entirely.
         if (event->type() == QEvent::Resize || event->type() == QEvent::Show)
             syncDocWidth();
-    } else if (obj == m_readingView->viewport()) {
+    } else if (m_readingView && obj == m_readingView->viewport()) {
         if (event->type() == QEvent::MouseButtonPress) {
             m_pressPos = static_cast<QMouseEvent*>(event)->pos();
         } else if (event->type() == QEvent::MouseButtonRelease) {
