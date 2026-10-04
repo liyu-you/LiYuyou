@@ -768,6 +768,7 @@ void MainWindow::setupNavigation()
                 padding: 6px 16px;
                 font-size: 13px;
                 font-weight: 500;
+                qproperty-alignment: AlignCenter;
             }
             QPushButton:hover {
                 background: #F3F4F6;
@@ -1049,6 +1050,7 @@ void MainWindow::updateNavButtons()
                 padding: 6px 16px;
                 font-size: 13px;
                 font-weight: 500;
+                qproperty-alignment: AlignCenter;
             }
             QPushButton:pressed {
                 background: #C0DD97;
@@ -1063,6 +1065,7 @@ void MainWindow::updateNavButtons()
                 padding: 6px 16px;
                 font-size: 13px;
                 font-weight: 500;
+                qproperty-alignment: AlignCenter;
             }
             QPushButton:hover {
                 background: #F3F4F6;
