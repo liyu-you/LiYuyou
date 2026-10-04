@@ -69,24 +69,22 @@ void GaplessEngine::onFormatChanged(const QAudioFormat &fmt)
 
 void GaplessEngine::onBufferReady()
 {
-    if (!m_decoder || !m_out) return;
+    if (!m_decoder) return;
     while (m_decoder->bufferAvailable()) {
         QAudioBuffer buf = m_decoder->read();
         if (!buf.isValid()) continue;
         if (!m_sink) ensureSink(buf.format());
+        if (!m_out) continue;
         const qint64 bytes = buf.byteCount();
         const char *data = buf.constData<char>();
-        // Write in a loop so we don't lose PCM if the sink buffer is full.
         qint64 written = 0;
-        while (written < bytes && m_sink->state() == QAudio::ActiveState) {
+        while (written < bytes) {
             const qint64 w = m_out->write(data + written, bytes - written);
             if (w <= 0) break;
             written += w;
         }
         m_writtenFramesThisTrack += buf.frameCount();
-        if (m_currentTrackStartMs == 0 && m_writtenFramesThisTrack > 0) {
-            m_currentTrackStartMs = 1; // first chunk out
-        }
+        m_totalFramesThisTrack += buf.frameCount();
         emit positionChanged(positionMs());
     }
 }
