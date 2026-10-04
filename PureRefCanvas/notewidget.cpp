@@ -47,7 +47,42 @@
 #include <QUuid>
 #include <QResizeEvent>
 #include <QSettings>
+#include <QSaveFile>
+#include <QFileInfo>
+#include <QTextTable>
+#include <QTextFrame>
+#include <QTextTableCell>
+#include <QPrinter>
+#include <QCheckBox>
+#include <QSpinBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QFrame>
+#include <QShortcut>
+#include <QFontMetricsF>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QDesktopServices>
+#include <QLocale>
+#include <functional>
 #include <algorithm>
+
+namespace {
+// Shared dark style for the two toolbar rows (Steam-like palette).
+const char kToolbarSS[] =
+    "QToolBar { background: #1b2838; border-bottom: 1px solid #2a475e; spacing: 1px; padding: 3px 6px; }"
+    "QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 5px; font-size: 13px; }"
+    "QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; }"
+    "QToolButton:checked { background: #2a475e; color: #66c0f4; }"
+    "QComboBox { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 4px; padding: 2px 8px; font-size: 12px; min-width: 60px; }"
+    "QComboBox:hover { border-color: #66c0f4; }"
+    "QComboBox QAbstractItemView { background: #16202d; color: #c7d5e0; selection-background-color: #2a475e; selection-color: #66c0f4; outline: none; }";
+const char kDarkMenuSS[] =
+    "QMenu { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; }"
+    "QMenu::item { padding: 8px 24px; }"
+    "QMenu::item:selected { background: #2a475e; color: #66c0f4; }";
+} // namespace
 
 NoteWidget::NoteWidget(const QString &libraryRoot, QWidget *parent)
     : QWidget(parent), m_libraryRoot(libraryRoot)
@@ -159,9 +194,13 @@ void NoteWidget::setupUI()
     m_exportBtn = new QPushButton("导出");
     m_exportBtn->setFixedHeight(30);
     m_exportBtn->setCursor(Qt::PointingHandCursor);
-    m_exportBtn->setToolTip("导出当前笔记为 Markdown");
+    m_exportBtn->setToolTip("导出当前笔记");
     m_exportBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.06); color: #c7d5e0; border: 1px solid rgba(255,255,255,0.14); border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: rgba(42,71,94,0.8); color: #fff; border-color: #66c0f4; }");
-    connect(m_exportBtn, &QPushButton::clicked, this, &NoteWidget::exportCurrentNote);
+    QMenu *exportMenu = new QMenu(m_exportBtn);
+    exportMenu->setStyleSheet(kDarkMenuSS);
+    exportMenu->addAction("导出 Markdown…", this, &NoteWidget::exportCurrentNote);
+    exportMenu->addAction("导出 PDF…", this, &NoteWidget::exportPdfDialog);
+    m_exportBtn->setMenu(exportMenu);
     topLayout->addWidget(m_exportBtn);
 
     m_copyBtn = new QPushButton("复制");
@@ -194,12 +233,21 @@ void NoteWidget::setupUI()
     )");
     m_editor->viewport()->setAutoFillBackground(false);
     m_editor->installEventFilter(this);
+    m_editor->viewport()->installEventFilter(this);   // task checkbox / anchor clicks
+    m_editor->setContextMenuPolicy(Qt::CustomContextMenu);  // table context menu
+    connect(m_editor, &QTextEdit::customContextMenuRequested, this, &NoteWidget::showEditorContextMenu);
     connect(m_editor, &QTextEdit::textChanged, this, &NoteWidget::onTextChanged);
     connect(m_editor, &QTextEdit::cursorPositionChanged, this, &NoteWidget::onCursorPositionChanged);
 
-    // Toolbar
+    // Toolbars (two rows: character formatting / paragraph & insert)
     setupToolbar();
     editorLayout->addWidget(m_toolbar);
+    editorLayout->addWidget(m_toolbar2);
+
+    // Find & replace bar (hidden until Ctrl+F / Ctrl+H)
+    setupFindBar();
+    editorLayout->addWidget(m_findBar);
+    m_findBar->hide();
 
     // Editor container with margins for card effect
     QWidget *editorContainer = new QWidget;
@@ -211,6 +259,7 @@ void NoteWidget::setupUI()
 
     // VNote-style outline pane (right side of editor).
     m_outlineList = new QListWidget;
+    m_outlineList->setObjectName("noteOutline");
     m_outlineList->setMaximumWidth(220);
     m_outlineList->setStyleSheet(
         "QListWidget { background: rgba(255,255,255,0.9); border:none; border-left:1px solid #eee; font-size:12px; }"
@@ -367,10 +416,11 @@ void NoteWidget::setupSidebar()
 
 void NoteWidget::setupToolbar()
 {
+    // ===== Row 1: character formatting =====
     m_toolbar = new QToolBar;
     m_toolbar->setFixedHeight(42);
     m_toolbar->setMovable(false);
-    m_toolbar->setStyleSheet("QToolBar { background: #1b2838; border-bottom: 1px solid #2a475e; spacing: 2px; padding: 3px 8px; } QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 7px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton:checked { background: #2a475e; color: #66c0f4; } QComboBox { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 4px; padding: 2px 8px; font-size: 12px; min-width: 60px; } QComboBox:hover { border-color: #66c0f4; } QComboBox QAbstractItemView { background: #16202d; color: #c7d5e0; selection-background-color: #2a475e; selection-color: #66c0f4; outline: none; }");
+    m_toolbar->setStyleSheet(kToolbarSS);
 
     m_actionUndo = m_toolbar->addAction("撤销");
     m_actionUndo->setToolTip("撤销");
@@ -383,14 +433,14 @@ void NoteWidget::setupToolbar()
     m_toolbar->addSeparator();
 
     m_styleCombo = new QComboBox;
-    m_styleCombo->addItems({"正文", "标题1", "标题2", "标题3"});
+    m_styleCombo->addItems({"正文", "标题 1", "标题 2", "标题 3", "标题 4", "标题 5", "标题 6"});
     m_styleCombo->setFixedHeight(26);
     connect(m_styleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &NoteWidget::textStyle);
     m_toolbar->addWidget(m_styleCombo);
 
     m_fontCombo = new QFontComboBox;
     m_fontCombo->setFixedHeight(26);
-    m_fontCombo->setFixedWidth(120);
+    m_fontCombo->setFixedWidth(110);
     connect(m_fontCombo, &QFontComboBox::currentFontChanged, this, &NoteWidget::fontChanged);
     m_toolbar->addWidget(m_fontCombo);
 
@@ -398,7 +448,7 @@ void NoteWidget::setupToolbar()
     m_sizeCombo->addItems({"10", "11", "12", "13", "14", "15", "16", "18", "20", "24", "28", "32"});
     m_sizeCombo->setCurrentText("14");
     m_sizeCombo->setFixedHeight(26);
-    m_sizeCombo->setFixedWidth(56);
+    m_sizeCombo->setFixedWidth(52);
     connect(m_sizeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &NoteWidget::fontSizeChanged);
     m_toolbar->addWidget(m_sizeCombo);
 
@@ -408,94 +458,217 @@ void NoteWidget::setupToolbar()
     m_actionBold->setToolTip("加粗");
     QFont boldFont = m_actionBold->font(); boldFont.setBold(true);
     m_actionBold->setFont(boldFont);
+    m_actionBold->setCheckable(true);
     connect(m_actionBold, &QAction::triggered, this, &NoteWidget::textBold);
 
     m_actionItalic = m_toolbar->addAction("I");
     m_actionItalic->setToolTip("斜体");
     QFont italicFont = m_actionItalic->font(); italicFont.setItalic(true);
     m_actionItalic->setFont(italicFont);
+    m_actionItalic->setCheckable(true);
     connect(m_actionItalic, &QAction::triggered, this, &NoteWidget::textItalic);
 
     m_actionUnderline = m_toolbar->addAction("U");
     m_actionUnderline->setToolTip("下划线");
     QFont ulFont = m_actionUnderline->font(); ulFont.setUnderline(true);
     m_actionUnderline->setFont(ulFont);
+    m_actionUnderline->setCheckable(true);
     connect(m_actionUnderline, &QAction::triggered, this, &NoteWidget::textUnderline);
 
     m_actionStrike = m_toolbar->addAction("S");
     m_actionStrike->setToolTip("删除线");
     QFont strikeFont = m_actionStrike->font(); strikeFont.setStrikeOut(true);
     m_actionStrike->setFont(strikeFont);
+    m_actionStrike->setCheckable(true);
     connect(m_actionStrike, &QAction::triggered, this, &NoteWidget::textStrike);
 
+    m_actionSuper = m_toolbar->addAction("x²");
+    m_actionSuper->setToolTip("上标");
+    m_actionSuper->setCheckable(true);
+    connect(m_actionSuper, &QAction::triggered, this, &NoteWidget::textSuperScript);
+
+    m_actionSub = m_toolbar->addAction("x₂");
+    m_actionSub->setToolTip("下标");
+    m_actionSub->setCheckable(true);
+    connect(m_actionSub, &QAction::triggered, this, &NoteWidget::textSubScript);
+
     m_toolbar->addSeparator();
+
+    // Highlight pen: click applies the current color, arrow opens the palette.
+    m_highlightBtn = new QToolButton;
+    m_highlightBtn->setText("高亮");
+    m_highlightBtn->setToolTip("文字高亮笔：点击套用当前颜色，箭头选色");
+    m_highlightBtn->setPopupMode(QToolButton::MenuButtonPopup);
+    m_highlightBtn->setStyleSheet("QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 7px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton::menu-indicator { subcontrol-position: right center; subcontrol-origin: padding; left: -2px; }");
+    QAction *highlightNow = new QAction("高亮", this);
+    connect(highlightNow, &QAction::triggered, this, [this]() { applyHighlightColor(m_currentHighlight); });
+    m_highlightBtn->setDefaultAction(highlightNow);
+    QMenu *hlMenu = new QMenu(m_highlightBtn);
+    hlMenu->setStyleSheet(kDarkMenuSS);
+    auto addHlColor = [this, hlMenu](const QColor &c, const QString &name) {
+        QAction *a = new QAction(name, this);
+        QPixmap pm(12, 12);
+        pm.fill(c);
+        a->setIcon(QIcon(pm));
+        connect(a, &QAction::triggered, this, [this, c]() {
+            m_currentHighlight = c;
+            applyHighlightColor(c);
+        });
+        hlMenu->addAction(a);
+    };
+    addHlColor(QColor(0xFF, 0xF3, 0x00), "黄色");
+    addHlColor(QColor(0x7C, 0xFC, 0x00), "绿色");
+    addHlColor(QColor(0x00, 0xE5, 0xFF), "青色");
+    addHlColor(QColor(0xFF, 0x80, 0xAB), "粉色");
+    addHlColor(QColor(0xFF, 0xA7, 0x26), "橙色");
+    addHlColor(QColor(0xD5, 0x00, 0xF9), "紫色");
+    hlMenu->addSeparator();
+    QAction *hlCustom = new QAction("自定义颜色…", this);
+    connect(hlCustom, &QAction::triggered, this, [this]() {
+        const QColor c = QColorDialog::getColor(m_currentHighlight, this, "选择高亮颜色");
+        if (c.isValid()) {
+            m_currentHighlight = c;
+            applyHighlightColor(c);
+        }
+    });
+    hlMenu->addAction(hlCustom);
+    hlMenu->addAction("清除高亮", this, &NoteWidget::clearHighlight);
+    m_highlightBtn->setMenu(hlMenu);
+    m_toolbar->addWidget(m_highlightBtn);
 
     m_actionColor = m_toolbar->addAction("A");
     m_actionColor->setToolTip("文字颜色");
     connect(m_actionColor, &QAction::triggered, this, &NoteWidget::textColor);
 
+    m_actionInlineCode = m_toolbar->addAction("</>");
+    m_actionInlineCode->setToolTip("行内代码");
+    connect(m_actionInlineCode, &QAction::triggered, this, &NoteWidget::insertInlineCode);
+
+    // Format painter: click = paint once, double-click = continuous (Esc exits).
+    m_painterBtn = new QToolButton;
+    m_painterBtn->setToolTip("格式刷：单击刷一次，双击连续刷（Esc 退出）");
+    m_painterBtn->setStyleSheet("QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 7px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton:checked { background: #2a475e; color: #66c0f4; }");
+    m_actionFormatPainter = new QAction("格式刷", this);
+    m_actionFormatPainter->setCheckable(true);
+    connect(m_actionFormatPainter, &QAction::triggered, this, &NoteWidget::toggleFormatPainter);
+    m_painterBtn->setDefaultAction(m_actionFormatPainter);
+    m_painterBtn->installEventFilter(this);
+    m_toolbar->addWidget(m_painterBtn);
+
     m_actionClearFormat = m_toolbar->addAction("清除格式");
     m_actionClearFormat->setToolTip("清除格式");
     connect(m_actionClearFormat, &QAction::triggered, this, &NoteWidget::clearFormat);
 
-    m_toolbar->addSeparator();
+    // ===== Row 2: paragraph & insert =====
+    m_toolbar2 = new QToolBar;
+    m_toolbar2->setFixedHeight(42);
+    m_toolbar2->setMovable(false);
+    m_toolbar2->setStyleSheet(kToolbarSS);
 
-    m_actionAlignLeft = m_toolbar->addAction("左对齐");
+    m_actionAlignLeft = m_toolbar2->addAction("左对齐");
     m_actionAlignLeft->setToolTip("左对齐");
     m_actionAlignLeft->setCheckable(true);
     connect(m_actionAlignLeft, &QAction::triggered, this, [this]() { textAlign(m_actionAlignLeft); });
 
-    m_actionAlignCenter = m_toolbar->addAction("居中");
+    m_actionAlignCenter = m_toolbar2->addAction("居中");
     m_actionAlignCenter->setToolTip("居中");
     m_actionAlignCenter->setCheckable(true);
     connect(m_actionAlignCenter, &QAction::triggered, this, [this]() { textAlign(m_actionAlignCenter); });
 
-    m_actionAlignRight = m_toolbar->addAction("右对齐");
+    m_actionAlignRight = m_toolbar2->addAction("右对齐");
     m_actionAlignRight->setToolTip("右对齐");
     m_actionAlignRight->setCheckable(true);
     connect(m_actionAlignRight, &QAction::triggered, this, [this]() { textAlign(m_actionAlignRight); });
 
-    m_toolbar->addSeparator();
+    m_actionAlignJustify = m_toolbar2->addAction("两端对齐");
+    m_actionAlignJustify->setToolTip("两端对齐");
+    m_actionAlignJustify->setCheckable(true);
+    connect(m_actionAlignJustify, &QAction::triggered, this, [this]() { textAlign(m_actionAlignJustify); });
 
-    m_actionListBullet = m_toolbar->addAction("无序列表");
+    m_toolbar2->addSeparator();
+
+    m_actionIndentDec = m_toolbar2->addAction("减少缩进");
+    m_actionIndentDec->setToolTip("减少缩进");
+    connect(m_actionIndentDec, &QAction::triggered, this, &NoteWidget::indentDecrease);
+
+    m_actionIndentInc = m_toolbar2->addAction("增加缩进");
+    m_actionIndentInc->setToolTip("增加缩进");
+    connect(m_actionIndentInc, &QAction::triggered, this, &NoteWidget::indentIncrease);
+
+    m_toolbar2->addSeparator();
+
+    m_actionListBullet = m_toolbar2->addAction("无序列表");
     m_actionListBullet->setToolTip("无序列表");
     connect(m_actionListBullet, &QAction::triggered, this, [this]() { insertList(m_actionListBullet); });
 
-    m_actionListNumber = m_toolbar->addAction("有序列表");
+    m_actionListNumber = m_toolbar2->addAction("有序列表");
     m_actionListNumber->setToolTip("有序列表");
     connect(m_actionListNumber, &QAction::triggered, this, [this]() { insertList(m_actionListNumber); });
 
-    m_actionQuote = m_toolbar->addAction("引用");
+    m_actionTaskList = m_toolbar2->addAction("任务列表");
+    m_actionTaskList->setToolTip("任务列表（复选框，点击勾选）");
+    connect(m_actionTaskList, &QAction::triggered, this, &NoteWidget::insertTaskList);
+
+    m_toolbar2->addSeparator();
+
+    m_lineSpacingCombo = new QComboBox;
+    m_lineSpacingCombo->addItems({"1.0", "1.15", "1.5", "2.0", "2.5", "3.0"});
+    m_lineSpacingCombo->setToolTip("行距（倍数）");
+    m_lineSpacingCombo->setFixedHeight(26);
+    m_lineSpacingCombo->setFixedWidth(58);
+    connect(m_lineSpacingCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &NoteWidget::lineSpacingChanged);
+    m_toolbar2->addWidget(m_lineSpacingCombo);
+
+    m_actionFirstLineIndent = m_toolbar2->addAction("首行缩进");
+    m_actionFirstLineIndent->setToolTip("首行缩进 2 字符");
+    m_actionFirstLineIndent->setCheckable(true);
+    connect(m_actionFirstLineIndent, &QAction::triggered, this, &NoteWidget::toggleFirstLineIndent);
+
+    m_toolbar2->addSeparator();
+
+    m_actionQuote = m_toolbar2->addAction("引用");
     connect(m_actionQuote, &QAction::triggered, this, &NoteWidget::insertQuote);
 
-    m_actionCode = m_toolbar->addAction("代码");
+    m_actionCode = m_toolbar2->addAction("代码块");
     connect(m_actionCode, &QAction::triggered, this, &NoteWidget::insertCodeBlock);
 
-    m_actionHR = m_toolbar->addAction("分割线");
-    connect(m_actionHR, &QAction::triggered, this, &NoteWidget::insertHR);
+    m_actionTable = m_toolbar2->addAction("表格");
+    m_actionTable->setToolTip("插入表格（右键编辑行列）");
+    connect(m_actionTable, &QAction::triggered, this, &NoteWidget::insertTableDialog);
 
-    m_toolbar->addSeparator();
-
-    m_actionImage = m_toolbar->addAction("图片");
-    connect(m_actionImage, &QAction::triggered, this, &NoteWidget::insertImage);
-
-    m_actionLink = m_toolbar->addAction("链接");
-    connect(m_actionLink, &QAction::triggered, this, &NoteWidget::insertLink);
-
-    m_toolbar->addSeparator();
-
-    // Background image button with menu
-    QToolButton *bgBtn = new QToolButton;
-    bgBtn->setText("背景");
-    bgBtn->setToolTip("设置编辑器背景");
-    bgBtn->setPopupMode(QToolButton::InstantPopup);
-    bgBtn->setStyleSheet("QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 8px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton::menu-indicator { image: none; }");
-    QMenu *bgMenu = new QMenu(bgBtn);
-    bgMenu->setStyleSheet("QMenu { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; } QMenu::item { padding: 8px 20px; } QMenu::item:selected { background: #2a475e; color: #66c0f4; }");
+    // 插入 menu keeps row 2 compact: media, links, date/time, HR, background.
+    QToolButton *insertBtn = new QToolButton;
+    insertBtn->setText("插入 ▾");
+    insertBtn->setToolTip("插入图片 / 链接 / 双链 / 日期 / 分割线 / 背景");
+    insertBtn->setPopupMode(QToolButton::InstantPopup);
+    insertBtn->setStyleSheet("QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 8px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton::menu-indicator { image: none; }");
+    QMenu *insertMenu = new QMenu(insertBtn);
+    insertMenu->setStyleSheet(kDarkMenuSS);
+    m_actionImage = insertMenu->addAction("图片…", this, &NoteWidget::insertImage);
+    m_actionLink = insertMenu->addAction("链接…", this, &NoteWidget::insertLink);
+    QAction *wikiAct = insertMenu->addAction("[[双链]]…", this, &NoteWidget::insertWikiLinkDialog);
+    wikiAct->setToolTip("插入 [[笔记双链]]，Ctrl+点击跳转");
+    QMenu *dtMenu = insertMenu->addMenu("日期和时间");
+    auto addDt = [this, dtMenu](const QString &label, int fmtId) {
+        dtMenu->addAction(label, this, [this, fmtId]() { insertDateTime(fmtId); });
+    };
+    addDt("2026-10-04（短日期）", 0);
+    addDt("2026年10月4日（长日期）", 1);
+    addDt("14:30（时间）", 2);
+    addDt("2026-10-04 14:30:05（日期+时间）", 3);
+    addDt("星期日（星期）", 4);
+    m_actionHR = insertMenu->addAction("分割线", this, &NoteWidget::insertHR);
+    insertMenu->addSeparator();
+    QMenu *bgMenu = insertMenu->addMenu("编辑器背景");
     bgMenu->addAction("选择背景图片...", this, &NoteWidget::changeEditorBackground);
     bgMenu->addAction("恢复默认背景", this, &NoteWidget::clearEditorBackground);
-    bgBtn->setMenu(bgMenu);
-    m_toolbar->addWidget(bgBtn);
+    insertBtn->setMenu(insertMenu);
+    m_toolbar2->addWidget(insertBtn);
+
+    // Ctrl+H opens the find bar with the replace row focused (Ctrl+F is
+    // intercepted in the editor's ShortcutOverride handler).
+    QShortcut *replaceSc = new QShortcut(QKeySequence("Ctrl+H"), this);
+    connect(replaceSc, &QShortcut::activated, this, [this]() { openFindBar(true); });
 }
 
 QWidget *NoteWidget::createCard(const NoteData &note)
@@ -632,6 +805,8 @@ void NoteWidget::openNote(const QString &noteId)
 
     m_loading = false;
     m_modified = false;
+    deactivateFormatPainter();
+    if (m_findBar && m_findBar->isVisible()) closeFindBar();
     refreshOutline();
     m_stack->setCurrentIndex(1);
     updateStatusBar();
@@ -842,28 +1017,115 @@ QString NoteWidget::htmlToMarkdown(const QString &html) const
     doc.setHtml(html);
     QString md;
     for (QTextBlock blk = doc.begin(); blk != doc.end(); blk = blk.next()) {
-        QString line;
-        const int h = blk.blockFormat().headingLevel();
-        if (h > 0) line = QString(h, '#') + " ";
-        if (blk.textList()) {
-            const QTextListFormat lf = blk.textList()->format();
-            line = (lf.style() == QTextListFormat::ListDecimal) ? "1. " : "- ";
+        // Emit each table once (at its first cell block); skip the other cells.
+        if (QTextTable *tbl = QTextCursor(blk).currentTable()) {
+            if (tbl->firstPosition() == blk.position())
+                md += tableToMarkdown(tbl) + "\n";
+            continue;
         }
-        for (QTextBlock::iterator it = blk.begin(); !it.atEnd(); ++it) {
-            const QTextFragment frag = it.fragment();
-            if (frag.text().isEmpty()) continue;
-            QString t = frag.text();
-            const QTextCharFormat fmt = frag.charFormat();
-            const QString href = fmt.anchorHref();
-            if (!href.isEmpty()) t = QString("[%1](%2)").arg(t, href);
-            if (fmt.fontWeight() == QFont::Bold) t = "**" + t + "**";
-            if (fmt.fontItalic()) t = "*" + t + "*";
-            if (fmt.fontStrikeOut()) t = "~~" + t + "~~";
-            line += t;
-        }
-        if (!line.trimmed().isEmpty())
+        const QString line = blockToMarkdown(blk);
+        if (!line.isNull())
             md += line + "\n";
     }
+    return md;
+}
+
+QString NoteWidget::blockToMarkdown(const QTextBlock &block) const
+{
+    const QString raw = block.text();
+    if (raw.trimmed().isEmpty()) return QString();
+
+    const QTextBlockFormat bf = block.blockFormat();
+    const int h = bf.headingLevel();
+
+    // Task list item: ☐/☑ text marker → GFM task syntax
+    if (isTaskMarkerChar(raw.at(0))) {
+        const bool checked = raw.at(0) == QChar(0x2611);
+        QString rest = raw.mid(1);
+        if (rest.startsWith(' ')) rest.remove(0, 1);
+        return QString("- [%1] %2").arg(checked ? "x" : " ", rest.trimmed());
+    }
+
+    const bool isCodeBlock = block.charFormat().fontFamilies().toStringList().contains("Consolas")
+                             && bf.background().color() == QColor(245, 245, 245);
+    const bool isQuote = bf.leftMargin() >= 30 && bf.background().color() == QColor(240, 248, 255);
+
+    QString line;
+    for (QTextBlock::iterator it = block.begin(); !it.atEnd(); ++it) {
+        const QTextFragment frag = it.fragment();
+        if (!frag.isValid() || frag.text().isEmpty()) continue;
+        QString t = frag.text();
+        const QTextCharFormat fmt = frag.charFormat();
+        const QString href = fmt.anchorHref();
+        if (href.startsWith("wikilink://"))
+            t = "[[" + href.mid(11) + "]]";
+        else if (!href.isEmpty())
+            t = QString("[%1](%2)").arg(t, href);
+        // headings are bold by definition — don't wrap them in **
+        if (fmt.fontWeight() == QFont::Bold && h <= 0) t = "**" + t + "**";
+        if (fmt.fontItalic()) t = "*" + t + "*";
+        if (fmt.fontStrikeOut()) t = "~~" + t + "~~";
+        const QBrush bg = fmt.background();
+        const bool isInlineCode = fmt.fontFamilies().toStringList().contains("Consolas")
+                                  && bg.style() != Qt::NoBrush && bg.color() != QColor(240, 248, 255);
+        if (isInlineCode) t = "`" + t + "`";
+        // Highlight pen colors → ==mark==
+        static const QColor hlColors[] = {
+            QColor(0xFF, 0xF3, 0x00), QColor(0x7C, 0xFC, 0x00), QColor(0x00, 0xE5, 0xFF),
+            QColor(0xFF, 0x80, 0xAB), QColor(0xFF, 0xA7, 0x26), QColor(0xD5, 0x00, 0xF9)
+        };
+        if (bg.style() != Qt::NoBrush
+            && std::any_of(std::begin(hlColors), std::end(hlColors), [&bg](const QColor &c) { return bg.color() == c; }))
+            t = "==" + t + "==";
+        if (fmt.verticalAlignment() == QTextCharFormat::AlignSuperScript && t.length() == 1) t = "^" + t + "^";
+        if (fmt.verticalAlignment() == QTextCharFormat::AlignSubScript && t.length() == 1) t = "~" + t + "~";
+        line += t;
+    }
+    if (line.trimmed().isEmpty()) return QString();
+
+    QString prefix;
+    if (h > 0) {
+        prefix = QString(h, '#') + " ";  // a heading is never a list item
+    } else if (block.textList()) {
+        const QTextListFormat lf = block.textList()->format();
+        prefix = (lf.style() == QTextListFormat::ListDecimal) ? "1. " : "- ";
+    }
+    if (isQuote) prefix += "> ";
+    if (isCodeBlock) return "`" + line.trimmed() + "`";
+    return prefix + line;
+}
+
+QString NoteWidget::tableToMarkdown(QTextTable *table) const
+{
+    if (!table) return QString();
+    const int rows = table->rows();
+    const int cols = table->columns();
+    if (rows <= 0 || cols <= 0) return QString();
+
+    QVector<QStringList> grid(rows);
+    for (int r = 0; r < rows; ++r) {
+        grid[r].reserve(cols);
+        for (int c = 0; c < cols; ++c) {
+            const QTextTableCell cell = table->cellAt(r, c);
+            QString cellText;
+            if (cell.isValid()) {
+                QTextBlock b = cell.firstCursorPosition().block();
+                const QTextBlock end = cell.lastCursorPosition().block();
+                for (; b.isValid(); b = b.next()) {
+                    if (!cellText.isEmpty()) cellText += " ";
+                    cellText += b.text().trimmed();
+                    if (b == end) break;
+                }
+            }
+            cellText.replace("|", "\\|");
+            grid[r].append(cellText.isEmpty() ? " " : cellText);
+        }
+    }
+
+    auto emitRow = [](const QStringList &cells) { return "| " + cells.join(" | ") + " |"; };
+    QString md = emitRow(grid[0]) + "\n"; // GFM needs a header row
+    md += emitRow(QStringList(cols, QString("---"))) + "\n";
+    for (int r = 1; r < rows; ++r) md += emitRow(grid[r]) + "\n";
     return md;
 }
 
@@ -968,17 +1230,16 @@ void NoteWidget::refreshOutline()
     if (!m_outlineList || !m_editor) return;
     m_outlineList->clear();
     QTextBlock block = m_editor->document()->firstBlock();
-    int level = 0;
     while (block.isValid()) {
-        const QString text = block.text().trimmed();
-        if (!text.isEmpty()) {
-            const QTextCharFormat fmt = block.charFormat();
-            // Heuristic: font size >= 15pt or bold = heading.
-            if (fmt.font().pointSize() >= 15 || fmt.font().bold()) {
-                QListWidgetItem *item = new QListWidgetItem(text, m_outlineList);
+        // True heading levels (set via the 样式 combo), not font heuristics.
+        const int level = block.blockFormat().headingLevel();
+        if (level > 0) {
+            const QString text = block.text().trimmed();
+            if (!text.isEmpty()) {
+                QListWidgetItem *item = new QListWidgetItem(m_outlineList);
+                item->setText(QString((qMin(level, 6) - 1) * 4, ' ') + (level <= 2 ? "▸ " : "· ") + text);
                 item->setData(Qt::UserRole, block.blockNumber());
-                if (fmt.font().pointSize() >= 18) item->setText("▸ " + text);
-                else item->setText("  · " + text);
+                item->setForeground(level <= 2 ? QColor(0x27, 0x50, 0x0A) : QColor(0x6B, 0x72, 0x80));
             }
         }
         block = block.next();
@@ -992,6 +1253,60 @@ void NoteWidget::onCursorPositionChanged()
     m_actionItalic->setChecked(fmt.fontItalic());
     m_actionUnderline->setChecked(fmt.fontUnderline());
     m_actionStrike->setChecked(fmt.fontStrikeOut());
+    m_actionSuper->setChecked(fmt.verticalAlignment() == QTextCharFormat::AlignSuperScript);
+    m_actionSub->setChecked(fmt.verticalAlignment() == QTextCharFormat::AlignSubScript);
+
+    // Live format painter: apply while the target selection is being made.
+    if (m_actionFormatPainter->isChecked())
+        applyFormatPainter();
+
+    // Paragraph state → toolbar sync
+    const QTextBlockFormat bf = m_editor->textCursor().blockFormat();
+    const Qt::Alignment align = bf.alignment();
+    m_actionAlignLeft->setChecked(align & Qt::AlignLeft);
+    m_actionAlignCenter->setChecked(align & Qt::AlignCenter);
+    m_actionAlignRight->setChecked(align & Qt::AlignRight);
+    m_actionAlignJustify->setChecked(align & Qt::AlignJustify);
+    m_actionFirstLineIndent->setChecked(bf.textIndent() > 0.0);
+
+    // Line spacing combo: map proportional height back to the closest entry.
+    if (m_lineSpacingCombo) {
+        static const qreal mults[] = {100.0, 115.0, 150.0, 200.0, 250.0, 300.0};
+        int lsIdx = 0;
+        if (bf.lineHeightType() == QTextBlockFormat::ProportionalHeight) {
+            const qreal h = bf.lineHeight();
+            qreal bestDiff = 1e9;
+            for (int i = 0; i < 6; ++i) {
+                const qreal d = qAbs(h - mults[i]);
+                if (d < bestDiff) { bestDiff = d; lsIdx = i; }
+            }
+        }
+        if (m_lineSpacingCombo->currentIndex() != lsIdx) {
+            m_lineSpacingCombo->blockSignals(true);
+            m_lineSpacingCombo->setCurrentIndex(lsIdx);
+            m_lineSpacingCombo->blockSignals(false);
+        }
+    }
+
+    // Character state → combos sync (guarded to avoid re-applying formats)
+    const int head = bf.headingLevel();
+    const int styleIdx = (head >= 1 && head <= 6) ? head : 0;
+    if (m_styleCombo->currentIndex() != styleIdx) {
+        m_styleCombo->blockSignals(true);
+        m_styleCombo->setCurrentIndex(styleIdx);
+        m_styleCombo->blockSignals(false);
+    }
+    m_fontCombo->blockSignals(true);
+    m_fontCombo->setCurrentFont(fmt.font());
+    m_fontCombo->blockSignals(false);
+    const qreal ps = fmt.fontPointSize();
+    if (ps > 0) {
+        m_sizeCombo->blockSignals(true);
+        const QString psTxt = QString::number(qRound(ps));
+        if (m_sizeCombo->findText(psTxt) < 0) m_sizeCombo->addItem(psTxt);
+        m_sizeCombo->setCurrentText(psTxt);
+        m_sizeCombo->blockSignals(false);
+    }
 }
 
 void NoteWidget::mergeFormatOnSelection(const QTextCharFormat &format)
@@ -1042,21 +1357,50 @@ void NoteWidget::textColor()
 
 void NoteWidget::textAlign(QAction *action)
 {
+    Qt::Alignment a = Qt::AlignLeft;
+    if (action == m_actionAlignCenter) a = Qt::AlignCenter;
+    else if (action == m_actionAlignRight) a = Qt::AlignRight;
+    else if (action == m_actionAlignJustify) a = Qt::AlignJustify;
+    m_editor->setAlignment(a);
     m_actionAlignLeft->setChecked(action == m_actionAlignLeft);
     m_actionAlignCenter->setChecked(action == m_actionAlignCenter);
     m_actionAlignRight->setChecked(action == m_actionAlignRight);
-    if (action == m_actionAlignLeft) m_editor->setAlignment(Qt::AlignLeft);
-    else if (action == m_actionAlignCenter) m_editor->setAlignment(Qt::AlignCenter);
-    else if (action == m_actionAlignRight) m_editor->setAlignment(Qt::AlignRight);
+    m_actionAlignJustify->setChecked(action == m_actionAlignJustify);
 }
 
 void NoteWidget::textStyle(int index)
 {
+    // index 0 = 正文, 1..6 = 标题层级
+    const int level = index <= 0 ? -1 : index;
     QTextCursor cursor = m_editor->textCursor();
+
+    cursor.beginEditBlock();
     QTextBlockFormat blockFmt = cursor.blockFormat();
-    if (index == 0) blockFmt.setHeadingLevel(-1);
-    else blockFmt.setHeadingLevel(index);
+    blockFmt.setHeadingLevel(level);
     cursor.mergeBlockFormat(blockFmt);
+
+    // Word-like visual feedback: heading sizes/bold applied over the whole
+    // block(s), so the outline and the canvas agree with what the user sees.
+    QTextCursor full = cursor;
+    full.setPosition(cursor.selectionStart());
+    full.movePosition(QTextCursor::StartOfBlock);
+    if (cursor.hasSelection()) {
+        full.setPosition(cursor.selectionEnd());
+        full.movePosition(QTextCursor::EndOfBlock);
+    } else {
+        full.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    }
+    QTextCharFormat charFmt;
+    if (level > 0) {
+        static const int sizes[] = {24, 20, 17, 15, 14, 13};
+        charFmt.setFontPointSize(sizes[level - 1]);
+        charFmt.setFontWeight(level <= 3 ? QFont::Bold : QFont::Normal);
+    } else {
+        charFmt.setFontPointSize(14);
+        charFmt.setFontWeight(QFont::Normal);
+    }
+    full.mergeCharFormat(charFmt);
+    cursor.endEditBlock();
 }
 
 void NoteWidget::fontChanged(const QFont &font)
@@ -1154,8 +1498,686 @@ void NoteWidget::clearFormat()
     QTextBlockFormat blockFmt;
     blockFmt.setHeadingLevel(-1);
     blockFmt.setLeftMargin(0);
+    blockFmt.setTextIndent(0);
+    blockFmt.setLineHeight(100, QTextBlockFormat::SingleHeight);
     blockFmt.setBackground(Qt::transparent);
     cursor.mergeBlockFormat(blockFmt);
+}
+
+// ========== Word-style: character formatting ==========
+
+void NoteWidget::textSuperScript()
+{
+    QTextCharFormat fmt;
+    fmt.setVerticalAlignment(m_actionSuper->isChecked() ? QTextCharFormat::AlignSuperScript
+                                                        : QTextCharFormat::AlignNormal);
+    if (m_actionSuper->isChecked()) m_actionSub->setChecked(false);
+    mergeFormatOnSelection(fmt);
+}
+
+void NoteWidget::textSubScript()
+{
+    QTextCharFormat fmt;
+    fmt.setVerticalAlignment(m_actionSub->isChecked() ? QTextCharFormat::AlignSubScript
+                                                      : QTextCharFormat::AlignNormal);
+    if (m_actionSub->isChecked()) m_actionSuper->setChecked(false);
+    mergeFormatOnSelection(fmt);
+}
+
+void NoteWidget::applyHighlightColor(const QColor &color)
+{
+    QTextCharFormat fmt;
+    fmt.setBackground(color);
+    mergeFormatOnSelection(fmt);
+}
+
+void NoteWidget::clearHighlight()
+{
+    QTextCharFormat fmt;
+    fmt.setBackground(Qt::transparent);
+    mergeFormatOnSelection(fmt);
+}
+
+void NoteWidget::insertInlineCode()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    if (!cursor.hasSelection()) cursor.select(QTextCursor::WordUnderCursor);
+    const QString text = cursor.selectedText();
+    if (text.isEmpty()) return;
+    QTextCharFormat fmt;
+    fmt.setFontFamilies({"Consolas"});
+    fmt.setBackground(QColor(238, 238, 238));
+    fmt.setForeground(QColor(0xC7, 0x25, 0x4E));
+    cursor.insertText(text, fmt);
+}
+
+// ========== Word-style: format painter ==========
+
+void NoteWidget::toggleFormatPainter()
+{
+    if (!m_actionFormatPainter->isChecked()) {
+        deactivateFormatPainter();
+        return;
+    }
+    // Capture the source format from the current selection (word under cursor
+    // when nothing is selected).
+    QTextCursor cursor = m_editor->textCursor();
+    if (!cursor.hasSelection()) cursor.select(QTextCursor::WordUnderCursor);
+    QTextCursor probe(m_editor->document());
+    const int probePos = qMin(cursor.selectionStart() + 1, m_editor->document()->characterCount() - 1);
+    probe.setPosition(qMax(0, probePos));
+    m_painterCharFmt = probe.charFormat();
+    m_painterBlockFmt = cursor.blockFormat();
+    m_painterSticky = false;
+    m_painterBtn->setToolTip("格式刷模式：选中文字即套用（Esc 退出）");
+}
+
+void NoteWidget::applyFormatPainter()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    if (!cursor.hasSelection()) return;
+    cursor.beginEditBlock();
+    QTextCharFormat cf = m_painterCharFmt;
+    cf.setAnchor(false);
+    cf.setAnchorHref(QString());
+    cursor.mergeCharFormat(cf);
+    cursor.mergeBlockFormat(m_painterBlockFmt);
+    cursor.endEditBlock();
+    if (!m_painterSticky)
+        deactivateFormatPainter();
+}
+
+void NoteWidget::deactivateFormatPainter()
+{
+    m_painterSticky = false;
+    m_actionFormatPainter->setChecked(false);
+    m_painterBtn->setChecked(false);
+    m_painterBtn->setToolTip("格式刷：单击刷一次，双击连续刷（Esc 退出）");
+}
+
+// ========== Word-style: paragraph formatting ==========
+
+void NoteWidget::applyBlockFormatOnSelection(const std::function<void(QTextBlockFormat &)> &mutator)
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextBlockFormat fmt = cursor.blockFormat();
+    mutator(fmt);
+    cursor.mergeBlockFormat(fmt);
+}
+
+void NoteWidget::indentIncrease()
+{
+    applyBlockFormatOnSelection([](QTextBlockFormat &fmt) {
+        fmt.setLeftMargin(fmt.leftMargin() + 36.0);
+    });
+}
+
+void NoteWidget::indentDecrease()
+{
+    applyBlockFormatOnSelection([](QTextBlockFormat &fmt) {
+        fmt.setLeftMargin(qMax<qreal>(0.0, fmt.leftMargin() - 36.0));
+    });
+}
+
+void NoteWidget::lineSpacingChanged(int index)
+{
+    static const qreal mults[] = {100.0, 115.0, 150.0, 200.0, 250.0, 300.0};
+    const qreal h = mults[qBound(0, index, 5)];
+    applyBlockFormatOnSelection([h](QTextBlockFormat &fmt) {
+        fmt.setLineHeight(h, QTextBlockFormat::ProportionalHeight);
+    });
+}
+
+void NoteWidget::toggleFirstLineIndent()
+{
+    const bool on = m_actionFirstLineIndent->isChecked();
+    applyBlockFormatOnSelection([this, on](QTextBlockFormat &fmt) {
+        if (on) {
+            // 首行缩进 2 个汉字宽（Word 中文排版习惯）
+            const qreal charW = QFontMetricsF(m_editor->font()).horizontalAdvance(QChar(0x6C49));
+            fmt.setTextIndent(charW * 2.0);
+        } else {
+            fmt.setTextIndent(0.0);
+        }
+    });
+}
+
+// ========== Task list (☐/☑ in-text markers; QTextBlockFormat::marker is
+// lost by QTextDocument::toHtml, so text markers are the durable choice) ====
+
+QChar NoteWidget::taskMarkerChar(bool checked)
+{
+    return checked ? QChar(0x2611) : QChar(0x2610);
+}
+
+bool NoteWidget::isTaskMarkerChar(QChar c)
+{
+    return c == QChar(0x2610) || c == QChar(0x2611);
+}
+
+void NoteWidget::insertTaskList()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    // Capture the covered block range before createList(): it may not keep
+    // the selection, and every covered block needs its ☐ marker.
+    const int from = cursor.selectionStart();
+    const int to = cursor.hasSelection() ? cursor.selectionEnd() - 1 : from;
+    cursor.beginEditBlock();
+    QTextListFormat listFmt; // ListStyleUndefined → indent without bullets
+    listFmt.setIndent(1);
+    cursor.createList(listFmt);
+
+    QTextBlock b = m_editor->document()->findBlock(from);
+    QTextBlock end = m_editor->document()->findBlock(qMax(from, to));
+    for (; b.isValid(); b = b.next()) {
+        if (!b.text().isEmpty() && isTaskMarkerChar(b.text().at(0))) {
+            if (b == end) break;
+            continue;
+        }
+        QTextCursor c(b);
+        c.insertText(QString(taskMarkerChar(false)) + " ");
+        if (b == end) break;
+    }
+    cursor.endEditBlock();
+}
+
+void NoteWidget::toggleTaskMarker(int blockNumber)
+{
+    QTextBlock b = m_editor->document()->findBlockByNumber(blockNumber);
+    if (!b.isValid() || b.text().isEmpty() || !isTaskMarkerChar(b.text().at(0))) return;
+    const int pos = b.position();
+    QTextCursor c(m_editor->document());
+    c.setPosition(pos);
+    c.setPosition(pos + 1, QTextCursor::KeepAnchor);
+    c.insertText(QString(taskMarkerChar(b.text().at(0) == QChar(0x2610))));
+}
+
+// ========== Tables ==========
+
+QTextTable *NoteWidget::currentTable() const
+{
+    return m_editor->textCursor().currentTable();
+}
+
+void NoteWidget::insertTableDialog()
+{
+    QDialog dlg(this);
+    dlg.setWindowTitle("插入表格");
+    QFormLayout *form = new QFormLayout(&dlg);
+    QSpinBox *rows = new QSpinBox;
+    rows->setRange(1, 50);
+    rows->setValue(3);
+    QSpinBox *cols = new QSpinBox;
+    cols->setRange(1, 20);
+    cols->setValue(3);
+    QCheckBox *header = new QCheckBox("包含表头行");
+    header->setChecked(true);
+    form->addRow("行数", rows);
+    form->addRow("列数", cols);
+    form->addRow(QString(), header);
+    QDialogButtonBox *btns = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(btns, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(btns, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    form->addRow(btns);
+    if (dlg.exec() != QDialog::Accepted) return;
+    insertTableWithParams(rows->value(), cols->value(), header->isChecked());
+}
+
+void NoteWidget::insertTableWithParams(int rows, int cols, bool headerRow)
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextTableFormat fmt;
+    fmt.setBorder(1);
+    fmt.setBorderStyle(QTextFrameFormat::BorderStyle_Solid);
+    fmt.setBorderBrush(QColor(0xD1, 0xD5, 0xDB));
+    fmt.setCellPadding(6);
+    fmt.setCellSpacing(0);
+    fmt.setBorderCollapse(true);
+    fmt.setAlignment(Qt::AlignLeft);
+    if (headerRow) fmt.setHeaderRowCount(1);
+    QTextTable *table = cursor.insertTable(qMax(1, rows), qMax(1, cols), fmt);
+    if (table && headerRow) styleTableRow(table, 0, true);
+    m_editor->setTextCursor(cursor); // move into the first cell (Word behavior)
+}
+
+void NoteWidget::styleTableRow(QTextTable *table, int row, bool headerStyle)
+{
+    if (!table) return;
+    for (int cIdx = 0; cIdx < table->columns(); ++cIdx) {
+        QTextTableCell cell = table->cellAt(row, cIdx);
+        if (!cell.isValid()) continue;
+        QTextCursor cellCur = cell.firstCursorPosition();
+        QTextBlockFormat bf = cellCur.blockFormat();
+        bf.setBackground(headerStyle ? QColor(0xF3, 0xF4, 0xF6) : Qt::transparent);
+        cellCur.setBlockFormat(bf);
+        QTextCharFormat cf;
+        cf.setFontWeight(headerStyle ? QFont::Bold : QFont::Normal);
+        // Style existing content and text typed later alike.
+        const QTextBlock cellBlock = cell.firstCursorPosition().block();
+        const int endPos = qMax(cell.firstPosition() + 1,
+                                cellBlock.position() + cellBlock.length() - 1);
+        cellCur.setPosition(endPos, QTextCursor::KeepAnchor);
+        cellCur.mergeCharFormat(cf);
+        cellCur.setPosition(cell.firstPosition());
+        cellCur.setCharFormat(cf);
+    }
+}
+
+void NoteWidget::tableInsertRowAbove()
+{
+    if (QTextTable *t = currentTable())
+        t->insertRows(t->cellAt(m_editor->textCursor()).row(), 1);
+}
+
+void NoteWidget::tableInsertRowBelow()
+{
+    if (QTextTable *t = currentTable())
+        t->insertRows(t->cellAt(m_editor->textCursor()).row() + 1, 1);
+}
+
+void NoteWidget::tableInsertColumnLeft()
+{
+    if (QTextTable *t = currentTable())
+        t->insertColumns(t->cellAt(m_editor->textCursor()).column(), 1);
+}
+
+void NoteWidget::tableInsertColumnRight()
+{
+    if (QTextTable *t = currentTable())
+        t->insertColumns(t->cellAt(m_editor->textCursor()).column() + 1, 1);
+}
+
+void NoteWidget::tableDeleteRow()
+{
+    if (QTextTable *t = currentTable()) {
+        if (t->rows() <= 1) { QMessageBox::information(this, "提示", "表格至少需要保留一行"); return; }
+        t->removeRows(t->cellAt(m_editor->textCursor()).row(), 1);
+    }
+}
+
+void NoteWidget::tableDeleteColumn()
+{
+    if (QTextTable *t = currentTable()) {
+        if (t->columns() <= 1) { QMessageBox::information(this, "提示", "表格至少需要保留一列"); return; }
+        t->removeColumns(t->cellAt(m_editor->textCursor()).column(), 1);
+    }
+}
+
+void NoteWidget::tableMergeCells()
+{
+    if (QTextTable *t = currentTable())
+        t->mergeCells(m_editor->textCursor());
+}
+
+void NoteWidget::tableSplitCell()
+{
+    if (QTextTable *t = currentTable()) {
+        const QTextTableCell cell = t->cellAt(m_editor->textCursor());
+        if (cell.isValid())
+            t->splitCell(cell.row(), cell.column(), 1, 2);
+    }
+}
+
+void NoteWidget::tableToggleHeaderShading()
+{
+    if (QTextTable *t = currentTable()) {
+        const QTextTableCell cell = t->cellAt(0, 0);
+        if (!cell.isValid()) return;
+        const QBrush bg = cell.firstCursorPosition().blockFormat().background();
+        const bool shaded = bg.style() != Qt::NoBrush && bg.color().alpha() > 0;
+        styleTableRow(t, 0, !shaded);
+    }
+}
+
+void NoteWidget::showEditorContextMenu(const QPoint &pos)
+{
+    QMenu menu(this);
+    menu.setStyleSheet(kDarkMenuSS);
+    if (currentTable()) {
+        menu.addAction("上方插入行", this, &NoteWidget::tableInsertRowAbove);
+        menu.addAction("下方插入行", this, &NoteWidget::tableInsertRowBelow);
+        menu.addAction("左侧插入列", this, &NoteWidget::tableInsertColumnLeft);
+        menu.addAction("右侧插入列", this, &NoteWidget::tableInsertColumnRight);
+        menu.addSeparator();
+        menu.addAction("删除行", this, &NoteWidget::tableDeleteRow);
+        menu.addAction("删除列", this, &NoteWidget::tableDeleteColumn);
+        menu.addSeparator();
+        menu.addAction("合并单元格", this, &NoteWidget::tableMergeCells);
+        menu.addAction("拆分单元格", this, &NoteWidget::tableSplitCell);
+        menu.addAction("表头底纹 开/关", this, &NoteWidget::tableToggleHeaderShading);
+        menu.addSeparator();
+    }
+    menu.addAction("撤销", m_editor, &QTextEdit::undo);
+    menu.addAction("重做", m_editor, &QTextEdit::redo);
+    menu.addSeparator();
+    menu.addAction("剪切", m_editor, &QTextEdit::cut);
+    menu.addAction("复制", m_editor, &QTextEdit::copy);
+    menu.addAction("粘贴", m_editor, &QTextEdit::paste);
+    menu.addAction("全选", m_editor, &QTextEdit::selectAll);
+    menu.addSeparator();
+    menu.addAction("插入图片", this, &NoteWidget::insertImage);
+    menu.addAction("插入表格", this, &NoteWidget::insertTableDialog);
+    menu.addAction("查找/替换", this, [this]() { openFindBar(false); });
+    menu.exec(m_editor->viewport()->mapToGlobal(pos));
+}
+
+// ========== Insert date & time ==========
+
+void NoteWidget::insertDateTime(int formatId)
+{
+    const QDateTime now = QDateTime::currentDateTime();
+    const QDate d = now.date();
+    const QTime t = now.time();
+    static const QLocale cn(QLocale::Chinese, QLocale::China);
+    QString text;
+    switch (formatId) {
+    case 1: text = QString("%1年%2月%3日").arg(d.year()).arg(d.month()).arg(d.day()); break;
+    case 2: text = t.toString("HH:mm"); break;
+    case 3: text = now.toString("yyyy-MM-dd HH:mm:ss"); break;
+    case 4: text = cn.toString(d, "dddd"); break;
+    default: text = d.toString("yyyy-MM-dd"); break;
+    }
+    m_editor->textCursor().insertText(text);
+}
+
+// ========== PDF export ==========
+
+bool NoteWidget::exportPdfTo(const QString &path)
+{
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setOutputFileName(path);
+    m_editor->document()->print(&printer);
+    return QFileInfo(path).exists() && QFileInfo(path).size() > 0;
+}
+
+void NoteWidget::exportPdfDialog()
+{
+    saveCurrentNote();
+    auto it = std::find_if(m_notes.begin(), m_notes.end(), [this](const NoteData &n) { return n.id == m_currentNoteId; });
+    if (it == m_notes.end()) { QMessageBox::information(this, "提示", "请先打开一篇笔记"); return; }
+    const QString title = it->title.isEmpty() ? "无标题笔记" : it->title;
+    const QString fileName = QFileDialog::getSaveFileName(this, "导出 PDF", title + ".pdf", "PDF (*.pdf)");
+    if (fileName.isEmpty()) return;
+    if (exportPdfTo(fileName))
+        QMessageBox::information(this, "导出完成", QString("已导出到：\n%1").arg(fileName));
+    else
+        QMessageBox::warning(this, "导出失败", "无法生成 PDF 文件：" + fileName);
+}
+
+// ========== Find & replace ==========
+
+void NoteWidget::setupFindBar()
+{
+    m_findBar = new QWidget;
+    m_findBar->setObjectName("noteFindBar");
+    m_findBar->setStyleSheet(
+        "QWidget#noteFindBar { background: #16202d; border-bottom: 1px solid #2a475e; }"
+        "QWidget#noteFindBar QLabel { color: #c7d5e0; background: transparent; font-size: 12px; }"
+        "QWidget#noteFindBar QLineEdit { background: #0f1720; color: #e6eef5; border: 1px solid #2a475e; border-radius: 4px; padding: 4px 8px; font-size: 13px; }"
+        "QWidget#noteFindBar QLineEdit:focus { border-color: #66c0f4; }"
+        "QWidget#noteFindBar QCheckBox { color: #c7d5e0; font-size: 12px; background: transparent; }"
+        "QWidget#noteFindBar QToolButton { background: rgba(255,255,255,0.06); color: #c7d5e0; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; padding: 4px 10px; font-size: 12px; }"
+        "QWidget#noteFindBar QToolButton:hover { background: rgba(42,71,94,0.8); color: #fff; }");
+    QVBoxLayout *v = new QVBoxLayout(m_findBar);
+    v->setContentsMargins(12, 6, 12, 6);
+    v->setSpacing(4);
+
+    QHBoxLayout *row1 = new QHBoxLayout;
+    row1->setSpacing(6);
+    row1->addWidget(new QLabel("查找"));
+    m_findEdit = new QLineEdit;
+    m_findEdit->setObjectName("noteFindEdit");
+    m_findEdit->setPlaceholderText("输入查找内容（Enter 下一个，Shift+Enter 上一个）");
+    connect(m_findEdit, &QLineEdit::textChanged, this, &NoteWidget::onFindQueryChanged);
+    connect(m_findEdit, &QLineEdit::returnPressed, this, &NoteWidget::findNext);
+    row1->addWidget(m_findEdit, 1);
+    m_findCountLabel = new QLabel("0/0");
+    row1->addWidget(m_findCountLabel);
+    auto mkBtn = [](const QString &txt, const QString &tip) {
+        QToolButton *b = new QToolButton;
+        b->setText(txt);
+        b->setToolTip(tip);
+        return b;
+    };
+    QToolButton *prevBtn = mkBtn("上一个", "上一个匹配（Shift+Enter）");
+    connect(prevBtn, &QToolButton::clicked, this, &NoteWidget::findPrev);
+    QToolButton *nextBtn = mkBtn("下一个", "下一个匹配（Enter）");
+    connect(nextBtn, &QToolButton::clicked, this, &NoteWidget::findNext);
+    QToolButton *closeBtn = mkBtn("✕", "关闭（Esc）");
+    connect(closeBtn, &QToolButton::clicked, this, &NoteWidget::closeFindBar);
+    row1->addWidget(prevBtn);
+    row1->addWidget(nextBtn);
+    row1->addWidget(closeBtn);
+    v->addLayout(row1);
+
+    QHBoxLayout *row2 = new QHBoxLayout;
+    row2->setSpacing(6);
+    row2->addWidget(new QLabel("替换"));
+    m_replaceEdit = new QLineEdit;
+    m_replaceEdit->setObjectName("noteReplaceEdit");
+    m_replaceEdit->setPlaceholderText("替换为");
+    row2->addWidget(m_replaceEdit, 1);
+    m_findCaseCheck = new QCheckBox("区分大小写");
+    connect(m_findCaseCheck, &QCheckBox::toggled, this, [this](bool) { recomputeFindMatches(); });
+    row2->addWidget(m_findCaseCheck);
+    QToolButton *repBtn = mkBtn("替换", "替换当前匹配");
+    connect(repBtn, &QToolButton::clicked, this, &NoteWidget::findReplaceOne);
+    QToolButton *repAllBtn = mkBtn("全部替换", "替换全部匹配");
+    connect(repAllBtn, &QToolButton::clicked, this, &NoteWidget::findReplaceAll);
+    row2->addWidget(repBtn);
+    row2->addWidget(repAllBtn);
+    v->addLayout(row2);
+
+    // Keep matches in sync while the bar is open and the document changes.
+    connect(m_editor->document(), &QTextDocument::contentsChange, this, [this](int, int, int) {
+        if (m_findBar && m_findBar->isVisible())
+            recomputeFindMatches();
+    });
+}
+
+void NoteWidget::openFindBar(bool withReplace)
+{
+    if (!m_findBar) return;
+    m_findBar->show();
+    if (withReplace && m_replaceEdit)
+        m_replaceEdit->setFocus();
+    else if (m_findEdit)
+        m_findEdit->setFocus();
+    recomputeFindMatches();
+}
+
+void NoteWidget::closeFindBar()
+{
+    if (m_findBar) m_findBar->hide();
+    m_findMatches.clear();
+    m_findIndex = -1;
+    m_editor->setExtraSelections({});
+    m_editor->setFocus();
+}
+
+void NoteWidget::recomputeFindMatches()
+{
+    m_findMatches.clear();
+    m_findIndex = -1;
+    const QString doc = m_editor->toPlainText();
+    const QString needle = m_findEdit ? m_findEdit->text() : QString();
+    if (!needle.isEmpty() && m_findCaseCheck) {
+        const Qt::CaseSensitivity cs = m_findCaseCheck->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive;
+        int from = 0;
+        while (true) {
+            const int idx = doc.indexOf(needle, from, cs);
+            if (idx < 0) break;
+            m_findMatches.append({idx, needle.length()});
+            from = idx + needle.length();
+        }
+    }
+    updateFindHighlights();
+    if (m_findCountLabel)
+        m_findCountLabel->setText(m_findMatches.isEmpty() ? "0/0"
+                                : QString("%1/%2").arg(m_findIndex + 1).arg(m_findMatches.size()));
+}
+
+void NoteWidget::updateFindHighlights()
+{
+    QList<QTextEdit::ExtraSelection> sels;
+    const QColor allMatch(255, 236, 100, 140);
+    for (int i = 0; i < m_findMatches.size(); ++i) {
+        QTextEdit::ExtraSelection es;
+        es.cursor = QTextCursor(m_editor->document());
+        es.cursor.setPosition(m_findMatches[i].first);
+        es.cursor.setPosition(m_findMatches[i].first + m_findMatches[i].second, QTextCursor::KeepAnchor);
+        es.format.setBackground(i == m_findIndex ? QColor(255, 150, 40) : allMatch);
+        sels.append(es);
+    }
+    m_editor->setExtraSelections(sels);
+    if (m_findIndex >= 0 && m_findIndex < m_findMatches.size()) {
+        QTextCursor c(m_editor->document());
+        c.setPosition(m_findMatches[m_findIndex].first);
+        c.setPosition(m_findMatches[m_findIndex].first + m_findMatches[m_findIndex].second, QTextCursor::KeepAnchor);
+        m_editor->setTextCursor(c);
+    }
+    if (m_findCountLabel)
+        m_findCountLabel->setText(m_findMatches.isEmpty() ? "0/0"
+                                : QString("%1/%2").arg(m_findIndex + 1).arg(m_findMatches.size()));
+}
+
+void NoteWidget::findNext()
+{
+    if (m_findMatches.isEmpty()) {
+        recomputeFindMatches();
+        if (m_findMatches.isEmpty()) return;
+    }
+    m_findIndex = (m_findIndex + 1) % m_findMatches.size();
+    updateFindHighlights();
+}
+
+void NoteWidget::findPrev()
+{
+    if (m_findMatches.isEmpty()) {
+        recomputeFindMatches();
+        if (m_findMatches.isEmpty()) return;
+    }
+    m_findIndex = (m_findIndex - 1 + m_findMatches.size()) % m_findMatches.size();
+    updateFindHighlights();
+}
+
+void NoteWidget::findReplaceOne()
+{
+    if (m_findIndex < 0 || m_findIndex >= m_findMatches.size()) {
+        findNext();
+        if (m_findIndex < 0 || m_findIndex >= m_findMatches.size()) return;
+    }
+    const auto match = m_findMatches[m_findIndex];
+    QTextCursor c(m_editor->document());
+    c.setPosition(match.first);
+    c.setPosition(match.first + match.second, QTextCursor::KeepAnchor);
+    c.insertText(m_replaceEdit->text());
+    recomputeFindMatches();
+}
+
+void NoteWidget::findReplaceAll()
+{
+    const QString needle = m_findEdit->text();
+    if (needle.isEmpty() || m_findMatches.isEmpty()) return;
+    const QString rep = m_replaceEdit->text();
+    QTextCursor c(m_editor->document());
+    c.beginEditBlock();
+    // Back-to-front so earlier positions stay valid while replacing.
+    for (int i = m_findMatches.size() - 1; i >= 0; --i) {
+        c.setPosition(m_findMatches[i].first);
+        c.setPosition(m_findMatches[i].first + m_findMatches[i].second, QTextCursor::KeepAnchor);
+        c.insertText(rep);
+    }
+    c.endEditBlock();
+    recomputeFindMatches();
+}
+
+void NoteWidget::onFindQueryChanged()
+{
+    recomputeFindMatches();
+}
+
+// ========== Wiki links ([[...]], Logseq-style) ==========
+
+void NoteWidget::insertWikiLinkDialog()
+{
+    bool ok = false;
+    const QString title = QInputDialog::getText(this, "插入双链", "目标笔记标题：", QLineEdit::Normal, QString(), &ok);
+    if (!ok || title.trimmed().isEmpty()) return;
+    const QString t = title.trimmed();
+    QTextCursor cursor = m_editor->textCursor();
+    QTextCharFormat fmt;
+    fmt.setAnchor(true);
+    fmt.setAnchorHref("wikilink://" + t);
+    fmt.setForeground(QColor(0x2F, 0xA6, 0x6A));
+    fmt.setFontUnderline(true);
+    cursor.insertText("[[" + t + "]]", fmt);
+}
+
+// ========== Editor mouse / keyboard interception ==========
+
+bool NoteWidget::handleEditorMousePress(const QPointF &pos)
+{
+    const QPoint p = pos.toPoint();
+    const Qt::KeyboardModifiers mods = QApplication::keyboardModifiers();
+
+    // Ctrl+click on a [[wiki-link]] opens (or creates) the target note.
+    if (mods & Qt::ControlModifier) {
+        const QTextCursor cur = m_editor->cursorForPosition(p);
+        const QString href = cur.charFormat().anchorHref();
+        if (href.startsWith("wikilink://")) {
+            openOrCreateByTitle(href.mid(11));
+            return true;
+        }
+        return false;
+    }
+
+    // Click on a task-list checkbox toggles it.
+    const QTextCursor cur = m_editor->cursorForPosition(p);
+    const QTextBlock b = cur.block();
+    if (!b.isValid() || b.text().isEmpty() || !isTaskMarkerChar(b.text().at(0)))
+        return false;
+    const int bp = b.position();
+    QTextCursor cL(m_editor->document());
+    cL.setPosition(bp);
+    QTextCursor cR(m_editor->document());
+    cR.setPosition(bp + 1);
+    const QRect rl = m_editor->cursorRect(cL);
+    const QRect rr = m_editor->cursorRect(cR);
+    const QRect area(qMin(rl.left(), rr.left()) - 4, rl.top(),
+                     qAbs(rr.left() - rl.left()) + 10, rl.height());
+    if (area.contains(p)) {
+        toggleTaskMarker(b.blockNumber());
+        return true;
+    }
+    return false;
+}
+
+bool NoteWidget::handleEditorKeyPress(QKeyEvent *event)
+{
+    const int key = event->key();
+    const int mods = event->modifiers();
+
+    if (key == Qt::Key_Escape) {
+        if (m_findBar && m_findBar->isVisible()) {
+            closeFindBar();
+            return true;
+        }
+        if (m_painterSticky || m_actionFormatPainter->isChecked()) {
+            deactivateFormatPainter();
+            return true;
+        }
+    }
+    // Ctrl+Enter toggles the checkbox of the current task item.
+    if ((key == Qt::Key_Return || key == Qt::Key_Enter) && (mods & Qt::ControlModifier)) {
+        const QTextBlock b = m_editor->textCursor().block();
+        if (b.isValid() && !b.text().isEmpty() && isTaskMarkerChar(b.text().at(0))) {
+            toggleTaskMarker(b.blockNumber());
+            return true;
+        }
+    }
+    return false;
 }
 
 // ========== Data persistence ==========
@@ -1211,8 +2233,6 @@ void NoteWidget::saveNotes()
 {
     QDir().mkpath(m_libraryRoot);
     QString path = m_libraryRoot + "/notes.json";
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly)) return;
     QJsonArray arr;
     for (const NoteData &note : m_notes) {
         QJsonObject obj;
@@ -1230,8 +2250,11 @@ void NoteWidget::saveNotes()
     QJsonArray foldersArr;
     for (const QString &f : m_folders) foldersArr.append(f);
     root["folders"] = foldersArr;
+    // Atomic write (temp file + rename) so a crash can't truncate notes.json.
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return;
     file.write(QJsonDocument(root).toJson());
-    file.close();
+    file.commit();
 }
 
 void NoteWidget::saveCurrentNote()
@@ -1420,6 +2443,44 @@ void NoteWidget::hideSidebar()
 
 bool NoteWidget::eventFilter(QObject *obj, QEvent *event)
 {
+    // Format painter double-click → sticky (continuous) mode
+    if (obj == m_painterBtn && event->type() == QEvent::MouseButtonDblClick) {
+        m_painterSticky = true;
+        m_actionFormatPainter->setChecked(true);
+        QTextCursor cursor = m_editor->textCursor();
+        if (!cursor.hasSelection()) cursor.select(QTextCursor::WordUnderCursor);
+        QTextCursor probe(m_editor->document());
+        const int probePos = qMin(cursor.selectionStart() + 1, m_editor->document()->characterCount() - 1);
+        probe.setPosition(qMax(0, probePos));
+        m_painterCharFmt = probe.charFormat();
+        m_painterBlockFmt = cursor.blockFormat();
+        m_painterBtn->setToolTip("连续格式刷：选中文字即套用（Esc 退出）");
+        return true;
+    }
+
+    // Ctrl+F inside the editor opens the find bar instead of canvas fit
+    if (obj == m_editor && event->type() == QEvent::ShortcutOverride) {
+        QKeyEvent *ke = static_cast<QKeyEvent*>(event);
+        if (ke->key() == Qt::Key_F && ke->modifiers() == Qt::ControlModifier) {
+            ke->accept();
+            return true;
+        }
+    }
+    if (obj == m_editor && event->type() == QEvent::KeyPress) {
+        QKeyEvent *ke = static_cast<QKeyEvent*>(event);
+        if (ke->key() == Qt::Key_F && ke->modifiers() == Qt::ControlModifier) {
+            openFindBar(false);
+            return true;
+        }
+        if (handleEditorKeyPress(ke)) return true;
+    }
+
+    // Task checkbox clicks & ctrl-clicked wiki links
+    if (obj == m_editor->viewport() && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *me = static_cast<QMouseEvent*>(event);
+        if (handleEditorMousePress(me->position())) return true;
+    }
+
     // Card click detection
     if (event->type() == QEvent::MouseButtonPress) {
         QWidget *w = qobject_cast<QWidget*>(obj);

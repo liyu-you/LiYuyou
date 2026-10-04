@@ -8,7 +8,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Concurrent: off-thread decoding for the import path (see imageio.h).
-find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Network OpenGL OpenGLWidgets Concurrent Sql)
+# PrintSupport: PDF export from the notes editor (QPrinter).
+find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Network OpenGL OpenGLWidgets Concurrent Sql PrintSupport)
 
 qt_add_executable(PureRefCanvas
     main.cpp
@@ -47,15 +48,19 @@ qt_add_executable(PureRefCanvas
 
 target_compile_definitions(PureRefCanvas PRIVATE APP_VERSION="${PROJECT_VERSION}")
 
-target_link_libraries(PureRefCanvas PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::Sql)
+target_link_libraries(PureRefCanvas PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::Sql Qt6::PrintSupport)
 
 if(WIN32)
     # dwmapi: acrylic blur / rounded corners. crypt32: DPAPI, used to protect the
     # password saved by "记住密码" with the current Windows user account.
     # winmm/ole32: miniaudio WASAPI backend.
     target_link_libraries(PureRefCanvas PRIVATE dwmapi crypt32 winmm ole32)
+    # OUTPUT_NAME must stay ASCII: CMake writes build.ninja in the ANSI codepage
+    # while ninja reads it as UTF-8, so a non-ASCII target name breaks the
+    # MANIFESTS check ("...manifest missing"). package.ps1 deploys the exe as
+    # 里与由.exe, which keeps the shipped product name unchanged.
     set_target_properties(PureRefCanvas PROPERTIES
         WIN32_EXECUTABLE TRUE
-        OUTPUT_NAME "里与由"
+        OUTPUT_NAME "LiyuYou"
     )
 endif()

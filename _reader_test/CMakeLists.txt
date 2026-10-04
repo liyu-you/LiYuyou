@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Network OpenGL OpenGLWidgets Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Network OpenGL OpenGLWidgets Concurrent PrintSupport Sql)
 
 set(SRC "C:/Users/LiyuYou/Desktop/Q/PureRefCanvas")
 
@@ -36,10 +36,14 @@ qt_add_executable(mw_probe
     ${SRC}/settingsdialog.h ${SRC}/settingsdialog.cpp
     ${SRC}/annotationitems.h ${SRC}/annotationitems.cpp
     ${SRC}/updatechecker.h ${SRC}/updatechecker.cpp
+    ${SRC}/gaplessengine.h ${SRC}/gaplessengine.cpp
+    ${SRC}/maengine.h ${SRC}/maengine.cpp
+    ${SRC}/musiclibrarydb.h ${SRC}/musiclibrarydb.cpp
+    ${SRC}/cueparser.h ${SRC}/cueparser.cpp
     ${SRC}/resources.qrc
 )
 target_include_directories(mw_probe PRIVATE ${SRC})
-target_link_libraries(mw_probe PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)
+target_link_libraries(mw_probe PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::PrintSupport Qt6::Sql dwmapi crypt32)
 
 # Regression test: constructing ReaderWidget must not crash in eventFilter()
 # when setProperty() delivers DynamicPropertyChange while m_readingView is null.
@@ -80,7 +84,11 @@ qt_add_executable(shelf_shot
     ${SRC}/settingsdialog.h ${SRC}/settingsdialog.cpp
     ${SRC}/annotationitems.h ${SRC}/annotationitems.cpp
     ${SRC}/updatechecker.h ${SRC}/updatechecker.cpp
+    ${SRC}/gaplessengine.h ${SRC}/gaplessengine.cpp
+    ${SRC}/maengine.h ${SRC}/maengine.cpp
+    ${SRC}/musiclibrarydb.h ${SRC}/musiclibrarydb.cpp
+    ${SRC}/cueparser.h ${SRC}/cueparser.cpp
     ${SRC}/resources.qrc
 )
 target_include_directories(shelf_shot PRIVATE ${SRC})
-target_link_libraries(shelf_shot PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)
+target_link_libraries(shelf_shot PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::PrintSupport Qt6::Sql dwmapi crypt32)

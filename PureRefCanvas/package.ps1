@@ -34,6 +34,11 @@ param(
     # 可执行文件基础名（CMakeLists.txt 里 WIN32 下 OUTPUT_NAME 的值）
     [string]$AppName  = "里与由",
 
+    # 构建产物的基础名（ASCII）。构建必须用 ASCII 名：CMake 以 ANSI 码页写
+    # build.ninja 而 ninja 按 UTF-8 读，非 ASCII 目标名会让 ninja 报
+    # "manifest missing"。部署时仍会拷贝/命名为 $AppName（里与由.exe）。
+    [string]$BuildName = "LiyuYou",
+
     # 产物根目录。默认放在项目上一级：<父目录>\release\<应用名> 与 <父目录>\<应用名>_v<版本>_portable.zip
     [string]$OutputRoot,
 
@@ -108,7 +113,7 @@ $env:PATH = "$CMakeBin;$NinjaDir;$MinGWBin;$(Join-Path $QtDir 'bin');$env:PATH"
 
 # ---------------------------------------------------------------- 1. 构建
 $exeName = "$AppName.exe"
-$builtExe = Join-Path $buildDir $exeName
+$builtExe = Join-Path $buildDir "$BuildName.exe"
 
 if (-not $SkipBuild) {
     Write-Step "配置 (cmake)"
@@ -132,7 +137,7 @@ if (-not (Test-Path $builtExe)) {
     $candidates = @(Get-ChildItem -LiteralPath $buildDir -Filter "*.exe" -File -ErrorAction SilentlyContinue |
                     Where-Object { $_.Name -notmatch '^(a|cmake|CMake)' } |
                     Select-Object -ExpandProperty Name)
-    Fail "构建产物不存在：$builtExe`n构建目录里的 exe 有：$($candidates -join ', ')`n如果 OUTPUT_NAME 改过，请用 -AppName 指定。"
+    Fail "构建产物不存在：$builtExe`n构建目录里的 exe 有：$($candidates -join ', ')`n如果 OUTPUT_NAME 改过，请用 -BuildName 指定。"
 }
 
 $built = Get-Item -LiteralPath $builtExe
