@@ -132,6 +132,8 @@ private:
     QString m_libraryRoot;
     QList<SongInfo> m_allSongs;
     MusicLibraryDb *m_db = nullptr;
+    QString m_currentSongPath;
+    qint64 m_songPlayStartedAt = 0;
     QFileSystemWatcher *m_musicWatcher = nullptr;
     QTimer *m_musicScanTimer = nullptr;
     QList<PlaylistInfo> m_playlists;

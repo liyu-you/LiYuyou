@@ -134,7 +134,14 @@ MusicPlayerWidget::MusicPlayerWidget(const QString &libraryRoot, QWidget *parent
 
 MusicPlayerWidget::~MusicPlayerWidget()
 {
+    // Flush listen time for the currently-playing track on exit.
+    if (m_db && !m_currentSongPath.isEmpty()) {
+        const qint64 listenedMs = QDateTime::currentMSecsSinceEpoch() - m_songPlayStartedAt;
+        if (listenedMs > 3000)
+            m_db->bumpPlay(m_currentSongPath, listenedMs);
+    }
     saveLibrary();
+    if (m_db) { m_db->close(); delete m_db; m_db = nullptr; }
 }
 
 void MusicPlayerWidget::hideSidebar()
@@ -1658,6 +1665,7 @@ void MusicPlayerWidget::onSongMenu(const QPoint &pos)
     bool isFav = m_favorites.contains(path);
     menu.addAction(isFav ? "取消喜欢" : "添加到我喜欢", this, [this, path, isFav]() {
         if (isFav) m_favorites.removeAll(path); else m_favorites << path;
+        if (m_db) m_db->setFavorite(path, !isFav);
         saveLibrary();
         if (m_currentNav == "favorites") refreshSongTable();
         updateNowPlaying();
@@ -1790,6 +1798,14 @@ void MusicPlayerWidget::playSongAt(int index)
     }
     m_player->setSource(QUrl::fromLocalFile(song.path));
     m_player->play();
+    // Persist play stats for the song we're leaving (Mineradio-style).
+    if (!m_currentSongPath.isEmpty() && m_currentSongPath != song.path) {
+        const qint64 listenedMs = QDateTime::currentMSecsSinceEpoch() - m_songPlayStartedAt;
+        if (m_db && listenedMs > 3000)
+            m_db->bumpPlay(m_currentSongPath, listenedMs);
+    }
+    m_currentSongPath = song.path;
+    m_songPlayStartedAt = QDateTime::currentMSecsSinceEpoch();
     updateNowPlaying();
     updatePlayingRow();
     // Load lyrics deferred to avoid blocking playback start
@@ -2182,8 +2198,10 @@ void MusicPlayerWidget::toggleLike()
     QList<SongInfo> songs = currentSongList();
     if (m_currentIndex < 0 || m_currentIndex >= songs.size()) return;
     QString path = songs[m_currentIndex].path;
-    if (m_favorites.contains(path)) m_favorites.removeAll(path);
+    const bool wasFav = m_favorites.contains(path);
+    if (wasFav) m_favorites.removeAll(path);
     else m_favorites << path;
+    if (m_db) m_db->setFavorite(path, !wasFav);
     saveLibrary();
     updateNowPlaying();
     if (m_currentNav == "favorites") refreshSongTable();
