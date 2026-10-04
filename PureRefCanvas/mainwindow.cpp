@@ -699,8 +699,8 @@ void MainWindow::setupNavigation()
     QWidget *brandWidget = new QWidget;
     brandWidget->setStyleSheet("background: transparent;");
     QHBoxLayout *brandLayout = new QHBoxLayout(brandWidget);
-    brandLayout->setContentsMargins(0, 0, 12, 0);
-    brandLayout->setSpacing(8);
+    brandLayout->setContentsMargins(0, 0, 4, 0);
+    brandLayout->setSpacing(2);
     // ☰ 半隐藏菜单按钮（开启"菜单栏半隐藏"后才可见）
     m_menuHamburger = new QToolButton(brandWidget);
     m_menuHamburger->setText("☰");
