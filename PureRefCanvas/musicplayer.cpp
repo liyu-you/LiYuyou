@@ -291,7 +291,7 @@ void MusicPlayerWidget::setupUI()
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
-    mainLayout->addWidget(m_topBar);
+    // Top search bar removed per request; splitter (music shelf) + player bar only.
     mainLayout->addWidget(m_splitter, 1);
     mainLayout->addWidget(m_playerBar);
 }
