@@ -668,12 +668,14 @@ void MainWindow::setupNavigation()
     QToolBar *navToolBar = addToolBar("导航");
     m_navToolBar = navToolBar;
     navToolBar->setMovable(false);
-    navToolBar->setFixedHeight(44);
+    navToolBar->setFixedHeight(56);
     navToolBar->setStyleSheet(R"(
         QToolBar {
-            background: transparent;
+            background: #FFFFFF;
             border: none;
-            padding: 0px; spacing: 0px;
+            border-bottom: 1px solid #E5E7EB;
+            padding: 0px;
+            spacing: 0px;
         }
         QToolBar::separator { width: 0; }
     )");
@@ -683,8 +685,8 @@ void MainWindow::setupNavigation()
     navContainer->setStyleSheet("background: transparent;");
     navContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     QHBoxLayout *navLayout = new QHBoxLayout(navContainer);
-    navLayout->setContentsMargins(14, 4, 14, 4);
-    navLayout->setSpacing(4);
+    navLayout->setContentsMargins(16, 8, 16, 8);
+    navLayout->setSpacing(8);
 
     // ===== Brand / Logo area =====
     QWidget *brandWidget = new QWidget;
@@ -700,22 +702,21 @@ void MainWindow::setupNavigation()
     if (!iconPix.isNull()) {
         brandIcon->setPixmap(iconPix);
     } else {
-        brandIcon->setStyleSheet("background: #2a475e; border-radius: 6px;");
         brandIcon->setText("里");
         brandIcon->setAlignment(Qt::AlignCenter);
-        brandIcon->setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #66c0f4, stop:1 #2a475e); color: #fff; border-radius: 6px; font-size: 14px; font-weight: bold;");
+        brandIcon->setStyleSheet("background: #2FA66A; color: #FFFFFF; border-radius: 8px; font-size: 14px; font-weight: 500;");
     }
     brandLayout->addWidget(brandIcon);
     // Brand name
     QLabel *brandName = new QLabel("里与由");
-    brandName->setStyleSheet("color: #c7d5e0; font-size: 14px; font-weight: 700; letter-spacing: 1px;");
+    brandName->setStyleSheet("color: #1F2933; font-size: 14px; font-weight: 500; letter-spacing: 1px;");
     brandLayout->addWidget(brandName);
     navLayout->addWidget(brandWidget);
 
     // Separator after brand
     QFrame *brandSep = new QFrame;
     brandSep->setFixedWidth(1);
-    brandSep->setStyleSheet("background: #2a475e;");
+    brandSep->setStyleSheet("background: #E5E7EB;");
     brandSep->setContentsMargins(0, 4, 0, 4);
     navLayout->addWidget(brandSep);
     navLayout->addSpacing(8);
@@ -730,20 +731,20 @@ void MainWindow::setupNavigation()
         btn->setStyleSheet(R"(
             QPushButton {
                 background: transparent;
-                color: #8f98a0;
+                color: #6B7280;
                 border: none;
-                border-radius: 8px;
+                border-radius: 13px;
                 padding: 6px 16px;
                 font-size: 13px;
                 font-weight: 500;
             }
             QPushButton:hover {
-                background: rgba(42,71,94,0.6);
-                color: #c7d5e0;
+                background: #F3F4F6;
+                color: #111827;
             }
             QPushButton:pressed {
-                background: rgba(42,71,94,0.85);
-                color: #ffffff;
+                background: #E5E7EB;
+                color: #111827;
             }
         )");
         connect(btn, &QPushButton::clicked, this, [this, i]() { switchToPage(i); });
@@ -759,7 +760,7 @@ void MainWindow::setupNavigation()
     userBtn->setCursor(Qt::PointingHandCursor);
     userBtn->setStyleSheet(R"(
         QWidget { background: transparent; border-radius: 20px; }
-        QWidget:hover { background: rgba(102,192,244,0.12); }
+        QWidget:hover { background: #F3F4F6; }
     )");
     QHBoxLayout *userBtnLayout = new QHBoxLayout(userBtn);
     userBtnLayout->setContentsMargins(8, 3, 12, 3);
@@ -768,25 +769,25 @@ void MainWindow::setupNavigation()
     m_userAvatar = new QLabel;
     m_userAvatar->setFixedSize(30, 30);
     m_userAvatar->setScaledContents(true);
-    m_userAvatar->setStyleSheet("border-radius: 15px; border: 1px solid rgba(102,192,244,0.3);");
+    m_userAvatar->setStyleSheet("border-radius: 15px; border: 1px solid #2FA66A;");
     userBtnLayout->addWidget(m_userAvatar);
 
     m_userNickname = new QLabel;
-    m_userNickname->setStyleSheet("color: #c7d5e0; font-size: 13px; font-weight: 500;");
+    m_userNickname->setStyleSheet("color: #1F2933; font-size: 13px; font-weight: 500;");
     m_userNickname->setMinimumWidth(40);
     userBtnLayout->addWidget(m_userNickname);
 
     QLabel *arrow = new QLabel("▾");
-    arrow->setStyleSheet("color: #8f98a0; font-size: 10px;");
+    arrow->setStyleSheet("color: #6B7280; font-size: 10px;");
     userBtnLayout->addWidget(arrow);
 
     // User popup menu
     QMenu *userMenu = new QMenu(this);
     userMenu->setStyleSheet(R"(
-        QMenu { background: #16202d; border: 1px solid #2a475e; border-radius: 8px; padding: 6px; }
-        QMenu::item { color: #c7d5e0; padding: 8px 20px; border-radius: 5px; font-size: 13px; }
-        QMenu::item:hover { background: #2a475e; color: #66c0f4; }
-        QMenu::separator { height: 1px; background: #2a475e; margin: 4px 8px; }
+        QMenu { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; padding: 6px; }
+        QMenu::item { color: #1F2933; padding: 8px 20px; border-radius: 5px; font-size: 13px; }
+        QMenu::item:hover { background: #F3F4F6; color: #2FA66A; }
+        QMenu::separator { height: 1px; background: #E5E7EB; margin: 4px 8px; }
     )");
     QAction *accountAct = userMenu->addAction("账号信息");
     QAction *settingsAct = userMenu->addAction("偏好设置");
@@ -986,7 +987,17 @@ void MainWindow::switchToPage(int index)
     if (m_stack->currentIndex() == index) return;
 
     m_stack->setCurrentIndex(index);
-    if (m_contentBrowser) m_contentBrowser->setShowImages(index == 0);
+
+    // The reader has its own dedicated sidebar; hide the material browser
+    // (left panel) so the reading shelf gets the full width.
+    if (m_contentBrowser) {
+        m_contentBrowser->setShowImages(index == 0);
+        if (index == BookPage)
+            m_contentBrowser->hide();
+        else
+            m_contentBrowser->show();
+    }
+
     updateNavButtons();
     updateWindowTitle();
     updateStatusForPage();
@@ -1000,37 +1011,35 @@ void MainWindow::updateNavButtons()
         m_navButtons[i]->setProperty("selected", selected);
         m_navButtons[i]->setStyleSheet(selected ? R"(
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(102,192,244,0.25),
-                    stop:1 rgba(42,71,94,0.8));
-                color: #66c0f4;
-                border: 1px solid rgba(102,192,244,0.3);
-                border-radius: 8px;
+                background: #EAF3DE;
+                color: #27500A;
+                border: 1px solid #2FA66A;
+                border-radius: 13px;
                 padding: 6px 16px;
                 font-size: 13px;
-                font-weight: 600;
+                font-weight: 500;
             }
             QPushButton:pressed {
-                background: rgba(42,71,94,0.95);
-                color: #ffffff;
+                background: #C0DD97;
+                color: #27500A;
             }
         )" : R"(
             QPushButton {
                 background: transparent;
-                color: #8f98a0;
+                color: #6B7280;
                 border: 1px solid transparent;
-                border-radius: 8px;
+                border-radius: 13px;
                 padding: 6px 16px;
                 font-size: 13px;
                 font-weight: 500;
             }
             QPushButton:hover {
-                background: rgba(42,71,94,0.6);
-                color: #c7d5e0;
+                background: #F3F4F6;
+                color: #111827;
             }
             QPushButton:pressed {
-                background: rgba(42,71,94,0.85);
-                color: #ffffff;
+                background: #E5E7EB;
+                color: #111827;
             }
         )");
     }

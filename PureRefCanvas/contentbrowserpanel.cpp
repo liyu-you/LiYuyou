@@ -29,14 +29,14 @@ ContentBrowserPanel::ContentBrowserPanel(MaterialLibrary *sharedLib, QWidget *pa
 
     // Title with icon
     QWidget *titleWidget = new QWidget;
-    titleWidget->setStyleSheet("background: transparent; border-bottom: 1px solid rgba(42,71,94,0.35);");
+    titleWidget->setStyleSheet("background: transparent; border-bottom: 1px solid #E5E7EB;");
     QHBoxLayout *titleLayout = new QHBoxLayout(titleWidget);
     titleLayout->setContentsMargins(4, 6, 4, 8);
     titleLayout->setSpacing(7);
     QLabel *iconLabel = new QLabel("📁");
     iconLabel->setStyleSheet("font-size: 14px;");
     QLabel *titleLabel = new QLabel("内容浏览器");
-    titleLabel->setStyleSheet("color: #c7d5e0; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;");
+    titleLabel->setStyleSheet("color: #1F2933; font-size: 12px; font-weight: 500; letter-spacing: 1px;");
     titleLayout->addWidget(iconLabel);
     titleLayout->addWidget(titleLabel);
     titleLayout->addStretch();
@@ -45,10 +45,10 @@ ContentBrowserPanel::ContentBrowserPanel(MaterialLibrary *sharedLib, QWidget *pa
     m_tree = new FolderDropTree(m_lib);
     m_tree->setHeaderHidden(true);
     m_tree->setStyleSheet(R"(
-        QTreeWidget { background: transparent; border: none; outline: none; color: #c7d5e0; font-size: 13px; }
+        QTreeWidget { background: transparent; border: none; outline: none; color: #374151; font-size: 13px; }
         QTreeWidget::item { padding: 5px 8px; border-radius: 4px; min-height: 24px; }
-        QTreeWidget::item:selected { background: #2a475e; color: #66c0f4; }
-        QTreeWidget::item:hover:!selected { background: rgba(42,71,94,0.5); color: #c7d5e0; }
+        QTreeWidget::item:selected { background: #EAF3DE; color: #27500A; }
+        QTreeWidget::item:hover:!selected { background: #F3F4F6; color: #111827; }
         QTreeWidget::branch { background: transparent; }
         QTreeWidget::branch:has-children:!has-siblings:closed,
         QTreeWidget::branch:closed:has-children:has-siblings {
@@ -65,7 +65,7 @@ ContentBrowserPanel::ContentBrowserPanel(MaterialLibrary *sharedLib, QWidget *pa
     sep->setFixedHeight(1);
     sep->setStyleSheet(
         "background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        " stop:0 rgba(42,71,94,0), stop:0.5 rgba(102,192,244,0.35), stop:1 rgba(42,71,94,0));");
+        " stop:0 rgba(229,231,235,0), stop:0.5 #E5E7EB, stop:1 rgba(229,231,235,0));");
     m_separator = sep;
     layout->addWidget(sep);
 
@@ -78,7 +78,7 @@ ContentBrowserPanel::ContentBrowserPanel(MaterialLibrary *sharedLib, QWidget *pa
     QLabel *imgIcon = new QLabel("📦");
     imgIcon->setStyleSheet("font-size: 13px;");
     m_imagesLabel = new QLabel("资产 (0)");
-    m_imagesLabel->setStyleSheet("color: #8f98a0; font-size: 11px; font-weight: 700; letter-spacing: 1px;");
+    m_imagesLabel->setStyleSheet("color: #6B7280; font-size: 11px; font-weight: 500; letter-spacing: 1px;");
     imgTitleLayout->addWidget(imgIcon);
     imgTitleLayout->addWidget(m_imagesLabel);
     imgTitleLayout->addStretch();

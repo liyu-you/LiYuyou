@@ -30,6 +30,7 @@ qt_add_executable(mw_probe
     ${SRC}/songinfo.h ${SRC}/songmetadata.h ${SRC}/songmetadata.cpp
     ${SRC}/coverart.h
     ${SRC}/playpausebutton.h
+    ${SRC}/playerwidgets.h
     ${SRC}/miniplayer.h ${SRC}/miniplayer.cpp
     ${SRC}/fullscreenplayer.h ${SRC}/fullscreenplayer.cpp
     ${SRC}/settingsdialog.h ${SRC}/settingsdialog.cpp

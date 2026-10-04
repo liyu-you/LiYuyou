@@ -16,6 +16,7 @@ class QPushButton;
 class QTextEdit;
 class QTextDocument;
 class QVBoxLayout;
+class QHBoxLayout;
 class QTimer;
 class QMenu;
 
@@ -91,6 +92,7 @@ private:
 
     void setupUI();
     void setupShelfPage();
+    void setupReadingSidebar();
     void setupReaderPage();
     void loadBook(const QString &id);
     void buildWholeDocument();
@@ -135,9 +137,22 @@ private:
 
     // Shelf
     QWidget *m_shelfPage;
+    QHBoxLayout *m_shelfLayout = nullptr;
+    QWidget *m_readerSidebar = nullptr;
+    QLabel *m_sidebarBookCount = nullptr;
+    QLabel *m_sidebarRecentImportTitle = nullptr;
+    QLabel *m_sidebarRecentImportTime = nullptr;
+    QLabel *m_sidebarNoteCount = nullptr;
+    QPushButton *m_sidebarNewGroupBtn = nullptr;
+    QWidget *m_shelfContentArea = nullptr;
     QListWidget *m_shelfGrid;
     QPushButton *m_importBtn;
     QLabel *m_shelfTitle;
+    QLabel *m_shelfCountLabel = nullptr;
+    QLabel *m_recentBookLabel = nullptr;
+    QLabel *m_recordBadge = nullptr;
+    QLabel *m_recordBookLabel = nullptr;
+    QLabel *m_recordChapterLabel = nullptr;
 
     // Reader
     QWidget *m_readerPage;
