@@ -737,13 +737,20 @@ void MainWindow::setupNavigation()
     // largest frame and downscale it ourselves with smooth transformation —
     // QIcon::pixmap at small sizes picks a crisper-but-muddier path.
     m_brandBtn = new QToolButton(brandWidget);
-    m_brandBtn->setFixedSize(32, 32);
-    m_brandBtn->setIconSize(QSize(30, 30));
+    m_brandBtn->setFixedSize(36, 36);
+    m_brandBtn->setIconSize(QSize(34, 34));
     m_brandBtn->setCursor(Qt::PointingHandCursor);
     m_brandBtn->setToolTip("切换侧边栏 (Ctrl+8)");
     const QPixmap brandArt = QIcon(":/app.ico").pixmap(64, 64);
     if (!brandArt.isNull()) {
-        m_brandBtn->setIcon(QIcon(brandArt.scaled(30, 30, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+        // Scale to iconSize * devicePixelRatio physical pixels and tag the
+        // pixmap with that DPR — otherwise a dpr-1 pixmap paints at its raw
+        // pixel size and the icon shrinks on scaled (125%/150%) displays.
+        const qreal dpr = devicePixelRatioF();
+        QPixmap icon = brandArt.scaled(qRound(34 * dpr), qRound(34 * dpr),
+                                       Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        icon.setDevicePixelRatio(dpr);
+        m_brandBtn->setIcon(QIcon(icon));
         m_brandBtn->setStyleSheet(
             "QToolButton { border: none; border-radius: 8px; background: transparent; }"
             "QToolButton:hover { background: rgba(0,0,0,0.08); }"
