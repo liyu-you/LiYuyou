@@ -1,4 +1,4 @@
-#include "settingsdialog.h"
+﻿#include "settingsdialog.h"
 #include "updatechecker.h"
 
 #include <QVBoxLayout>
@@ -149,6 +149,8 @@ void SettingsDialog::setupUI()
     // Helper: settings row (title + desc + control)
     auto makeRow = [](const QString &title, const QString &desc, QWidget *control) -> QWidget* {
         QWidget *row = new QWidget;
+        row->setAttribute(Qt::WA_TranslucentBackground);
+        row->setStyleSheet("background: transparent;");
         row->setMinimumHeight(44);
         QHBoxLayout *layout = new QHBoxLayout(row);
         layout->setContentsMargins(24, 8, 24, 8);
@@ -156,11 +158,11 @@ void SettingsDialog::setupUI()
         QVBoxLayout *textLayout = new QVBoxLayout;
         textLayout->setSpacing(1);
         QLabel *titleLabel = new QLabel(title);
-        titleLabel->setStyleSheet("color: #c7d5e0; font-size: 13px; font-weight: 500;");
+        titleLabel->setStyleSheet("color: #c7d5e0; font-size: 13px; font-weight: 500; background: transparent;");
         textLayout->addWidget(titleLabel);
         if (!desc.isEmpty()) {
             QLabel *descLabel = new QLabel(desc);
-            descLabel->setStyleSheet("color: #8f98a0; font-size: 11px;");
+            descLabel->setStyleSheet("color: #8f98a0; font-size: 11px; background: transparent;");
             descLabel->setWordWrap(true);
             textLayout->addWidget(descLabel);
         }
@@ -209,7 +211,7 @@ void SettingsDialog::setupUI()
     QScrollArea *appearanceScroll; QVBoxLayout *appearanceLayout;
     makePage(appearanceScroll, appearanceLayout);
 
-    addSection(appearanceLayout, "主题", "🎨");
+    addSection(appearanceLayout, "主题");
 
     QWidget *themeWidget = new QWidget;
     QHBoxLayout *themeLayout = new QHBoxLayout(themeWidget);
@@ -229,7 +231,7 @@ void SettingsDialog::setupUI()
     appearanceLayout->addWidget(makeRow("界面字体大小", "调整全局文字大小", m_fontSizeCombo));
     appearanceLayout->addWidget(makeSeparator());
 
-    addSection(appearanceLayout, "整体背景", "🖼");
+    addSection(appearanceLayout, "整体背景");
 
     QWidget *bgImageWidget = new QWidget;
     QHBoxLayout *bgImageLayout = new QHBoxLayout(bgImageWidget);
@@ -254,7 +256,7 @@ void SettingsDialog::setupUI()
     appearanceLayout->addWidget(makeRow("背景图片", "自定义程序整体背景图片", bgImageWidget));
     appearanceLayout->addWidget(makeSeparator());
 
-    addSection(appearanceLayout, "毛玻璃效果", "✨");
+    addSection(appearanceLayout, "毛玻璃效果");
 
     m_acrylicCheck = new QCheckBox("启用毛玻璃（亚克力模糊）");
     m_acrylicCheck->setStyleSheet("QCheckBox { color: #c7d5e0; font-size: 13px; spacing: 8px; }");
@@ -278,7 +280,7 @@ void SettingsDialog::setupUI()
     acrylicOpacityLayout->addStretch();
     appearanceLayout->addWidget(makeRow("毛玻璃透明度", "数值越大越不透明（30%-100%）", acrylicOpacityWidget));
 
-    addSection(appearanceLayout, "面板透明", "💎");
+    addSection(appearanceLayout, "面板透明");
     QString checkStyle = "QCheckBox { color: #c7d5e0; font-size: 13px; spacing: 8px; }";
     m_menuBarTransparentCheck = new QCheckBox("菜单栏透明");
     m_menuBarTransparentCheck->setStyleSheet(checkStyle);
@@ -324,7 +326,7 @@ void SettingsDialog::setupUI()
     QScrollArea *canvasScroll; QVBoxLayout *canvasLayout;
     makePage(canvasScroll, canvasLayout);
 
-    addSection(canvasLayout, "画布背景", "🖼");
+    addSection(canvasLayout, "画布背景");
 
     {
         QWidget *w = new QWidget;
@@ -351,7 +353,7 @@ void SettingsDialog::setupUI()
     }
     canvasLayout->addWidget(makeSeparator());
 
-    addSection(canvasLayout, "迷你地图", "🗺");
+    addSection(canvasLayout, "迷你地图");
 
     QWidget *minimapOpacityWidget = new QWidget;
     QHBoxLayout *minimapOpacityLayout = new QHBoxLayout(minimapOpacityWidget);
@@ -413,7 +415,7 @@ void SettingsDialog::setupUI()
     QScrollArea *noteScroll; QVBoxLayout *noteLayout;
     makePage(noteScroll, noteLayout);
 
-    addSection(noteLayout, "笔记编辑器", "✏️");
+    addSection(noteLayout, "笔记编辑器");
 
     QWidget *editorFontWidget = new QWidget;
     QHBoxLayout *editorFontLayout = new QHBoxLayout(editorFontWidget);
@@ -431,7 +433,7 @@ void SettingsDialog::setupUI()
     noteLayout->addWidget(makeRow("默认字体", "笔记编辑器的默认字体和字号", editorFontWidget));
     noteLayout->addWidget(makeSeparator());
 
-    addSection(noteLayout, "笔记背景", "🎨");
+    addSection(noteLayout, "笔记背景");
 
     m_noteBgBtn = new QPushButton;
     m_noteBgBtn->setFixedWidth(100); m_noteBgBtn->setCursor(Qt::PointingHandCursor);
@@ -473,7 +475,7 @@ void SettingsDialog::setupUI()
     QScrollArea *editorScroll; QVBoxLayout *editorLayout;
     makePage(editorScroll, editorLayout);
 
-    addSection(editorLayout, "缓存", "🗑");
+    addSection(editorLayout, "缓存");
 
     m_clearCacheBtn = new QPushButton("清空缩略图缓存");
     m_clearCacheBtn->setStyleSheet("QPushButton { background: #2a475e; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 6px; padding: 6px 16px; font-size: 13px; } QPushButton:hover { background: #3a576e; color: #fff; }");
@@ -497,7 +499,7 @@ void SettingsDialog::setupUI()
     QScrollArea *generalScroll; QVBoxLayout *generalLayout;
     makePage(generalScroll, generalLayout);
 
-    addSection(generalLayout, "启动与关闭", "🚀");
+    addSection(generalLayout, "启动与关闭");
 
     QWidget *closeWidget = new QWidget;
     QHBoxLayout *closeLayout = new QHBoxLayout(closeWidget);
@@ -521,7 +523,7 @@ void SettingsDialog::setupUI()
     generalLayout->addWidget(makeRow("启动页面", "启动时默认打开的工作区", m_startupPageCombo));
     generalLayout->addWidget(makeSeparator());
 
-    addSection(generalLayout, "自动保存", "💾");
+    addSection(generalLayout, "自动保存");
 
     QWidget *autoSaveWidget = new QWidget;
     QHBoxLayout *autoSaveLayout = new QHBoxLayout(autoSaveWidget);
@@ -540,7 +542,7 @@ void SettingsDialog::setupUI()
     QScrollArea *materialScroll; QVBoxLayout *materialLayout;
     makePage(materialScroll, materialLayout);
 
-    addSection(materialLayout, "显示", "🗂");
+    addSection(materialLayout, "显示");
 
     QWidget *thumbWidget = new QWidget;
     QHBoxLayout *thumbLayout = new QHBoxLayout(thumbWidget);
@@ -570,7 +572,7 @@ void SettingsDialog::setupUI()
     materialLayout->addWidget(makeRow("双击行为", "双击素材卡片的默认操作", m_doubleClickCombo));
     materialLayout->addWidget(makeSeparator());
 
-    addSection(materialLayout, "库背景", "🖼");
+    addSection(materialLayout, "库背景");
 
     {
         QWidget *w = new QWidget;
@@ -603,7 +605,7 @@ void SettingsDialog::setupUI()
     QScrollArea *readerScroll; QVBoxLayout *readerLayout;
     makePage(readerScroll, readerLayout);
 
-    addSection(readerLayout, "显示", "📖");
+    addSection(readerLayout, "显示");
 
     m_readerThemeCombo = new QComboBox;
     m_readerThemeCombo->addItems({"浅色", "深色", "护眼", "羊皮纸"});
@@ -633,7 +635,7 @@ void SettingsDialog::setupUI()
     readerLayout->addWidget(makeRow("页边距", "阅读区域左右边距", m_readerMarginCombo));
     readerLayout->addWidget(makeSeparator());
 
-    addSection(readerLayout, "阅读背景", "🎨");
+    addSection(readerLayout, "阅读背景");
 
     m_readerBgBtn = new QPushButton;
     m_readerBgBtn->setFixedWidth(100); m_readerBgBtn->setCursor(Qt::PointingHandCursor);
@@ -709,7 +711,7 @@ void SettingsDialog::setupUI()
     QScrollArea *musicScroll; QVBoxLayout *musicLayout;
     makePage(musicScroll, musicLayout);
 
-    addSection(musicLayout, "播放", "🎵");
+    addSection(musicLayout, "播放");
 
     m_defaultVolumeCombo = new QComboBox;
     for (int i = 0; i <= 100; i += 10) m_defaultVolumeCombo->addItem(QString::number(i) + " %");
@@ -727,7 +729,7 @@ void SettingsDialog::setupUI()
     musicLayout->addWidget(makeRow("显示歌词", "启动时默认显示歌词面板", m_showLyricsCheck));
     musicLayout->addWidget(makeSeparator());
 
-    addSection(musicLayout, "音乐背景", "🖼");
+    addSection(musicLayout, "音乐背景");
 
     {
         QWidget *w = new QWidget;
@@ -760,7 +762,7 @@ void SettingsDialog::setupUI()
     QScrollArea *advancedScroll; QVBoxLayout *advancedLayout;
     makePage(advancedScroll, advancedLayout);
 
-    addSection(advancedLayout, "界面（修改后需重启生效）", "🎛");
+    addSection(advancedLayout, "界面（修改后需重启生效）");
 
     m_uiScaleCombo = new QComboBox;
     m_uiScaleCombo->addItems({"75%", "100%", "125%", "150%"});
@@ -790,7 +792,7 @@ void SettingsDialog::setupUI()
     advancedLayout->addWidget(makeRow("单实例模式", "开启后只能运行一个程序窗口（重启生效）", m_singleInstanceCheck));
     advancedLayout->addWidget(makeSeparator());
 
-    addSection(advancedLayout, "数据目录", "📂");
+    addSection(advancedLayout, "数据目录");
 
     auto makeDirRow = [this](const QString &label, const QString &desc, QLineEdit *&edit) -> QWidget* {
         QWidget *row = new QWidget;
@@ -831,7 +833,7 @@ void SettingsDialog::setupUI()
     advancedLayout->addWidget(makeDirRow("音乐库目录", "音乐文件存储位置", m_musicDirEdit));
     advancedLayout->addWidget(makeSeparator());
 
-    addSection(advancedLayout, "系统", "⚙️");
+    addSection(advancedLayout, "系统");
 
     // Timer shutdown checkbox
     m_timerShutdownCheck = new QCheckBox("开启定时关闭软件");
@@ -873,7 +875,7 @@ void SettingsDialog::setupUI()
     advancedLayout->addWidget(makeRow("同时关机", "关闭软件时一并关闭电脑", m_shutdownPCCheck));
     advancedLayout->addWidget(makeSeparator());
 
-    addSection(advancedLayout, "数据管理", "🗄");
+    addSection(advancedLayout, "数据管理");
 
     QPushButton *resetBtn = new QPushButton("恢复默认设置");
     resetBtn->setFixedHeight(36);
@@ -889,7 +891,7 @@ void SettingsDialog::setupUI()
     advancedLayout->addWidget(makeRow("重置设置", "一键恢复所有设置为默认值", resetBtn));
     advancedLayout->addWidget(makeSeparator());
 
-    addSection(advancedLayout, "在线更新", "🔄");
+    addSection(advancedLayout, "在线更新");
 
     m_currentVersionLabel = new QLabel(QString("当前版本：v%1").arg(UpdateChecker::currentVersionString()));
     m_currentVersionLabel->setStyleSheet("color: #66c0f4; font-size: 13px; font-weight: 600; padding: 0 24px;");
@@ -976,7 +978,7 @@ void SettingsDialog::setupUI()
     QScrollArea *shortcutScroll; QVBoxLayout *shortcutLayout;
     makePage(shortcutScroll, shortcutLayout);
 
-    addSection(shortcutLayout, "音乐播放控制", "🎹");
+    addSection(shortcutLayout, "音乐播放控制");
 
     // Helper to create a shortcut row
     auto makeShortcutRow = [](const QString &label, const QString &desc, QKeySequenceEdit *&edit, const QKeySequence &defaultSeq) -> QWidget* {
@@ -1615,3 +1617,4 @@ bool SettingsDialog::showLyrics() const {
 void SettingsDialog::setShowLyrics(bool show) {
     if (m_showLyricsCheck) m_showLyricsCheck->setChecked(show);
 }
+
