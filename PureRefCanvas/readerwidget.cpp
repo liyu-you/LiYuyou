@@ -56,6 +56,7 @@ constexpr int kShelfNoteCountRole = Qt::UserRole + 4;
 constexpr int kShelfTotalCharsRole = Qt::UserRole + 5;
 constexpr int kShelfChapterRole = Qt::UserRole + 6;
 constexpr int kShelfLastReadRole = Qt::UserRole + 7;
+constexpr int kShelfCoverColorRole = Qt::UserRole + 8;
 
 class ShelfBookDelegate : public QStyledItemDelegate
 {
@@ -82,17 +83,31 @@ public:
         painter->drawRoundedRect(card, 16, 16);
 
         const QRect coverRect(card.left() + 20, card.top() + 22, 60, 92);
-        QPixmap cover = qvariant_cast<QIcon>(index.data(Qt::DecorationRole)).pixmap(96, 128);
-        if (!cover.isNull()) {
-            painter->drawPixmap(coverRect, cover.scaled(coverRect.size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
-        } else {
+        // Book cover: gradient background from the book's cover color, then the
+        // title rendered vertically (two chars per line) in large white text.
+        // (No tiny scaled-down pixmap — that made the cover text unreadable.)
+        {
+            QStringList colors = index.data(kShelfCoverColorRole).toString().split(",");
+            QLinearGradient cg(coverRect.topLeft(), coverRect.bottomRight());
+            if (colors.size() >= 2) {
+                cg.setColorAt(0, QColor(colors[0]));
+                cg.setColorAt(1, QColor(colors[1]));
+            } else {
+                cg.setColorAt(0, QColor("#667eea"));
+                cg.setColorAt(1, QColor("#764ba2"));
+            }
             painter->setPen(Qt::NoPen);
-            painter->setBrush(QColor("#EAF3DE"));
+            painter->setBrush(cg);
             painter->drawRoundedRect(coverRect, 6, 6);
-            painter->setPen(QColor("#27500A"));
-            QFont coverFont("Microsoft YaHei", 11, QFont::Medium);
+
+            QFont coverFont("Microsoft YaHei", 14, QFont::Bold);
             painter->setFont(coverFont);
-            painter->drawText(coverRect, Qt::AlignCenter, index.data(Qt::DisplayRole).toString().left(4));
+            painter->setPen(QColor(255, 255, 255, 235));
+            QStringList lines;
+            for (int i = 0; i < index.data(Qt::DisplayRole).toString().size(); i += 2)
+                lines << index.data(Qt::DisplayRole).toString().mid(i, 2);
+            painter->drawText(coverRect.adjusted(2, 8, -2, -8), Qt::AlignCenter | Qt::TextWordWrap,
+                              lines.join("\n"));
         }
 
         const int textX = card.left() + 100;
@@ -326,7 +341,7 @@ void ReaderWidget::setupShelfPage()
 
     // Quick import card
     QWidget *quickImportCard = new QWidget;
-    quickImportCard->setFixedHeight(104);
+    quickImportCard->setFixedHeight(132);
     quickImportCard->setCursor(Qt::PointingHandCursor);
     quickImportCard->setStyleSheet("background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px;");
     {
@@ -345,14 +360,17 @@ void ReaderWidget::setupShelfPage()
         texts->setSpacing(6);
         QLabel *t = new QLabel("快速导入");
         t->setStyleSheet("font-size: 14px; font-weight: 500; color: #111827;");
-        QLabel *d = new QLabel("拖拽文件到书架 · 支持 .txt/.epub");
-        d->setStyleSheet("font-size: 12px; color: #6B7280;");
+        QLabel *d1 = new QLabel("拖拽文件到书架");
+        d1->setStyleSheet("font-size: 12px; color: #6B7280;");
+        QLabel *d2 = new QLabel("支持 .txt/.epub");
+        d2->setStyleSheet("font-size: 12px; color: #6B7280;");
         QLabel *badge = new QLabel("选择文件");
         badge->setAlignment(Qt::AlignCenter);
         badge->setFixedSize(86, 24);
         badge->setStyleSheet("background: #E6F1FB; color: #185FA5; border-radius: 12px; font-size: 12px; font-weight: 500;");
         texts->addWidget(t);
-        texts->addWidget(d);
+        texts->addWidget(d1);
+        texts->addWidget(d2);
         texts->addWidget(badge, 0, Qt::AlignLeft);
         row->addLayout(texts, 1);
     }
@@ -362,7 +380,7 @@ void ReaderWidget::setupShelfPage()
 
     // Reading record card — book / chapter + segmented progress pill badge
     QWidget *recordCard = new QWidget;
-    recordCard->setFixedHeight(104);
+    recordCard->setFixedHeight(132);
     recordCard->setStyleSheet("background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px;");
     {
         QHBoxLayout *row = new QHBoxLayout(recordCard);
@@ -441,7 +459,7 @@ void ReaderWidget::setupReadingSidebar()
     activeLayout->addWidget(chevron);
     sb->addWidget(activeRow);
 
-    // Stats row: book count + note count
+    // Stats row: book count + note count (single-line, compact)
     QHBoxLayout *statsRow = new QHBoxLayout;
     statsRow->setContentsMargins(0, 0, 0, 0);
     statsRow->setSpacing(12);
@@ -449,27 +467,23 @@ void ReaderWidget::setupReadingSidebar()
         QWidget *bookStat = new QWidget;
         bookStat->setStyleSheet("background: #F3F4F6; border-radius: 10px;");
         QVBoxLayout *bl = new QVBoxLayout(bookStat);
-        bl->setContentsMargins(12, 8, 12, 8);
-        bl->setSpacing(2);
-        m_sidebarBookCount = new QLabel("0");
-        m_sidebarBookCount->setStyleSheet("font-size: 20px; font-weight: 600; color: #111827;");
-        QLabel *bookCap = new QLabel("本书");
-        bookCap->setStyleSheet("font-size: 11px; color: #6B7280;");
+        bl->setContentsMargins(12, 12, 12, 12);
+        bl->setSpacing(0);
+        m_sidebarBookCount = new QLabel("0 本书");
+        m_sidebarBookCount->setAlignment(Qt::AlignCenter);
+        m_sidebarBookCount->setStyleSheet("font-size: 14px; font-weight: 600; color: #111827;");
         bl->addWidget(m_sidebarBookCount);
-        bl->addWidget(bookCap);
         statsRow->addWidget(bookStat, 1);
 
         QWidget *noteStat = new QWidget;
         noteStat->setStyleSheet("background: #F3F4F6; border-radius: 10px;");
         QVBoxLayout *nl = new QVBoxLayout(noteStat);
-        nl->setContentsMargins(12, 8, 12, 8);
-        nl->setSpacing(2);
+        nl->setContentsMargins(12, 12, 12, 12);
+        nl->setSpacing(0);
         m_sidebarNoteCount = new QLabel("0 条记录");
-        m_sidebarNoteCount->setStyleSheet("font-size: 13px; font-weight: 600; color: #111827;");
-        QLabel *noteCap = new QLabel("读书笔记");
-        noteCap->setStyleSheet("font-size: 11px; color: #6B7280;");
+        m_sidebarNoteCount->setAlignment(Qt::AlignCenter);
+        m_sidebarNoteCount->setStyleSheet("font-size: 14px; font-weight: 600; color: #111827;");
         nl->addWidget(m_sidebarNoteCount);
-        nl->addWidget(noteCap);
         statsRow->addWidget(noteStat, 1);
     }
     sb->addLayout(statsRow);
@@ -1957,16 +1971,15 @@ QPixmap ReaderWidget::generateCover(const BookInfo &book) const
     painter.setPen(Qt::NoPen);
     painter.drawRoundedRect(0, 0, 120, 160, 6, 6);
 
-    painter.setPen(QColor(255, 255, 255, 230));
-    QFont titleFont("Microsoft YaHei", 13, QFont::Bold);
+    // Vertical book title: up to two characters per line, large and centered.
+    painter.setPen(QColor(255, 255, 255, 235));
+    QFont titleFont("Microsoft YaHei", 16, QFont::Bold);
     painter.setFont(titleFont);
-    QRect titleRect(8, 30, 104, 80);
-    painter.drawText(titleRect, Qt::AlignHCenter | Qt::TextWordWrap, book.title);
-
-    QFont authorFont("Microsoft YaHei", 9);
-    painter.setFont(authorFont);
-    painter.setPen(QColor(255, 255, 255, 160));
-    painter.drawText(QRect(8, 130, 104, 20), Qt::AlignCenter, book.author);
+    QStringList lines;
+    for (int i = 0; i < book.title.size(); i += 2)
+        lines << book.title.mid(i, 2);
+    painter.drawText(QRect(8, 20, 104, 120), Qt::AlignCenter | Qt::TextWordWrap,
+                     lines.join("\n"));
 
     painter.end();
     return pix;
@@ -1992,6 +2005,7 @@ void ReaderWidget::refreshShelf()
         item->setData(kShelfTotalCharsRole, book.totalChars);
         item->setData(kShelfAnnotationCountRole, m_library->annotations(book.id).size());
         item->setData(kShelfNoteCountRole, m_library->notes(book.id).size());
+        item->setData(kShelfCoverColorRole, book.coverColor);
 
         // Current chapter from loaded text (only if reading has started).
         QString chapter;
@@ -2032,10 +2046,16 @@ void ReaderWidget::refreshShelf()
             latestPct = pct;
             if (m_recordBookLabel) m_recordBookLabel->setText(QStringLiteral("《%1》").arg(book.title));
             if (m_recordChapterLabel) {
-                m_recordChapterLabel->setText(
+                const QString full =
                     chapter.isEmpty()
                             ? lastReadStr
-                            : QStringLiteral("%1 · %3").arg(lastReadStr).arg(chapter));
+                            : QStringLiteral("%1 · %3").arg(lastReadStr).arg(chapter);
+                m_recordChapterLabel->setText(full);
+                m_recordChapterLabel->setToolTip(full);
+                // Elide long chapter text so it stays on one tidy line.
+                const int avail = qMax(120, m_recordChapterLabel->width() - 4);
+                QFontMetrics fm(m_recordChapterLabel->font());
+                m_recordChapterLabel->setText(fm.elidedText(full, Qt::ElideRight, avail));
             }
         }
         if (m_sidebarRecentImportTitle) m_sidebarRecentImportTitle->setText(book.title);
@@ -2061,7 +2081,7 @@ void ReaderWidget::refreshShelf()
     }
 
     if (m_sidebarBookCount) {
-        m_sidebarBookCount->setText(QString::number(books.size()));
+        m_sidebarBookCount->setText(QStringLiteral("%1 本书").arg(books.size()));
     }
     if (m_sidebarNoteCount) {
         int totalNotes = 0;

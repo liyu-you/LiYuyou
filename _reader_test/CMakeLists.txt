@@ -51,3 +51,36 @@ qt_add_executable(readerwidget_test
 )
 target_include_directories(readerwidget_test PRIVATE ${SRC})
 target_link_libraries(readerwidget_test PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)
+
+# Screenshot probe: render the current reader shelf page for visual diffing.
+qt_add_executable(shelf_shot
+    shelf_shot.cpp
+    ${SRC}/mainwindow.h ${SRC}/mainwindow.cpp
+    ${SRC}/canvasview.h ${SRC}/canvasview.cpp
+    ${SRC}/canvasscene.h ${SRC}/canvasscene.cpp
+    ${SRC}/imageitem.h ${SRC}/imageitem.cpp
+    ${SRC}/imageformats.h
+    ${SRC}/imageio.h
+    ${SRC}/notewidget.h ${SRC}/notewidget.cpp
+    ${SRC}/materiallibrary.h ${SRC}/materiallibrary.cpp
+    ${SRC}/materialwidget.h ${SRC}/materialwidget.cpp
+    ${SRC}/contentbrowserpanel.h ${SRC}/contentbrowserpanel.cpp
+    ${SRC}/userauth.h ${SRC}/userauth.cpp
+    ${SRC}/logindialog.h ${SRC}/logindialog.cpp
+    ${SRC}/accountdialog.h ${SRC}/accountdialog.cpp
+    ${SRC}/booklibrary.h ${SRC}/booklibrary.cpp
+    ${SRC}/readerwidget.h ${SRC}/readerwidget.cpp
+    ${SRC}/musicplayer.h ${SRC}/musicplayer.cpp
+    ${SRC}/songinfo.h ${SRC}/songmetadata.h ${SRC}/songmetadata.cpp
+    ${SRC}/coverart.h
+    ${SRC}/playpausebutton.h
+    ${SRC}/playerwidgets.h
+    ${SRC}/miniplayer.h ${SRC}/miniplayer.cpp
+    ${SRC}/fullscreenplayer.h ${SRC}/fullscreenplayer.cpp
+    ${SRC}/settingsdialog.h ${SRC}/settingsdialog.cpp
+    ${SRC}/annotationitems.h ${SRC}/annotationitems.cpp
+    ${SRC}/updatechecker.h ${SRC}/updatechecker.cpp
+    ${SRC}/resources.qrc
+)
+target_include_directories(shelf_shot PRIVATE ${SRC})
+target_link_libraries(shelf_shot PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)
