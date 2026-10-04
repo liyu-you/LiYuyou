@@ -177,7 +177,7 @@ private:
     bool m_acrylicEnabled = true;
     int m_acrylicOpacity = 73;
     bool m_menuBarTransparent = true;
-    bool m_menuBarAutoHide = false;   // 半隐藏：菜单栏折叠成 ☰ 按钮
+    bool m_menuBarAutoHide = true;   // 半隐藏：菜单栏折叠成 ☰ 按钮，点击才弹出
     bool m_navToolbarTransparent = true;
     bool m_libraryStatusBarTransparent = true;
     bool m_libraryGridTransparent = true;

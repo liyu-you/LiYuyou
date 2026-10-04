@@ -2228,7 +2228,7 @@ void MainWindow::loadSettings()
     m_acrylicEnabled = settings.value("acrylicEnabled", false).toBool();
     m_acrylicOpacity = settings.value("acrylicOpacity", 73).toInt();
     m_menuBarTransparent = settings.value("menuBarTransparent", true).toBool();
-    m_menuBarAutoHide = settings.value("menuBarAutoHide", false).toBool();
+    m_menuBarAutoHide = settings.value("menuBarAutoHide", true).toBool();
     m_navToolbarTransparent = settings.value("navToolbarTransparent", true).toBool();
     m_libraryStatusBarTransparent = settings.value("libraryStatusBarTransparent", true).toBool();
     m_libraryGridTransparent = settings.value("libraryGridTransparent", true).toBool();
