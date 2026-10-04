@@ -58,6 +58,10 @@ public:
     SongStats statsFor(const QString &path) const;
     QHash<QString, SongStats> allStats() const;
 
+    // Ordered path lists for sidebar views.
+    QStringList recentPaths(int limit = 50) const;
+    QStringList topPlayedPaths(int limit = 50) const;
+
 private:
     QString m_dbPath;
     bool m_open = false;

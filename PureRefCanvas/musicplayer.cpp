@@ -509,6 +509,8 @@ void MusicPlayerWidget::setupSidebar()
     myLabel->setStyleSheet("color: #6f6f72; font-size: 11px; font-weight: 600; padding: 12px 20px 4px;");
     layout->addWidget(myLabel);
     m_navList->addItem("  本地音乐");
+    m_navList->addItem("  最近播放");
+    m_navList->addItem("  最常播放");
     m_navList->addItem("  下载管理");
     m_navList->addItem("  我的音乐云盘");
     m_navList->addItem("  我的收藏");
@@ -1351,6 +1353,18 @@ QList<SongInfo> MusicPlayerWidget::currentSongList() const
             if (m_favorites.contains(song.path)) result << song;
         return result;
     }
+    if (m_currentNav == "recent" || m_currentNav == "top") {
+        QStringList paths = m_db
+            ? (m_currentNav == "recent" ? m_db->recentPaths(50) : m_db->topPlayedPaths(50))
+            : QStringList();
+        QList<SongInfo> result;
+        for (const auto &path : paths) {
+            for (const auto &song : m_allSongs) {
+                if (song.path == path) { result << song; break; }
+            }
+        }
+        return result;
+    }
     // Playlist
     for (const auto &pl : m_playlists) {
         if (pl.name == m_currentNav) {
@@ -1388,6 +1402,12 @@ void MusicPlayerWidget::onNavChanged(QListWidgetItem *item)
     if (text == "本地音乐") {
         m_currentNav = "local";
         m_playlistTitle->setText("本地音乐");
+    } else if (text == "最近播放") {
+        m_currentNav = "recent";
+        m_playlistTitle->setText("最近播放");
+    } else if (text == "最常播放") {
+        m_currentNav = "top";
+        m_playlistTitle->setText("最常播放");
     } else if (text == "我的收藏" || text == "我喜欢的音乐") {
         m_currentNav = "favorites";
         m_playlistTitle->setText("我的收藏");

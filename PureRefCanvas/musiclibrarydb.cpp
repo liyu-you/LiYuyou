@@ -254,3 +254,29 @@ QHash<QString, SongStats> MusicLibraryDb::allStats() const
     }
     return out;
 }
+
+QStringList MusicLibraryDb::recentPaths(int limit) const
+{
+    const QString connName = QStringLiteral("musicdb_%1").arg(m_connectionSeq);
+    QSqlDatabase db = QSqlDatabase::database(connName);
+    QSqlQuery q(db);
+    QStringList out;
+    q.prepare("SELECT path FROM stats WHERE last_played_at > 0 ORDER BY last_played_at DESC LIMIT ?");
+    q.addBindValue(limit);
+    if (!q.exec()) return out;
+    while (q.next()) out << q.value(0).toString();
+    return out;
+}
+
+QStringList MusicLibraryDb::topPlayedPaths(int limit) const
+{
+    const QString connName = QStringLiteral("musicdb_%1").arg(m_connectionSeq);
+    QSqlDatabase db = QSqlDatabase::database(connName);
+    QSqlQuery q(db);
+    QStringList out;
+    q.prepare("SELECT path FROM stats WHERE play_count > 0 ORDER BY play_count DESC, listen_ms DESC LIMIT ?");
+    q.addBindValue(limit);
+    if (!q.exec()) return out;
+    while (q.next()) out << q.value(0).toString();
+    return out;
+}
