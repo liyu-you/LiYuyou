@@ -306,18 +306,6 @@ void MusicPlayerWidget::setupTopBar()
     layout->setContentsMargins(16, 0, 16, 0);
     layout->setSpacing(10);
 
-    // Back/Forward
-    QPushButton *backBtn = new QPushButton("‹");
-    backBtn->setFixedSize(28, 28);
-    backBtn->setStyleSheet("QPushButton { background: #34353a; color: #a0a0a0; border: none; border-radius: 14px; font-size: 18px; } QPushButton:hover { color: #c20c0c; }");
-    QPushButton *fwdBtn = new QPushButton("›");
-    fwdBtn->setFixedSize(28, 28);
-    fwdBtn->setStyleSheet("QPushButton { background: #34353a; color: #a0a0a0; border: none; border-radius: 14px; font-size: 18px; } QPushButton:hover { color: #c20c0c; }");
-    layout->addWidget(backBtn);
-    layout->addWidget(fwdBtn);
-
-    layout->addSpacing(10);
-
     // Top search
     m_topSearch = new QLineEdit;
     m_topSearch->setPlaceholderText("🔍 搜索音乐、歌手、歌词");
