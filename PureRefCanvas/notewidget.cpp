@@ -207,7 +207,22 @@ void NoteWidget::setupUI()
     editorContainer->setStyleSheet("QWidget#noteEditorContainer { background: transparent; }");
     QHBoxLayout *containerLayout = new QHBoxLayout(editorContainer);
     containerLayout->setContentsMargins(40, 16, 40, 16);
-    containerLayout->addWidget(m_editor);
+    containerLayout->addWidget(m_editor, 1);
+
+    // VNote-style outline pane (right side of editor).
+    m_outlineList = new QListWidget;
+    m_outlineList->setMaximumWidth(220);
+    m_outlineList->setStyleSheet(
+        "QListWidget { background: rgba(255,255,255,0.9); border:none; border-left:1px solid #eee; font-size:12px; }"
+        "QListWidget::item { padding:4px 8px; color:#555; }"
+        "QListWidget::item:selected { background:#EAF7F0; color:#2FA66A; }");
+    connect(m_outlineList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        const int block = item->data(Qt::UserRole).toInt();
+        QTextCursor cur(m_editor->document()->findBlockByNumber(block));
+        m_editor->setTextCursor(cur);
+        m_editor->setFocus();
+    });
+    containerLayout->addWidget(m_outlineList);
     editorLayout->addWidget(editorContainer, 1);
 
     // Status bar
@@ -617,6 +632,7 @@ void NoteWidget::openNote(const QString &noteId)
 
     m_loading = false;
     m_modified = false;
+    refreshOutline();
     m_stack->setCurrentIndex(1);
     updateStatusBar();
 }
@@ -944,6 +960,29 @@ void NoteWidget::onTextChanged()
     m_modified = true;
     emit modificationChanged(true);
     updateStatusBar();
+    refreshOutline();
+}
+
+void NoteWidget::refreshOutline()
+{
+    if (!m_outlineList || !m_editor) return;
+    m_outlineList->clear();
+    QTextBlock block = m_editor->document()->firstBlock();
+    int level = 0;
+    while (block.isValid()) {
+        const QString text = block.text().trimmed();
+        if (!text.isEmpty()) {
+            const QTextCharFormat fmt = block.charFormat();
+            // Heuristic: font size >= 15pt or bold = heading.
+            if (fmt.font().pointSize() >= 15 || fmt.font().bold()) {
+                QListWidgetItem *item = new QListWidgetItem(text, m_outlineList);
+                item->setData(Qt::UserRole, block.blockNumber());
+                if (fmt.font().pointSize() >= 18) item->setText("▸ " + text);
+                else item->setText("  · " + text);
+            }
+        }
+        block = block.next();
+    }
 }
 
 void NoteWidget::onCursorPositionChanged()

@@ -15,6 +15,7 @@ class QComboBox;
 class QLabel;
 class QListWidget;
 class QListWidgetItem;
+class QListWidget;
 class QLineEdit;
 class QPushButton;
 class QStackedWidget;
@@ -131,6 +132,7 @@ private:
     void refreshCards();
     void refreshFolderList();
     void updateStatusBar();
+    void refreshOutline();  // VNote: extract headings from current note
     QString generateId() const;
     QString htmlToPreview(const QString &html, int maxLen = 120) const;
     QString noteToMarkdown(const NoteData &note) const;
@@ -166,6 +168,7 @@ private:
     QPushButton *m_copyBtn;     // 复制当前笔记为 Markdown
     QToolBar *m_toolbar;
     QTextEdit *m_editor;
+    QListWidget *m_outlineList = nullptr;  // VNote-style outline
     QLabel *m_statusLabel;
 
     // Data
