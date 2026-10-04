@@ -677,7 +677,7 @@ class SongCardDelegate : public QStyledItemDelegate
 public:
     explicit SongCardDelegate(QObject *p = nullptr) : QStyledItemDelegate(p) {}
     QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override
-    { return QSize(360, 96); }
+    { return QSize(360, 156); }
     void paint(QPainter *painter, const QStyleOptionViewItem &opt,
                const QModelIndex &idx) const override
     {
@@ -688,10 +688,10 @@ public:
         const bool hovered = opt.state & QStyle::State_MouseOver;
         painter->setPen(QPen(QColor(playing ? "#2FA66A" : "#E5E7EB"), playing ? 1.2 : 0.8));
         painter->setBrush(QColor(playing ? "#F0FBF5" : (hovered ? "#FAFBFC" : "#FFFFFF")));
-        painter->drawRoundedRect(card, 14, 14);
+        painter->drawRoundedRect(card, 16, 16);
 
-        // Cover tile 56x56
-        const QRect cover(card.left() + 18, card.top() + 20, 56, 56);
+        // Cover tile 88x88 (square album art), rounded 10
+        const QRect cover(card.left() + 20, card.top() + 34, 88, 88);
         QLinearGradient cg(cover.topLeft(), cover.bottomRight());
         cg.setColorAt(0, playing ? QColor("#2FA66A") : QColor("#6D9DD6"));
         cg.setColorAt(1, playing ? QColor("#7CC79B") : QColor("#8E7CC3"));
@@ -699,23 +699,25 @@ public:
         painter->setBrush(cg);
         painter->drawRoundedRect(cover, 10, 10);
         painter->setPen(QColor(255,255,255,235));
-        QFont mf("Microsoft YaHei", 16, QFont::Bold);
+        QFont mf("Microsoft YaHei", 26, QFont::Bold);
         painter->setFont(mf);
         painter->drawText(cover, Qt::AlignCenter, QStringLiteral("♪"));
 
-        const int textX = card.left() + 90;
+        const int textX = card.left() + 124;
         const int right = card.right() - 20;
-        const int pillW = 74;
-        const int textRight = right - pillW - 14;
+        const int pillW = 80;
+        const int textRight = right - pillW - 16;
 
+        // Title
         QFont titleF("Microsoft YaHei", 11, QFont::Medium);
         painter->setFont(titleF);
         painter->setPen(QColor(playing ? "#1F7A4B" : "#111827"));
         QFontMetrics tm(titleF);
-        painter->drawText(QRect(textX, card.top()+18, textRight-textX, 22),
+        painter->drawText(QRect(textX, card.top()+28, textRight-textX, 22),
                           Qt::AlignLeft|Qt::AlignVCenter,
                           tm.elidedText(idx.data(Qt::DisplayRole).toString(), Qt::ElideRight, textRight-textX));
 
+        // Artist · album
         QFont bodyF("Microsoft YaHei", 9);
         painter->setFont(bodyF);
         painter->setPen(QColor("#9CA3AF"));
@@ -724,29 +726,44 @@ public:
         if (sub.isEmpty()) sub = QStringLiteral("未知歌手");
         const QString album = idx.data(SongAlbumRole).toString();
         if (!album.isEmpty()) sub += QStringLiteral(" · ") + album;
-        qint64 dur = idx.data(SongDurationRole).toLongLong();
-        if (dur > 0) {
-            qint64 sec = dur/1000;
-            sub += QStringLiteral("  %1:%2").arg(sec/60).arg(sec%60,2,10,QChar('0'));
-        }
-        painter->drawText(QRect(textX, card.top()+46, textRight-textX, 18),
+        painter->drawText(QRect(textX, card.top()+56, textRight-textX, 18),
                           Qt::AlignLeft|Qt::AlignVCenter,
                           bm.elidedText(sub, Qt::ElideRight, textRight-textX));
 
-        // Playing indicator
+        // Duration / status line
+        qint64 dur = idx.data(SongDurationRole).toLongLong();
+        QString meta;
+        if (dur > 0) {
+            qint64 sec = dur/1000;
+            meta = QStringLiteral("时长 %1:%2").arg(sec/60).arg(sec%60,2,10,QChar('0'));
+        }
         if (playing) {
             painter->setPen(QColor("#2FA66A"));
-            painter->setFont(QFont("Microsoft YaHei", 8));
-            painter->drawText(QRect(textX, card.top()+66, textRight-textX, 16),
-                              Qt::AlignLeft|Qt::AlignVCenter, QStringLiteral("正在播放"));
+            painter->setFont(QFont("Microsoft YaHei", 9, QFont::Medium));
+            painter->drawText(QRect(textX, card.top()+82, textRight-textX, 18),
+                              Qt::AlignLeft|Qt::AlignVCenter,
+                              (meta.isEmpty() ? QStringLiteral("正在播放") : meta + QStringLiteral(" · 正在播放")));
+        } else if (!meta.isEmpty()) {
+            painter->setPen(QColor("#9CA3AF"));
+            painter->setFont(bodyF);
+            painter->drawText(QRect(textX, card.top()+82, textRight-textX, 18),
+                              Qt::AlignLeft|Qt::AlignVCenter, meta);
         }
 
-        // Right pill: ▶ 播放 / ★ 已赞
-        QRect pill(right-pillW, card.top()+32, pillW, 30);
+        // Three-dot menu (top-right of card, like book cards)
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QColor("#D1D5DB"));
+        const int menuY = card.top() + 14;
+        painter->drawEllipse(QPoint(right - 14, menuY), 2, 2);
+        painter->drawEllipse(QPoint(right - 7, menuY), 2, 2);
+        painter->drawEllipse(QPoint(right, menuY), 2, 2);
+
+        // Right pill: ▶ 播放 / ★ 已喜欢
+        QRect pill(right-pillW, card.top()+62, pillW, 32);
         painter->setPen(Qt::NoPen);
         painter->setBrush(QColor("#EAF3DE"));
-        painter->drawRoundedRect(pill, 15, 15);
-        painter->setPen(QColor("#3F7A2E"));
+        painter->drawRoundedRect(pill, 16, 16);
+        painter->setPen(QColor("#27500A"));
         painter->setFont(QFont("Microsoft YaHei", 9, QFont::Medium));
         QString pillText = idx.data(SongLikedRole).toBool() ? QStringLiteral("★ 已喜欢") : QStringLiteral("▶ 播放");
         painter->drawText(pill, Qt::AlignCenter, pillText);
