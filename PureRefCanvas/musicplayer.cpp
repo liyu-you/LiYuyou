@@ -2069,6 +2069,26 @@ void MusicPlayerWidget::onPositionChanged(qint64 pos)
         m_seekBar->setValue(int(pos * 1000 / dur));
     m_curTimeLabel->setText(formatTime(pos));
     m_totalTimeLabel->setText(formatTime(dur));
+    // Gapless-ish handoff: within 2s of end, pre-resolve next track so
+    // EndOfMedia fires an immediate setSource+play with zero list rebuild.
+    if (dur > 5000 && pos > dur - 2000 && m_playMode != LoopOne) {
+        if (m_nextPreCachedPath.isEmpty()) {
+            QList<SongInfo> songs = currentSongList();
+            if (!songs.isEmpty()) {
+                int nextIdx;
+                if (m_playMode == Shuffle) {
+                    nextIdx = QRandomGenerator::global()->bounded(songs.size());
+                } else {
+                    nextIdx = (m_currentIndex + 1) % songs.size();
+                }
+                m_nextPreCachedPath = songs[nextIdx].path;
+                m_nextPreCachedIndex = nextIdx;
+            }
+        }
+    } else if (pos < dur - 2500) {
+        m_nextPreCachedPath.clear();
+        m_nextPreCachedIndex = -1;
+    }
     if (m_fullScreenPlayer && m_fullScreenPlayer->isVisible()) {
         m_fullScreenPlayer->updateProgress(pos, dur);
         m_fullScreenPlayer->updateLyricLine(pos);
@@ -2088,6 +2108,12 @@ void MusicPlayerWidget::onMediaStatusChanged(QMediaPlayer::MediaStatus status)
         if (m_playMode == LoopOne) {
             m_player->setPosition(0);
             m_player->play();
+        } else if (!m_nextPreCachedPath.isEmpty() && m_nextPreCachedIndex >= 0) {
+            // Fast handoff: skip currentSongList() rebuild, go straight to cached next.
+            const int idx = m_nextPreCachedIndex;
+            m_nextPreCachedPath.clear();
+            m_nextPreCachedIndex = -1;
+            playSongAt(idx);
         } else {
             playNext();
         }
