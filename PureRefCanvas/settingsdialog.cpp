@@ -141,24 +141,26 @@ void SettingsDialog::setupUI()
         QFrame *line = new QFrame;
         line->setObjectName("separator");
         line->setFrameShape(QFrame::HLine);
+        line->setStyleSheet("color: rgba(255,255,255,0.06);");
+        line->setFixedHeight(1);
         return line;
     };
 
     // Helper: settings row (title + desc + control)
     auto makeRow = [](const QString &title, const QString &desc, QWidget *control) -> QWidget* {
         QWidget *row = new QWidget;
-        row->setMinimumHeight(56);
+        row->setMinimumHeight(44);
         QHBoxLayout *layout = new QHBoxLayout(row);
-        layout->setContentsMargins(24, 12, 24, 12);
+        layout->setContentsMargins(24, 8, 24, 8);
         layout->setSpacing(16);
         QVBoxLayout *textLayout = new QVBoxLayout;
-        textLayout->setSpacing(3);
+        textLayout->setSpacing(1);
         QLabel *titleLabel = new QLabel(title);
-        titleLabel->setStyleSheet("color: #c7d5e0; font-size: 14px; font-weight: 500;");
+        titleLabel->setStyleSheet("color: #c7d5e0; font-size: 13px; font-weight: 500;");
         textLayout->addWidget(titleLabel);
         if (!desc.isEmpty()) {
             QLabel *descLabel = new QLabel(desc);
-            descLabel->setStyleSheet("color: #8f98a0; font-size: 12px;");
+            descLabel->setStyleSheet("color: #8f98a0; font-size: 11px;");
             descLabel->setWordWrap(true);
             textLayout->addWidget(descLabel);
         }
