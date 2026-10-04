@@ -24,6 +24,7 @@ class QSplitter;
 class QTextEdit;
 class QTimer;
 class QFileSystemWatcher;
+class MusicLibraryDb;
 
 #include "songinfo.h"
 
@@ -130,6 +131,7 @@ private:
 
     QString m_libraryRoot;
     QList<SongInfo> m_allSongs;
+    MusicLibraryDb *m_db = nullptr;
     QFileSystemWatcher *m_musicWatcher = nullptr;
     QTimer *m_musicScanTimer = nullptr;
     QList<PlaylistInfo> m_playlists;

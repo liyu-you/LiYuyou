@@ -8,7 +8,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Concurrent: off-thread decoding for the import path (see imageio.h).
-find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Network OpenGL OpenGLWidgets Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Network OpenGL OpenGLWidgets Concurrent Sql)
 
 qt_add_executable(PureRefCanvas
     main.cpp
@@ -29,6 +29,7 @@ qt_add_executable(PureRefCanvas
     readerwidget.h readerwidget.cpp
     musicplayer.h musicplayer.cpp
     songinfo.h songmetadata.h songmetadata.cpp
+    musiclibrarydb.h musiclibrarydb.cpp
     coverart.h
     playpausebutton.h
     playerwidgets.h
@@ -43,7 +44,7 @@ qt_add_executable(PureRefCanvas
 
 target_compile_definitions(PureRefCanvas PRIVATE APP_VERSION="${PROJECT_VERSION}")
 
-target_link_libraries(PureRefCanvas PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent)
+target_link_libraries(PureRefCanvas PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::Sql)
 
 if(WIN32)
     # dwmapi: acrylic blur / rounded corners. crypt32: DPAPI, used to protect the

@@ -2,6 +2,7 @@
 #include "miniplayer.h"
 #include "fullscreenplayer.h"
 #include "songmetadata.h"
+#include "musiclibrarydb.h"
 #include "coverart.h"
 
 #include <QFile>
@@ -79,6 +80,10 @@ MusicPlayerWidget::MusicPlayerWidget(const QString &libraryRoot, QWidget *parent
     : QWidget(parent), m_libraryRoot(libraryRoot)
 {
     QDir().mkpath(m_libraryRoot);
+
+    // SQLite library index (ported from Mineradio local-library-store.js).
+    m_db = new MusicLibraryDb(m_libraryRoot + "/music/library.db");
+    m_db->open();
 
     setupUI();
 
@@ -1203,7 +1208,13 @@ void MusicPlayerWidget::scanMusicFolder()
         if (!supportedExts.contains(ext)) continue;
         const QString f = fi.absoluteFilePath();
         if (existing.contains(f)) continue;
-        SongInfo song = SongMetadata::read(f);
+        // Fingerprint-based cache: skip re-parsing when file unchanged.
+        const QString fp = MusicLibraryDb::makeFingerprint(fi.size(), fi.lastModified().toMSecsSinceEpoch());
+        SongInfo song;
+        if (!m_db || !m_db->loadCached(f, fp, song)) {
+            song = SongMetadata::read(f);
+            if (m_db) m_db->upsertSong(song, fi.size(), fi.lastModified().toMSecsSinceEpoch());
+        }
         m_allSongs << song;
         existing.insert(f);
         added = true;
