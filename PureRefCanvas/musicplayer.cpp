@@ -7,6 +7,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QCoreApplication>
+#include <QPainterPath>
+#include <QPixmap>
+#include <QDir>
+#include <QStandardPaths>
+#include <QCryptographicHash>
 
 #include <QMediaPlayer>
 #include <QAudioOutput>
@@ -668,7 +673,8 @@ enum {
     SongDurationRole,
     SongLikedRole,
     SongPathRole,
-    SongPlayingRole
+    SongPlayingRole,
+    SongCoverPathRole   // absolute path to cached embedded cover image
 };
 
 class SongCardDelegate : public QStyledItemDelegate
@@ -691,16 +697,34 @@ public:
 
         // Cover tile 88x88 (square album art), rounded 10
         const QRect cover(card.left() + 20, card.top() + 34, 88, 88);
-        QLinearGradient cg(cover.topLeft(), cover.bottomRight());
-        cg.setColorAt(0, playing ? QColor("#2FA66A") : QColor("#6D9DD6"));
-        cg.setColorAt(1, playing ? QColor("#7CC79B") : QColor("#8E7CC3"));
+        const QString coverPath = idx.data(SongCoverPathRole).toString();
+        QPixmap coverPix;
+        if (!coverPath.isEmpty() && QFile::exists(coverPath)) {
+            coverPix.load(coverPath);
+        }
         painter->setPen(Qt::NoPen);
-        painter->setBrush(cg);
-        painter->drawRoundedRect(cover, 10, 10);
-        painter->setPen(QColor(255,255,255,235));
-        QFont mf("Microsoft YaHei", 26, QFont::Bold);
-        painter->setFont(mf);
-        painter->drawText(cover, Qt::AlignCenter, QStringLiteral("♪"));
+        if (!coverPix.isNull()) {
+            painter->setBrush(QColor("#E5E7EB"));
+            painter->drawRoundedRect(cover, 10, 10);
+            // Clip rounded rect and draw cover scaled to fill.
+            painter->save();
+            QPainterPath clip;
+            clip.addRoundedRect(cover, 10, 10);
+            painter->setClipPath(clip);
+            QPixmap scaled = coverPix.scaled(cover.size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+            painter->drawPixmap(cover, scaled, QRect(QPoint(0,0), cover.size()));
+            painter->restore();
+        } else {
+            QLinearGradient cg(cover.topLeft(), cover.bottomRight());
+            cg.setColorAt(0, playing ? QColor("#2FA66A") : QColor("#6D9DD6"));
+            cg.setColorAt(1, playing ? QColor("#7CC79B") : QColor("#8E7CC3"));
+            painter->setBrush(cg);
+            painter->drawRoundedRect(cover, 10, 10);
+            painter->setPen(QColor(255,255,255,235));
+            QFont mf("Microsoft YaHei", 26, QFont::Bold);
+            painter->setFont(mf);
+            painter->drawText(cover, Qt::AlignCenter, QStringLiteral("♪"));
+        }
 
         const int textX = card.left() + 124;
         const int right = card.right() - 20;
@@ -938,6 +962,11 @@ void MusicPlayerWidget::refreshMusicShelf()
     if (!m_songCardList) return;
     m_songCardList->clear();
     const QList<SongInfo> songs = currentSongList();
+
+    // Cover cache dir: <cache>/LiyouMusicCovers
+    const QDir coverDir = QDir(QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/LiyouMusicCovers");
+    coverDir.mkpath(".");
+
     for (int i = 0; i < songs.size(); ++i) {
         const SongInfo &s = songs.at(i);
         QListWidgetItem *it = new QListWidgetItem(s.title.isEmpty() ? QFileInfo(s.path).completeBaseName() : s.title);
@@ -947,7 +976,20 @@ void MusicPlayerWidget::refreshMusicShelf()
         it->setData(SongPathRole, s.path);
         it->setData(SongLikedRole, m_favorites.contains(s.path));
         it->setData(SongPlayingRole, (i == m_currentIndex));
-        it->setSizeHint(QSize(360, 96));
+
+        // Cache embedded cover bytes to disk once.
+        QString coverPath;
+        if (!s.embeddedCover.isEmpty()) {
+            const QString ext = s.embeddedCoverMime.contains("png") ? "png" : "jpg";
+            const QByteArray key = QCryptographicHash::hash(s.path.toUtf8(), QCryptographicHash::Sha1).toHex();
+            coverPath = coverDir.filePath(key + "." + ext);
+            if (!QFile::exists(coverPath)) {
+                QFile cf(coverPath);
+                if (cf.open(QIODevice::WriteOnly)) cf.write(s.embeddedCover);
+            }
+        }
+        it->setData(SongCoverPathRole, coverPath);
+        it->setSizeHint(QSize(360, 156));
         m_songCardList->addItem(it);
     }
     const int total = songs.size();
