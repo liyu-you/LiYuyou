@@ -40,7 +40,24 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 void SettingsDialog::setupUI()
 {
     QSettings settings("PureRefCanvas", "里与由");
-    const bool light = settings.value("themeMode", "dark").toString() == "light";
+    // MainWindow persists the theme under "theme" — keep the key in sync so
+    // the dialog actually opens in the user's chosen theme.
+    const bool light = settings.value("theme", "dark").toString() == "light";
+
+    // Theme-dependent inline colors (the big stylesheet below can't cover the
+    // per-widget setStyleSheet calls made further down).
+    const QString txtMain    = light ? "#1f2937" : "#c7d5e0";
+    const QString txtSub     = light ? "#6b7280" : "#8f98a0";
+    const QString accent     = light ? "#2FA66A" : "#66c0f4";
+    const QString accentDim  = light ? "#bfe6d4" : "#2a475e";
+    const QString comboBg    = light ? "#ffffff" : "#16202d";
+    const QString comboBorder= light ? "#d1d5db" : "#2a475e";
+    const QString btnBg      = light ? "#f3f4f6" : "#2a475e";
+    const QString btnBorder  = light ? "#d1d5db" : "#2a475e";
+    const QString btnText    = light ? "#1f2937" : "#c7d5e0";
+    const QString barBg      = light ? "#ffffff" : "#16202d";
+    const QString barBorder  = light ? "#e5e7eb" : "#2a475e";
+    const QString sepColor   = light ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
 
     if (light) {
         // Light theme stylesheet
@@ -73,6 +90,7 @@ void SettingsDialog::setupUI()
             QComboBox { background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 5px; padding: 6px 12px; font-size: 13px; min-width: 100px; }
             QComboBox:hover { border-color: #2FA66A; }
             QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox::down-arrow { image: none; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #6b7280; width: 0; height: 0; margin-right: 8px; }
             QComboBox QAbstractItemView { background: #fff; color: #1f2937; border: 1px solid #d1d5db; selection-background-color: #eaf7f0; selection-color: #2FA66A; padding: 4px; }
             QLineEdit { background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 5px; padding: 6px 10px; font-size: 13px; }
             QLineEdit:focus { border-color: #2FA66A; }
@@ -80,6 +98,8 @@ void SettingsDialog::setupUI()
             QScrollBar:vertical { background: transparent; width: 10px; margin: 4px; }
             QScrollBar::handle:vertical { background: #d1d5db; border-radius: 5px; min-height: 30px; }
             QScrollBar::handle:vertical:hover { background: #9ca3af; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
             QFrame#separator { background: #e5e7eb; max-height: 1px; min-height: 1px; border: none; margin: 0 20px; }
         )");
     } else {
@@ -182,17 +202,17 @@ void SettingsDialog::setupUI()
     QStackedWidget *contentStack = new QStackedWidget;
 
     // Helper: separator line
-    auto makeSeparator = []() -> QFrame* {
+    auto makeSeparator = [&sepColor]() -> QFrame* {
         QFrame *line = new QFrame;
         line->setObjectName("separator");
         line->setFrameShape(QFrame::HLine);
-        line->setStyleSheet("color: rgba(255,255,255,0.06);");
+        line->setStyleSheet("color: " + sepColor + ";");
         line->setFixedHeight(1);
         return line;
     };
 
     // Helper: settings row (title + desc + control)
-    auto makeRow = [](const QString &title, const QString &desc, QWidget *control) -> QWidget* {
+    auto makeRow = [&txtMain, &txtSub](const QString &title, const QString &desc, QWidget *control) -> QWidget* {
         QWidget *row = new QWidget;
         row->setAttribute(Qt::WA_TranslucentBackground);
         row->setStyleSheet("background: transparent;");
@@ -203,11 +223,11 @@ void SettingsDialog::setupUI()
         QVBoxLayout *textLayout = new QVBoxLayout;
         textLayout->setSpacing(1);
         QLabel *titleLabel = new QLabel(title);
-        titleLabel->setStyleSheet("color: #c7d5e0; font-size: 13px; font-weight: 500; background: transparent;");
+        titleLabel->setStyleSheet("color: " + txtMain + "; font-size: 13px; font-weight: 500; background: transparent;");
         textLayout->addWidget(titleLabel);
         if (!desc.isEmpty()) {
             QLabel *descLabel = new QLabel(desc);
-            descLabel->setStyleSheet("color: #8f98a0; font-size: 11px; background: transparent;");
+            descLabel->setStyleSheet("color: " + txtSub + "; font-size: 11px; background: transparent;");
             descLabel->setWordWrap(true);
             textLayout->addWidget(descLabel);
         }
@@ -218,7 +238,7 @@ void SettingsDialog::setupUI()
     };
 
     // Helper: section title (accent bar + icon + label)
-    auto addSection = [](QVBoxLayout *layout, const QString &title, const QString &icon = QString()) {
+    auto addSection = [&light, &txtMain, &accent, &accentDim](QVBoxLayout *layout, const QString &title, const QString &icon = QString()) {
         QWidget *header = new QWidget;
         header->setStyleSheet("background: transparent;");
         QHBoxLayout *hl = new QHBoxLayout(header);
@@ -226,7 +246,9 @@ void SettingsDialog::setupUI()
         hl->setSpacing(8);
         QFrame *bar = new QFrame;
         bar->setFixedSize(3, 14);
-        bar->setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #66c0f4, stop:1 #2a475e); border-radius: 2px;");
+        bar->setStyleSheet(QString(
+            "background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 %1, stop:1 %2); border-radius: 2px;")
+            .arg(light ? "#3FCB84" : "#66c0f4", accentDim));
         hl->addWidget(bar);
         if (!icon.isEmpty()) {
             QLabel *ic = new QLabel(icon);
@@ -234,7 +256,7 @@ void SettingsDialog::setupUI()
             hl->addWidget(ic);
         }
         QLabel *label = new QLabel(title);
-        label->setStyleSheet("color: #c7d5e0; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; background: transparent;");
+        label->setStyleSheet("color: " + txtMain + "; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; background: transparent;");
         hl->addWidget(label);
         hl->addStretch();
         layout->addWidget(header);
@@ -307,7 +329,7 @@ void SettingsDialog::setupUI()
     addSection(appearanceLayout, "毛玻璃效果");
 
     m_acrylicCheck = new QCheckBox("启用毛玻璃（亚克力模糊）");
-    m_acrylicCheck->setStyleSheet("QCheckBox { color: #c7d5e0; font-size: 13px; spacing: 8px; }");
+    m_acrylicCheck->setStyleSheet("QCheckBox { color: " + txtMain + "; font-size: 13px; spacing: 8px; }");
     appearanceLayout->addWidget(m_acrylicCheck);
 
     QWidget *acrylicOpacityWidget = new QWidget;
@@ -319,7 +341,7 @@ void SettingsDialog::setupUI()
     m_acrylicOpacitySlider->setMinimumWidth(180);
     m_acrylicOpacityLabel = new QLabel("73%");
     m_acrylicOpacityLabel->setFixedWidth(40);
-    m_acrylicOpacityLabel->setStyleSheet("color: #8f98a0; font-size: 12px;");
+    m_acrylicOpacityLabel->setStyleSheet("color: " + txtSub + "; font-size: 12px;");
     connect(m_acrylicOpacitySlider, &QSlider::valueChanged, this, [this](int val) {
         m_acrylicOpacityLabel->setText(QString("%1%").arg(val));
     });
@@ -329,7 +351,7 @@ void SettingsDialog::setupUI()
     appearanceLayout->addWidget(makeRow("毛玻璃透明度", "数值越大越不透明（30%-100%）", acrylicOpacityWidget));
 
     addSection(appearanceLayout, "面板透明");
-    QString checkStyle = "QCheckBox { color: #c7d5e0; font-size: 13px; spacing: 8px; }";
+    QString checkStyle = "QCheckBox { color: " + txtMain + "; font-size: 13px; spacing: 8px; }";
     m_menuBarTransparentCheck = new QCheckBox("菜单栏透明");
     m_menuBarTransparentCheck->setStyleSheet(checkStyle);
     m_menuBarTransparentCheck->setToolTip("文件/编辑/视图/帮助菜单栏透出背景图");
@@ -412,7 +434,7 @@ void SettingsDialog::setupUI()
     m_minimapOpacitySlider->setMinimumWidth(180);
     m_minimapOpacityLabel = new QLabel("70%");
     m_minimapOpacityLabel->setFixedWidth(40);
-    m_minimapOpacityLabel->setStyleSheet("color: #8f98a0; font-size: 12px;");
+    m_minimapOpacityLabel->setStyleSheet("color: " + txtSub + "; font-size: 12px;");
     connect(m_minimapOpacitySlider, &QSlider::valueChanged, this, [this](int val) {
         m_minimapOpacityLabel->setText(QString("%1%").arg(val));
     });
@@ -430,7 +452,7 @@ void SettingsDialog::setupUI()
     m_zoomBarOpacitySlider->setMinimumWidth(180);
     m_zoomBarOpacityLabel = new QLabel("85%");
     m_zoomBarOpacityLabel->setFixedWidth(40);
-    m_zoomBarOpacityLabel->setStyleSheet("color: #8f98a0; font-size: 12px;");
+    m_zoomBarOpacityLabel->setStyleSheet("color: " + txtSub + "; font-size: 12px;");
     connect(m_zoomBarOpacitySlider, &QSlider::valueChanged, this, [this](int val) {
         m_zoomBarOpacityLabel->setText(QString("%1%").arg(val));
     });
@@ -441,7 +463,7 @@ void SettingsDialog::setupUI()
 
     m_minimapShowCheck = new QCheckBox("显示迷你地图");
     m_minimapShowCheck->setChecked(true);
-    m_minimapShowCheck->setStyleSheet("QCheckBox { color: #c7d5e0; font-size: 13px; spacing: 8px; }");
+    m_minimapShowCheck->setStyleSheet("QCheckBox { color: " + txtMain + "; font-size: 13px; spacing: 8px; }");
     canvasLayout->addWidget(makeRow("显示迷你地图", "在画布右下角显示导航小地图", m_minimapShowCheck));
 
     m_minimapSizeCombo = new QComboBox;
@@ -453,7 +475,7 @@ void SettingsDialog::setupUI()
 
     m_minimapThrottleCheck = new QCheckBox("启用性能节流");
     m_minimapThrottleCheck->setChecked(true);
-    m_minimapThrottleCheck->setStyleSheet("QCheckBox { color: #c7d5e0; font-size: 13px; spacing: 8px; }");
+    m_minimapThrottleCheck->setStyleSheet("QCheckBox { color: " + txtMain + "; font-size: 13px; spacing: 8px; }");
     canvasLayout->addWidget(makeRow("迷你地图性能节流", "拖动素材时减少缩略图重绘频率，更流畅（关闭后实时更新但可能卡顿）", m_minimapThrottleCheck));
 
     canvasLayout->addStretch();
@@ -526,7 +548,10 @@ void SettingsDialog::setupUI()
     addSection(editorLayout, "缓存");
 
     m_clearCacheBtn = new QPushButton("清空缩略图缓存");
-    m_clearCacheBtn->setStyleSheet("QPushButton { background: #2a475e; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 6px; padding: 6px 16px; font-size: 13px; } QPushButton:hover { background: #3a576e; color: #fff; }");
+    m_clearCacheBtn->setStyleSheet(QString(
+        "QPushButton { background: %1; color: %2; border: 1px solid %3; border-radius: 6px; padding: 6px 16px; font-size: 13px; }"
+        "QPushButton:hover { border-color: %4; }")
+        .arg(btnBg, btnText, btnBorder, accent));
     connect(m_clearCacheBtn, &QPushButton::clicked, this, [this]() {
         ThumbCache::clear();
         m_cacheCleared = true;
@@ -537,7 +562,7 @@ void SettingsDialog::setupUI()
     editorLayout->addWidget(makeSeparator());
 
     QLabel *editorHint = new QLabel("提示：修改后对新输入的文字生效，已有文字可全选后应用格式。");
-    editorHint->setStyleSheet("color: #8f98a0; font-size: 12px; padding: 8px 24px;");
+    editorHint->setStyleSheet("color: " + txtSub + "; font-size: 12px; padding: 8px 24px;");
     editorHint->setWordWrap(true);
     editorLayout->addWidget(editorHint);
     editorLayout->addStretch();
@@ -842,7 +867,7 @@ void SettingsDialog::setupUI()
 
     addSection(advancedLayout, "数据目录");
 
-    auto makeDirRow = [this](const QString &label, const QString &desc, QLineEdit *&edit) -> QWidget* {
+    auto makeDirRow = [this, &txtMain, &txtSub](const QString &label, const QString &desc, QLineEdit *&edit) -> QWidget* {
         QWidget *row = new QWidget;
         row->setMinimumHeight(52);
         QHBoxLayout *layout = new QHBoxLayout(row);
@@ -851,10 +876,10 @@ void SettingsDialog::setupUI()
         QVBoxLayout *textLayout = new QVBoxLayout;
         textLayout->setSpacing(2);
         QLabel *titleLabel = new QLabel(label);
-        titleLabel->setStyleSheet("color: #c7d5e0; font-size: 14px; font-weight: 500;");
+        titleLabel->setStyleSheet("color: " + txtMain + "; font-size: 14px; font-weight: 500;");
         textLayout->addWidget(titleLabel);
         QLabel *descLabel = new QLabel(desc);
-        descLabel->setStyleSheet("color: #8f98a0; font-size: 12px;");
+        descLabel->setStyleSheet("color: " + txtSub + "; font-size: 12px;");
         textLayout->addWidget(descLabel);
         layout->addLayout(textLayout, 1);
         QWidget *rightWidget = new QWidget;
@@ -885,7 +910,11 @@ void SettingsDialog::setupUI()
 
     // Timer shutdown checkbox
     m_timerShutdownCheck = new QCheckBox("开启定时关闭软件");
-    m_timerShutdownCheck->setStyleSheet("QCheckBox { color: #c7d5e0; font-size: 14px; spacing: 8px; } QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #2a475e; background: #16202d; } QCheckBox::indicator:checked { background: #66c0f4; border-color: #66c0f4; }");
+    m_timerShutdownCheck->setStyleSheet(QString(
+        "QCheckBox { color: %1; font-size: 14px; spacing: 8px; }"
+        "QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid %2; background: %3; }"
+        "QCheckBox::indicator:checked { background: %4; border-color: %4; }")
+        .arg(txtMain, comboBorder, comboBg, accent));
     advancedLayout->addWidget(makeRow("定时关闭", "到达设定时间后自动关闭软件", m_timerShutdownCheck));
     advancedLayout->addWidget(makeSeparator());
 
@@ -895,23 +924,29 @@ void SettingsDialog::setupUI()
     timerLayout->setContentsMargins(0, 0, 0, 0);
     timerLayout->setSpacing(8);
     QLabel *timerLabel = new QLabel("剩余关闭时间");
-    timerLabel->setStyleSheet("color: #c7d5e0; font-size: 14px;");
+    timerLabel->setStyleSheet("color: " + txtMain + "; font-size: 14px;");
     timerLayout->addWidget(timerLabel);
+    const QString timerComboSS = QString(
+        "QComboBox { background: %1; color: %2; border: 1px solid %3; border-radius: 5px; padding: 5px 10px; font-size: 13px; }"
+        "QComboBox:hover { border-color: %4; }"
+        "QComboBox::drop-down { border: none; width: 24px; }"
+        "QComboBox QAbstractItemView { background: %1; color: %2; border: 1px solid %3; selection-background-color: %3; }")
+        .arg(comboBg, txtMain, comboBorder, accent);
     m_timerHoursCombo = new QComboBox;
     for (int i = 0; i <= 23; i++) m_timerHoursCombo->addItem(QString::number(i));
     m_timerHoursCombo->setFixedWidth(80);
-    m_timerHoursCombo->setStyleSheet("QComboBox { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 5px; padding: 5px 10px; font-size: 13px; } QComboBox:hover { border-color: #66c0f4; } QComboBox::drop-down { border: none; width: 24px; } QComboBox QAbstractItemView { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; selection-background-color: #2a475e; }");
+    m_timerHoursCombo->setStyleSheet(timerComboSS);
     timerLayout->addWidget(m_timerHoursCombo);
     QLabel *hourLabel = new QLabel("小时");
-    hourLabel->setStyleSheet("color: #8f98a0; font-size: 13px;");
+    hourLabel->setStyleSheet("color: " + txtSub + "; font-size: 13px;");
     timerLayout->addWidget(hourLabel);
     m_timerMinutesCombo = new QComboBox;
     for (int i = 0; i <= 59; i++) m_timerMinutesCombo->addItem(QString::number(i));
     m_timerMinutesCombo->setFixedWidth(80);
-    m_timerMinutesCombo->setStyleSheet("QComboBox { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 5px; padding: 5px 10px; font-size: 13px; } QComboBox:hover { border-color: #66c0f4; } QComboBox::drop-down { border: none; width: 24px; } QComboBox QAbstractItemView { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; selection-background-color: #2a475e; }");
+    m_timerMinutesCombo->setStyleSheet(timerComboSS);
     timerLayout->addWidget(m_timerMinutesCombo);
     QLabel *minLabel = new QLabel("分钟");
-    minLabel->setStyleSheet("color: #8f98a0; font-size: 13px;");
+    minLabel->setStyleSheet("color: " + txtSub + "; font-size: 13px;");
     timerLayout->addWidget(minLabel);
     timerLayout->addStretch();
     advancedLayout->addWidget(makeRow("关闭倒计时", "设置距离关闭的剩余时间", timerWidget));
@@ -919,7 +954,11 @@ void SettingsDialog::setupUI()
 
     // Shutdown PC checkbox
     m_shutdownPCCheck = new QCheckBox("关闭软件同时关机");
-    m_shutdownPCCheck->setStyleSheet("QCheckBox { color: #c7d5e0; font-size: 14px; spacing: 8px; } QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #2a475e; background: #16202d; } QCheckBox::indicator:checked { background: #66c0f4; border-color: #66c0f4; }");
+    m_shutdownPCCheck->setStyleSheet(QString(
+        "QCheckBox { color: %1; font-size: 14px; spacing: 8px; }"
+        "QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid %2; background: %3; }"
+        "QCheckBox::indicator:checked { background: %4; border-color: %4; }")
+        .arg(txtMain, comboBorder, comboBg, accent));
     advancedLayout->addWidget(makeRow("同时关机", "关闭软件时一并关闭电脑", m_shutdownPCCheck));
     advancedLayout->addWidget(makeSeparator());
 
@@ -942,7 +981,7 @@ void SettingsDialog::setupUI()
     addSection(advancedLayout, "在线更新");
 
     m_currentVersionLabel = new QLabel(QString("当前版本：v%1").arg(UpdateChecker::currentVersionString()));
-    m_currentVersionLabel->setStyleSheet("color: #66c0f4; font-size: 13px; font-weight: 600; padding: 0 24px;");
+    m_currentVersionLabel->setStyleSheet("color: " + accent + "; font-size: 13px; font-weight: 600; padding: 0 24px;");
     advancedLayout->addWidget(m_currentVersionLabel);
 
     m_updateUrlEdit = new QLineEdit;
@@ -1029,7 +1068,7 @@ void SettingsDialog::setupUI()
     addSection(shortcutLayout, "音乐播放控制");
 
     // Helper to create a shortcut row
-    auto makeShortcutRow = [](const QString &label, const QString &desc, QKeySequenceEdit *&edit, const QKeySequence &defaultSeq) -> QWidget* {
+    auto makeShortcutRow = [&txtMain, &txtSub, &accent, &comboBg, &comboBorder](const QString &label, const QString &desc, QKeySequenceEdit *&edit, const QKeySequence &defaultSeq) -> QWidget* {
         QWidget *row = new QWidget;
         row->setMinimumHeight(52);
         QHBoxLayout *layout = new QHBoxLayout(row);
@@ -1038,21 +1077,21 @@ void SettingsDialog::setupUI()
         QVBoxLayout *textLayout = new QVBoxLayout;
         textLayout->setSpacing(3);
         QLabel *titleLabel = new QLabel(label);
-        titleLabel->setStyleSheet("color: #c7d5e0; font-size: 14px; font-weight: 500;");
+        titleLabel->setStyleSheet("color: " + txtMain + "; font-size: 14px; font-weight: 500;");
         textLayout->addWidget(titleLabel);
         if (!desc.isEmpty()) {
             QLabel *descLabel = new QLabel(desc);
-            descLabel->setStyleSheet("color: #8f98a0; font-size: 12px;");
+            descLabel->setStyleSheet("color: " + txtSub + "; font-size: 12px;");
             textLayout->addWidget(descLabel);
         }
         layout->addLayout(textLayout, 1);
         edit = new QKeySequenceEdit(defaultSeq);
         edit->setMaximumWidth(220);
-        edit->setStyleSheet(R"(
-            QKeySequenceEdit { background: #16202d; color: #66c0f4; border: 1px solid #2a475e; border-radius: 5px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
-            QKeySequenceEdit:focus { border-color: #66c0f4; }
-            QKeySequenceEdit QLineEdit { background: transparent; border: none; color: #66c0f4; }
-        )");
+        edit->setStyleSheet(QString(
+            "QKeySequenceEdit { background: %1; color: %2; border: 1px solid %3; border-radius: 5px; padding: 6px 12px; font-size: 13px; font-weight: 600; }"
+            "QKeySequenceEdit:focus { border-color: %2; }"
+            "QKeySequenceEdit QLineEdit { background: transparent; border: none; color: %2; }")
+            .arg(comboBg, accent, comboBorder));
         layout->addWidget(edit, 0, Qt::AlignVCenter | Qt::AlignRight);
         return row;
     };
@@ -1069,7 +1108,7 @@ void SettingsDialog::setupUI()
     shortcutLayout->addWidget(makeSeparator());
 
     QLabel *shortcutHint = new QLabel("提示：点击快捷键输入框后按下想要的组合键即可设置。快捷键在应用内全局生效。");
-    shortcutHint->setStyleSheet("color: #8f98a0; font-size: 12px; padding: 8px 24px;");
+    shortcutHint->setStyleSheet("color: " + txtSub + "; font-size: 12px; padding: 8px 24px;");
     shortcutHint->setWordWrap(true);
     shortcutLayout->addWidget(shortcutHint);
     shortcutLayout->addStretch();
@@ -1083,7 +1122,7 @@ void SettingsDialog::setupUI()
     // Bottom button bar
     QWidget *btnBar = new QWidget;
     btnBar->setFixedHeight(56);
-    btnBar->setStyleSheet("background: #16202d; border-top: 1px solid #2a475e;");
+    btnBar->setStyleSheet("background: " + barBg + "; border-top: 1px solid " + barBorder + ";");
     QHBoxLayout *btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(20, 0, 20, 0);
     btnLayout->addStretch();

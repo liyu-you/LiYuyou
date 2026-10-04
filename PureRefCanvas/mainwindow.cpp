@@ -1859,6 +1859,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::openSettings()
 {
+    // SettingsDialog reads the theme from QSettings inside its constructor
+    // (setTheme() below only sets the radio), so persist the current theme
+    // first — otherwise the dialog always opens in the default dark theme.
+    {
+        QSettings settings("PureRefCanvas", "里与由");
+        settings.setValue("theme", m_currentTheme);
+    }
     SettingsDialog dlg(this);
     dlg.setTheme(m_currentTheme);
     dlg.setFontSize(m_fontSize);
