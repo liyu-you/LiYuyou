@@ -75,6 +75,12 @@ bool BookLibrary::load()
         book.totalChars = obj["totalChars"].toInt();
         book.lastRead = QDateTime::fromString(obj["lastRead"].toString(), Qt::ISODate);
         book.addedAt = QDateTime::fromString(obj["addedAt"].toString(), Qt::ISODate);
+        book.totalReadSec = obj["totalReadSec"].toVariant().toLongLong();
+        book.todayReadSec = obj["todayReadSec"].toVariant().toLongLong();
+        book.lastActiveDate = QDate::fromString(obj["lastActiveDate"].toString(), "yyyy-MM-dd");
+        // Roll over "today" counter if the saved session was on an earlier day.
+        if (book.lastActiveDate.isValid() && book.lastActiveDate != QDate::currentDate())
+            book.todayReadSec = 0;
 
         QJsonArray bmArr = obj["bookmarks"].toArray();
         for (const auto &b : bmArr) book.bookmarks << b.toInt();
@@ -101,6 +107,9 @@ bool BookLibrary::save()
         obj["totalChars"] = book.totalChars;
         obj["lastRead"] = book.lastRead.toString(Qt::ISODate);
         obj["addedAt"] = book.addedAt.toString(Qt::ISODate);
+        obj["totalReadSec"] = static_cast<double>(book.totalReadSec);
+        obj["todayReadSec"] = static_cast<double>(book.todayReadSec);
+        obj["lastActiveDate"] = book.lastActiveDate.toString("yyyy-MM-dd");
 
         QJsonArray bmArr;
         for (int b : book.bookmarks) bmArr << b;
@@ -222,6 +231,40 @@ bool BookLibrary::updateProgress(const QString &id, int pos)
         }
     }
     return false;
+}
+
+void BookLibrary::addReadingSeconds(const QString &id, qint64 secs)
+{
+    if (id.isEmpty() || secs <= 0) return;
+    const QDate today = QDate::currentDate();
+    for (auto &book : m_books) {
+        if (book.id == id) {
+            // New calendar day: "today" counter starts fresh.
+            if (book.lastActiveDate != today) {
+                book.lastActiveDate = today;
+                book.todayReadSec = 0;
+            }
+            book.totalReadSec += secs;
+            book.todayReadSec += secs;
+            return;
+        }
+    }
+}
+
+qint64 BookLibrary::totalTodayReadSec() const
+{
+    const QDate today = QDate::currentDate();
+    qint64 sum = 0;
+    for (const auto &b : m_books)
+        if (b.lastActiveDate == today) sum += b.todayReadSec;
+    return sum;
+}
+
+qint64 BookLibrary::totalAllReadSec() const
+{
+    qint64 sum = 0;
+    for (const auto &b : m_books) sum += b.totalReadSec;
+    return sum;
 }
 
 bool BookLibrary::toggleBookmark(const QString &id, int pos)

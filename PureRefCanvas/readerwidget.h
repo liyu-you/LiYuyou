@@ -60,6 +60,7 @@ private slots:
     void pickBackgroundImage();
     void clearBackgroundImage();
     void toggleBookmark();
+    void onReadTick();               // 1s reading-time clock while a book is open
     void onSliderPressed();
     void onSliderReleased();
     void importBook();
@@ -215,6 +216,11 @@ private:
     QVector<Para> m_paras;
 
     QTimer *m_relayoutTimer = nullptr;
+
+    // Reading-time accounting: a 1s clock runs only while a book is open on the
+    // reader page; seconds are flushed to the library every ~15s and on exit.
+    QTimer *m_readClock = nullptr;
+    int m_readFlushCount = 0;
 
     int m_pendingRestorePos = 0;   // position to restore after a book opens
     int m_lastTopPos = 0;          // top char captured on resize (cheap re-scroll)

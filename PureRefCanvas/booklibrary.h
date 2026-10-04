@@ -43,6 +43,11 @@ struct BookInfo {
     QList<Annotation> annotations;
     QDateTime lastRead;
     QDateTime addedAt;
+    // Reading-time accounting (seconds). todayReadSec is the cumulative seconds
+    // on `lastActiveDate`; it rolls over to 0 when the calendar day changes.
+    qint64 totalReadSec = 0;
+    qint64 todayReadSec = 0;
+    QDate lastActiveDate;
 };
 
 class BookLibrary : public QObject
@@ -63,6 +68,14 @@ public:
     bool toggleBookmark(const QString &id, int pos);
     bool hasBookmark(const QString &id, int pos) const;
     QList<int> bookmarks(const QString &id) const;
+
+    // Accumulate `secs` of active reading into the book's total + today counters.
+    // Handles calendar-day rollover for todayReadSec. Does NOT persist — caller
+    // decides the save cadence.
+    void addReadingSeconds(const QString &id, qint64 secs);
+    // Aggregate reading seconds across all books (today / all-time), with day rollover.
+    qint64 totalTodayReadSec() const;
+    qint64 totalAllReadSec() const;
 
     QString loadBookText(const QString &id) const;
     QList<ChapterInfo> extractChapters(const QString &text) const;

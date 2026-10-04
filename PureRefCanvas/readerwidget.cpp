@@ -222,6 +222,11 @@ ReaderWidget::ReaderWidget(const QString &libraryRoot, QWidget *parent)
 
     setupUI();
 
+    // 1s reading-time clock; started only when a book opens, stopped on back-to-shelf.
+    m_readClock = new QTimer(this);
+    m_readClock->setInterval(1000);
+    connect(m_readClock, &QTimer::timeout, this, &ReaderWidget::onReadTick);
+
     connect(m_library, &BookLibrary::libraryChanged, this, &ReaderWidget::refreshShelf);
 
     // Defer heavy loading — staggered to avoid main window freeze on show
@@ -944,6 +949,8 @@ void ReaderWidget::openBook(QListWidgetItem *item)
     loadBook(item->data(Qt::UserRole).toString());
     m_stack->setCurrentIndex(1);
     applyTheme();
+    m_readFlushCount = 0;
+    m_readClock->start();
     // The document is width-independent; once the page is shown, just re-apply
     // the saved position (no document rebuild needed).
     QTimer::singleShot(0, this, [this]() {
@@ -956,6 +963,8 @@ void ReaderWidget::openBookById(const QString &id)
     loadBook(id);
     m_stack->setCurrentIndex(1);
     applyTheme();
+    m_readFlushCount = 0;
+    m_readClock->start();
     QTimer::singleShot(0, this, [this]() {
         if (!m_currentBookId.isEmpty()) restorePosition(m_pendingRestorePos);
     });
@@ -963,16 +972,29 @@ void ReaderWidget::openBookById(const QString &id)
 
 void ReaderWidget::backToShelf()
 {
+    // Stop the reading clock and flush the accumulated seconds to disk.
+    m_readClock->stop();
     // Save progress
     if (!m_currentBookId.isEmpty()) {
         int pos = topCharPos();
-        m_library->updateProgress(m_currentBookId, pos);
+        m_library->updateProgress(m_currentBookId, pos);  // also persists time counters
     }
     m_currentBookId.clear();
     m_bookText.clear();
     m_paras.clear();
     m_stack->setCurrentIndex(0);
     refreshShelf();
+}
+
+void ReaderWidget::onReadTick()
+{
+    if (m_currentBookId.isEmpty()) { m_readClock->stop(); return; }
+    m_library->addReadingSeconds(m_currentBookId, 1);
+    // Flush to disk periodically so a crash loses at most ~15s.
+    if (++m_readFlushCount >= 15) {
+        m_readFlushCount = 0;
+        m_library->save();
+    }
 }
 
 void ReaderWidget::backToShelfPublic()
@@ -2141,26 +2163,25 @@ void ReaderWidget::refreshShelf()
         m_recordBadge->setText(books.isEmpty() ? QStringLiteral("暂无记录") : QStringLiteral("已读 %1%").arg(latestPct));
     }
 
-    // Reading-timer card: today's active books + cumulative reading.
+    // Reading-timer card: real accumulated reading time (today / all-time).
     if (m_timerTodayLabel || m_timerTotalLabel) {
-        const QDate today = QDate::currentDate();
-        int todayCount = 0;
-        long long totalCharsRead = 0;
-        long long totalCharsAll = 0;
-        for (const auto &b : books) {
-            if (b.lastRead.date() == today) todayCount++;
-            totalCharsRead += b.progress;
-            totalCharsAll += b.totalChars;
-        }
-        if (m_timerTodayLabel) {
-            m_timerTodayLabel->setText(todayCount > 0
-                ? QStringLiteral("今日在读 %1 本书").arg(todayCount)
+        const qint64 todaySec = m_library->totalTodayReadSec();
+        const qint64 allSec = m_library->totalAllReadSec();
+        auto fmtDur = [](qint64 s) -> QString {
+            if (s < 60) return QStringLiteral("%1 秒").arg(s);
+            if (s < 3600) return QStringLiteral("%1 分钟").arg(s / 60);
+            const qint64 h = s / 3600, m = (s % 3600) / 60;
+            return m > 0 ? QStringLiteral("%1 小时 %2 分").arg(h).arg(m)
+                         : QStringLiteral("%1 小时").arg(h);
+        };
+        if (m_timerTodayLabel)
+            m_timerTodayLabel->setText(todaySec > 0
+                ? QStringLiteral("今日阅读 %1").arg(fmtDur(todaySec))
                 : QStringLiteral("今日尚未阅读"));
-        }
-        if (m_timerTotalLabel) {
-            const int avgPct = totalCharsAll > 0 ? (int)(totalCharsRead * 100 / totalCharsAll) : 0;
-            m_timerTotalLabel->setText(QStringLiteral("累计 %1 本 · 总进度 %2%").arg(books.size()).arg(avgPct));
-        }
+        if (m_timerTotalLabel)
+            m_timerTotalLabel->setText(allSec > 0
+                ? QStringLiteral("累计阅读 %1").arg(fmtDur(allSec))
+                : QStringLiteral("累计阅读 0 分钟"));
     }
 }
 
