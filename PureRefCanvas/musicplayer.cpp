@@ -18,6 +18,7 @@
 #include <QListWidgetItem>
 #include <QTableWidget>
 #include <QTableWidgetItem>
+#include <QStyledItemDelegate>
 #include <QLabel>
 #include <QPushButton>
 #include <QSlider>
@@ -236,11 +237,13 @@ void MusicPlayerWidget::setupUI()
     setupSidebar();
     setupSongTable();
     setupDiscoveryPage();
+    setupMusicShelfPage();
     setupLyricsPanel();
 
     m_contentStack = new QStackedWidget;
-    m_contentStack->addWidget(m_discoveryPage); // index 0
-    m_contentStack->addWidget(m_mainArea);      // index 1
+    m_contentStack->addWidget(m_musicShelfPage); // index 0 — light card shelf (default)
+    m_contentStack->addWidget(m_discoveryPage); // index 1
+    m_contentStack->addWidget(m_mainArea);      // index 2
 
     m_splitter->addWidget(m_sidebar);
     m_splitter->addWidget(m_contentStack);
@@ -248,9 +251,10 @@ void MusicPlayerWidget::setupUI()
     m_splitter->setStretchFactor(0, 0);
     m_splitter->setStretchFactor(1, 1);
     m_splitter->setStretchFactor(2, 0);
-    m_sidebar->setMinimumWidth(200);
-    m_sidebar->setMaximumWidth(200);
-    m_splitter->setSizes({200, 700, 0});
+    m_sidebar->setMinimumWidth(0);
+    m_sidebar->setMaximumWidth(16777215);
+    m_sidebar->hide();  // 新书架页自带浅色侧栏
+    m_splitter->setSizes({0, 900, 0});
     m_lyricsPanel->hide();
 
     setupPlayerBar();
@@ -324,7 +328,7 @@ void MusicPlayerWidget::setupTopBar()
     )");
     connect(m_topSearch, &QLineEdit::returnPressed, this, [this]() {
         m_searchText = m_topSearch->text().trimmed();
-        if (m_contentStack) m_contentStack->setCurrentIndex(1);
+        if (m_contentStack) m_contentStack->setCurrentIndex(2);
         refreshSongTable();
     });
     layout->addWidget(m_topSearch);
@@ -443,7 +447,7 @@ void MusicPlayerWidget::setupDiscoveryPage()
         QString plName = playlistNames[i];
         connect(card, &QPushButton::clicked, this, [this, plName]() {
             // Switch to song list page and show this playlist
-            if (m_contentStack) m_contentStack->setCurrentIndex(1);
+            if (m_contentStack) m_contentStack->setCurrentIndex(2);
             m_currentNav = plName;
             m_playlistTitle->setText(plName);
             // Create playlist if not exists
@@ -668,6 +672,305 @@ void MusicPlayerWidget::setupSongTable()
         "<div style='color:#8a8a8a; font-size:12px;'>点击右上角「导入音乐」添加歌曲，<br>或把音频文件放进音乐文件夹自动导入</div>");
     layout->addWidget(m_emptyLabel, 1);
     m_emptyLabel->hide();
+}
+
+// ---- Light card delegate for the music shelf (own code, mirrors reader shelf) ----
+enum {
+    SongArtistRole = Qt::UserRole + 1,
+    SongAlbumRole,
+    SongDurationRole,
+    SongLikedRole,
+    SongPathRole,
+    SongPlayingRole
+};
+
+class SongCardDelegate : public QStyledItemDelegate
+{
+public:
+    explicit SongCardDelegate(QObject *p = nullptr) : QStyledItemDelegate(p) {}
+    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override
+    { return QSize(360, 96); }
+    void paint(QPainter *painter, const QStyleOptionViewItem &opt,
+               const QModelIndex &idx) const override
+    {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing);
+        const QRect card = opt.rect.adjusted(4, 4, -4, -8);
+        const bool playing = idx.data(SongPlayingRole).toBool();
+        const bool hovered = opt.state & QStyle::State_MouseOver;
+        painter->setPen(QPen(QColor(playing ? "#2FA66A" : "#E5E7EB"), playing ? 1.2 : 0.8));
+        painter->setBrush(QColor(playing ? "#F0FBF5" : (hovered ? "#FAFBFC" : "#FFFFFF")));
+        painter->drawRoundedRect(card, 14, 14);
+
+        // Cover tile 56x56
+        const QRect cover(card.left() + 18, card.top() + 20, 56, 56);
+        QLinearGradient cg(cover.topLeft(), cover.bottomRight());
+        cg.setColorAt(0, playing ? QColor("#2FA66A") : QColor("#6D9DD6"));
+        cg.setColorAt(1, playing ? QColor("#7CC79B") : QColor("#8E7CC3"));
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(cg);
+        painter->drawRoundedRect(cover, 10, 10);
+        painter->setPen(QColor(255,255,255,235));
+        QFont mf("Microsoft YaHei", 16, QFont::Bold);
+        painter->setFont(mf);
+        painter->drawText(cover, Qt::AlignCenter, QStringLiteral("♪"));
+
+        const int textX = card.left() + 90;
+        const int right = card.right() - 20;
+        const int pillW = 74;
+        const int textRight = right - pillW - 14;
+
+        QFont titleF("Microsoft YaHei", 11, QFont::Medium);
+        painter->setFont(titleF);
+        painter->setPen(QColor(playing ? "#1F7A4B" : "#111827"));
+        QFontMetrics tm(titleF);
+        painter->drawText(QRect(textX, card.top()+18, textRight-textX, 22),
+                          Qt::AlignLeft|Qt::AlignVCenter,
+                          tm.elidedText(idx.data(Qt::DisplayRole).toString(), Qt::ElideRight, textRight-textX));
+
+        QFont bodyF("Microsoft YaHei", 9);
+        painter->setFont(bodyF);
+        painter->setPen(QColor("#9CA3AF"));
+        QFontMetrics bm(bodyF);
+        QString sub = idx.data(SongArtistRole).toString();
+        if (sub.isEmpty()) sub = QStringLiteral("未知歌手");
+        const QString album = idx.data(SongAlbumRole).toString();
+        if (!album.isEmpty()) sub += QStringLiteral(" · ") + album;
+        qint64 dur = idx.data(SongDurationRole).toLongLong();
+        if (dur > 0) {
+            qint64 sec = dur/1000;
+            sub += QStringLiteral("  %1:%2").arg(sec/60).arg(sec%60,2,10,QChar('0'));
+        }
+        painter->drawText(QRect(textX, card.top()+46, textRight-textX, 18),
+                          Qt::AlignLeft|Qt::AlignVCenter,
+                          bm.elidedText(sub, Qt::ElideRight, textRight-textX));
+
+        // Playing indicator
+        if (playing) {
+            painter->setPen(QColor("#2FA66A"));
+            painter->setFont(QFont("Microsoft YaHei", 8));
+            painter->drawText(QRect(textX, card.top()+66, textRight-textX, 16),
+                              Qt::AlignLeft|Qt::AlignVCenter, QStringLiteral("正在播放"));
+        }
+
+        // Right pill: ▶ 播放 / ★ 已赞
+        QRect pill(right-pillW, card.top()+32, pillW, 30);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QColor("#EAF3DE"));
+        painter->drawRoundedRect(pill, 15, 15);
+        painter->setPen(QColor("#3F7A2E"));
+        painter->setFont(QFont("Microsoft YaHei", 9, QFont::Medium));
+        QString pillText = idx.data(SongLikedRole).toBool() ? QStringLiteral("★ 已喜欢") : QStringLiteral("▶ 播放");
+        painter->drawText(pill, Qt::AlignCenter, pillText);
+        painter->restore();
+    }
+};
+
+void MusicPlayerWidget::setupMusicShelfPage()
+{
+    m_musicShelfPage = new QWidget;
+    m_musicShelfPage->setObjectName("musicShelfPage");
+    m_musicShelfPage->setStyleSheet(R"(
+        QWidget#musicShelfPage { background: #F5F7FA; }
+        QLabel { background: transparent; }
+    )");
+
+    QHBoxLayout *root = new QHBoxLayout(m_musicShelfPage);
+    root->setContentsMargins(0,0,0,0);
+    root->setSpacing(0);
+
+    // ---- Left sidebar (content browser) ----
+    QWidget *sb = new QWidget;
+    sb->setFixedWidth(220);
+    sb->setStyleSheet("background:#FFFFFF; border-right:1px solid #E5E7EB;");
+    QVBoxLayout *sbl = new QVBoxLayout(sb);
+    sbl->setContentsMargins(16,20,16,20);
+    sbl->setSpacing(18);
+
+    QLabel *browserLabel = new QLabel("内容浏览器");
+    browserLabel->setStyleSheet("font-size:13px; font-weight:500; color:#6B7280;");
+    sbl->addWidget(browserLabel);
+
+    // Active row "音乐"
+    QWidget *activeRow = new QWidget;
+    activeRow->setStyleSheet("background:#EAF3DE; border-radius:10px;");
+    QHBoxLayout *al = new QHBoxLayout(activeRow);
+    al->setContentsMargins(12,8,8,8); al->setSpacing(8);
+    QLabel *ai = new QLabel("▮"); ai->setStyleSheet("color:#27500A; font-size:14px;");
+    QLabel *at = new QLabel("音乐"); at->setStyleSheet("color:#27500A; font-size:14px; font-weight:500;");
+    al->addWidget(ai); al->addWidget(at); al->addStretch();
+    QLabel *ch = new QLabel("›"); ch->setStyleSheet("color:#27500A; font-size:16px;");
+    al->addWidget(ch);
+    sbl->addWidget(activeRow);
+
+    // Stats: total songs + liked
+    QHBoxLayout *stats = new QHBoxLayout; stats->setSpacing(12);
+    QWidget *sc1 = new QWidget; sc1->setStyleSheet("background:#F3F4F6; border-radius:10px;");
+    QVBoxLayout *sc1l = new QVBoxLayout(sc1); sc1l->setContentsMargins(12,12,12,12);
+    m_sidebarSongCount = new QLabel("0 首");
+    m_sidebarSongCount->setAlignment(Qt::AlignCenter);
+    m_sidebarSongCount->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
+    sc1l->addWidget(m_sidebarSongCount); stats->addWidget(sc1,1);
+    QWidget *sc2 = new QWidget; sc2->setStyleSheet("background:#F3F4F6; border-radius:10px;");
+    QVBoxLayout *sc2l = new QVBoxLayout(sc2); sc2l->setContentsMargins(12,12,12,12);
+    m_sidebarLikedCount = new QLabel("0 喜欢");
+    m_sidebarLikedCount->setAlignment(Qt::AlignCenter);
+    m_sidebarLikedCount->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
+    sc2l->addWidget(m_sidebarLikedCount); stats->addWidget(sc2,1);
+    sbl->addLayout(stats);
+
+    QLabel *favLabel = new QLabel("我的喜欢");
+    favLabel->setStyleSheet("font-size:13px; font-weight:500; color:#6B7280;");
+    sbl->addWidget(favLabel);
+    QWidget *favItem = new QWidget;
+    favItem->setStyleSheet("background:#F9FAFB; border-radius:10px;");
+    QVBoxLayout *fl = new QVBoxLayout(favItem);
+    fl->setContentsMargins(12,10,12,10); fl->setSpacing(2);
+    m_sidebarRecentTitle = new QLabel("暂无喜欢");
+    m_sidebarRecentTitle->setStyleSheet("font-size:13px; font-weight:500; color:#111827;");
+    m_sidebarRecentTime = new QLabel("点赞歌曲后显示");
+    m_sidebarRecentTime->setStyleSheet("font-size:11px; color:#9CA3AF;");
+    fl->addWidget(m_sidebarRecentTitle); fl->addWidget(m_sidebarRecentTime);
+    sbl->addWidget(favItem);
+    sbl->addStretch();
+    QPushButton *newGroup = new QPushButton("+ 新建歌单");
+    newGroup->setCursor(Qt::PointingHandCursor);
+    newGroup->setStyleSheet("QPushButton{background:transparent; color:#6B7280; border:1px dashed #D1D5DB; border-radius:10px; padding:10px; font-size:13px;}"
+                            "QPushButton:hover{border-color:#2FA66A; color:#2FA66A;}");
+    connect(newGroup, &QPushButton::clicked, this, &MusicPlayerWidget::addPlaylist);
+    sbl->addWidget(newGroup);
+
+    root->addWidget(sb);
+
+    // ---- Content area ----
+    QWidget *content = new QWidget;
+    content->setStyleSheet("background:transparent;");
+    QVBoxLayout *cl = new QVBoxLayout(content);
+    cl->setContentsMargins(24,22,24,22); cl->setSpacing(16);
+
+    QHBoxLayout *header = new QHBoxLayout; header->setSpacing(12);
+    QVBoxLayout *tb = new QVBoxLayout; tb->setSpacing(2);
+    QLabel *title = new QLabel("音乐");
+    title->setStyleSheet("font-size:22px; font-weight:500; color:#111827;");
+    m_shelfSongCount = new QLabel("0 首歌曲");
+    m_shelfSongCount->setStyleSheet("font-size:13px; color:#6B7280;");
+    tb->addWidget(title); tb->addWidget(m_shelfSongCount);
+    m_musicImportBtn = new QPushButton("导入音乐");
+    m_musicImportBtn->setCursor(Qt::PointingHandCursor);
+    m_musicImportBtn->setFixedSize(112,36);
+    m_musicImportBtn->setStyleSheet("QPushButton{background:#2FA66A; color:#fff; border:none; border-radius:18px; padding:0 18px; font-size:13px; font-weight:500;}"
+                                    "QPushButton:hover{background:#27945D;} QPushButton:pressed{background:#1F7A4B;}");
+    connect(m_musicImportBtn, &QPushButton::clicked, this, &MusicPlayerWidget::importMusic);
+    header->addLayout(tb); header->addStretch(); header->addWidget(m_musicImportBtn,0,Qt::AlignTop);
+    cl->addLayout(header);
+
+    m_songCardList = new QListWidget;
+    m_songCardList->setObjectName("musicSongCards");
+    m_songCardList->setViewMode(QListView::ListMode);
+    m_songCardList->setResizeMode(QListView::Adjust);
+    m_songCardList->setMovement(QListView::Static);
+    m_songCardList->setSpacing(0);
+    m_songCardList->setUniformItemSizes(true);
+    m_songCardList->setItemDelegate(new SongCardDelegate(m_songCardList));
+    m_songCardList->setStyleSheet(R"(
+        QListWidget#musicSongCards{background:transparent; border:none; outline:none; padding:0;}
+        QListWidget#musicSongCards::item{background:transparent; border:none;}
+        QScrollBar:vertical{background:transparent; width:10px; border:none;}
+        QScrollBar::handle:vertical{background:#D1D5DB; border-radius:5px; min-height:32px; margin:2px;}
+        QScrollBar::handle:vertical:hover{background:#9CA3AF;}
+        QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}
+    )");
+    connect(m_songCardList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *it){
+        const QString path = it->data(SongPathRole).toString();
+        const QList<SongInfo> songs = currentSongList();
+        for (int i = 0; i < songs.size(); ++i) {
+            if (songs.at(i).path == path) { playSongAt(i); return; }
+        }
+    });
+    cl->addWidget(m_songCardList, 1);
+
+    // Bottom two cards
+    QHBoxLayout *bottom = new QHBoxLayout; bottom->setSpacing(16);
+    QWidget *card1 = new QWidget; card1->setFixedHeight(120);
+    card1->setStyleSheet("background:#FFFFFF; border:1px solid #E5E7EB; border-radius:16px;");
+    QHBoxLayout *c1l = new QHBoxLayout(card1); c1l->setContentsMargins(20,18,20,18); c1l->setSpacing(16);
+    QLabel *c1i = new QLabel("♥"); c1i->setFixedSize(36,36); c1i->setAlignment(Qt::AlignCenter);
+    c1i->setStyleSheet("background:#FDE7EF; color:#C2185B; border-radius:18px; font-size:16px;");
+    c1l->addWidget(c1i,0,Qt::AlignTop);
+    QVBoxLayout *c1t = new QVBoxLayout; c1t->setSpacing(6);
+    QLabel *c1h = new QLabel("我的喜欢"); c1h->setStyleSheet("font-size:14px; font-weight:500; color:#111827;");
+    m_favCardCount = new QLabel("还没有喜欢的歌曲");
+    m_favCardCount->setStyleSheet("font-size:12px; color:#6B7280;");
+    QLabel *c1b = new QLabel("♡ 点赞收藏");
+    c1b->setAlignment(Qt::AlignCenter); c1b->setFixedSize(86,24);
+    c1b->setStyleSheet("background:#FDE7EF; color:#C2185B; border-radius:12px; font-size:12px; font-weight:500;");
+    c1t->addWidget(c1h); c1t->addWidget(m_favCardCount); c1t->addWidget(c1b,0,Qt::AlignLeft);
+    c1l->addLayout(c1t,1);
+    bottom->addWidget(card1,1);
+
+    QWidget *card2 = new QWidget; card2->setFixedHeight(120);
+    card2->setStyleSheet("background:#FFFFFF; border:1px solid #E5E7EB; border-radius:16px;");
+    QHBoxLayout *c2l = new QHBoxLayout(card2); c2l->setContentsMargins(20,18,20,18); c2l->setSpacing(16);
+    QLabel *c2i = new QLabel("♫"); c2i->setFixedSize(36,36); c2i->setAlignment(Qt::AlignCenter);
+    c2i->setStyleSheet("background:#E7EEFD; color:#2F5FB0; border-radius:18px; font-size:16px;");
+    c2l->addWidget(c2i,0,Qt::AlignTop);
+    QVBoxLayout *c2t = new QVBoxLayout; c2t->setSpacing(6);
+    QLabel *c2h = new QLabel("最近播放"); c2h->setStyleSheet("font-size:14px; font-weight:500; color:#111827;");
+    m_recentSongLabel = new QLabel("暂无播放记录");
+    m_recentSongLabel->setStyleSheet("font-size:12px; color:#111827; font-weight:500;");
+    QLabel *c2b = new QLabel("▶ 继续播放");
+    c2b->setAlignment(Qt::AlignCenter); c2b->setFixedSize(86,24);
+    c2b->setStyleSheet("background:#E7EEFD; color:#2F5FB0; border-radius:12px; font-size:12px; font-weight:500;");
+    c2t->addWidget(c2h); c2t->addWidget(m_recentSongLabel); c2t->addWidget(c2b,0,Qt::AlignLeft);
+    c2l->addLayout(c2t,1);
+    bottom->addWidget(card2,1);
+    cl->addLayout(bottom);
+
+    root->addWidget(content, 1);
+}
+
+void MusicPlayerWidget::refreshMusicShelf()
+{
+    if (!m_songCardList) return;
+    m_songCardList->clear();
+    const QList<SongInfo> songs = currentSongList();
+    for (int i = 0; i < songs.size(); ++i) {
+        const SongInfo &s = songs.at(i);
+        QListWidgetItem *it = new QListWidgetItem(s.title.isEmpty() ? QFileInfo(s.path).completeBaseName() : s.title);
+        it->setData(SongArtistRole, s.artist);
+        it->setData(SongAlbumRole, s.album);
+        it->setData(SongDurationRole, s.duration);
+        it->setData(SongPathRole, s.path);
+        it->setData(SongLikedRole, m_favorites.contains(s.path));
+        it->setData(SongPlayingRole, (i == m_currentIndex));
+        it->setSizeHint(QSize(360, 96));
+        m_songCardList->addItem(it);
+    }
+    const int total = songs.size();
+    if (m_shelfSongCount) m_shelfSongCount->setText(QStringLiteral("%1 首歌曲").arg(total));
+    if (m_sidebarSongCount) m_sidebarSongCount->setText(QStringLiteral("%1 首").arg(total));
+    if (m_sidebarLikedCount) m_sidebarLikedCount->setText(QStringLiteral("%1 喜欢").arg(m_favorites.size()));
+    if (m_favCardCount) m_favCardCount->setText(QStringLiteral("共 %1 首喜欢的歌曲").arg(m_favorites.size()));
+    // sidebar recent liked
+    if (m_sidebarRecentTitle) {
+        if (!m_favorites.isEmpty()) {
+            for (const SongInfo &s : m_allSongs) {
+                if (m_favorites.contains(s.path)) {
+                    m_sidebarRecentTitle->setText(s.title);
+                    m_sidebarRecentTime->setText(QStringLiteral("已加入喜欢"));
+                    break;
+                }
+            }
+        } else {
+            m_sidebarRecentTitle->setText("暂无喜欢");
+            m_sidebarRecentTime->setText("点赞歌曲后显示");
+        }
+    }
+    // recent playing
+    if (m_recentSongLabel && m_currentIndex >= 0 && m_currentIndex < m_allSongs.size()) {
+        const SongInfo &s = m_allSongs.at(m_currentIndex);
+        m_recentSongLabel->setText(s.title.isEmpty() ? QFileInfo(s.path).completeBaseName() : s.title);
+    }
 }
 
 void MusicPlayerWidget::setupPlayerBar()
@@ -898,6 +1201,7 @@ void MusicPlayerWidget::saveLibrary()
 
 void MusicPlayerWidget::refreshSongTable()
 {
+    refreshMusicShelf();  // keep the light card shelf in sync
     const QList<SongInfo> full = currentSongList();
     QList<SongInfo> filtered;
     const QList<SongInfo> *songs = &full;
@@ -1010,12 +1314,12 @@ void MusicPlayerWidget::onNavChanged(QListWidgetItem *item)
 
     if (text == "发现音乐") {
         m_currentNav = "discovery";
-        if (m_contentStack) m_contentStack->setCurrentIndex(0);
+        if (m_contentStack) m_contentStack->setCurrentIndex(1);
         return;
     }
 
     // All other items show song list page
-    if (m_contentStack) m_contentStack->setCurrentIndex(1);
+    if (m_contentStack) m_contentStack->setCurrentIndex(2);
 
     if (text == "本地音乐") {
         m_currentNav = "local";

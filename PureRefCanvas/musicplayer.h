@@ -95,6 +95,9 @@ private:
     void setupSongTable();
     void setupPlayerBar();
     void setupLyricsPanel();
+    // Light card-style music workspace (mirrors the reader shelf, own code)
+    void setupMusicShelfPage();
+    void refreshMusicShelf();
     void loadLibrary();
     void saveLibrary();
     void refreshSongTable();
@@ -159,6 +162,18 @@ private:
     class QStackedWidget *m_contentStack;
     QWidget *m_discoveryPage;
     class QGridLayout *m_playlistGrid;
+
+    // Light card-style music shelf page
+    QWidget *m_musicShelfPage = nullptr;
+    QListWidget *m_songCardList = nullptr;
+    QPushButton *m_musicImportBtn = nullptr;
+    QLabel *m_shelfSongCount = nullptr;     // header "N 首歌曲"
+    QLabel *m_sidebarSongCount = nullptr;   // sidebar stat card
+    QLabel *m_sidebarLikedCount = nullptr;  // sidebar stat card (我的喜欢)
+    QLabel *m_sidebarRecentTitle = nullptr;
+    QLabel *m_sidebarRecentTime = nullptr;
+    QLabel *m_favCardCount = nullptr;       // bottom "我的喜欢" card
+    QLabel *m_recentSongLabel = nullptr;    // bottom "最近播放" card
 
     QWidget *m_mainArea;
     QLabel *m_playlistTitle;
