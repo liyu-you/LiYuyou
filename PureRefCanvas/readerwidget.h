@@ -99,6 +99,8 @@ private:
     void applyDocumentFormats(QTextDocument *doc, const QFont &base) const;
     void applyTheme();
     void buildDocument(QTextDocument *doc, int begin, int end) const;
+    void continueReadingLatest();
+    void changeBookCover(const QString &bookId);
 
     QColor highlightColor(const QString &key) const;
     QString themeTextColor() const;
@@ -153,6 +155,9 @@ private:
     QLabel *m_recordBadge = nullptr;
     QLabel *m_recordBookLabel = nullptr;
     QLabel *m_recordChapterLabel = nullptr;
+    QLabel *m_timerTodayLabel = nullptr;
+    QLabel *m_timerTotalLabel = nullptr;
+    QString m_lastReadBookId;
 
     // Reader
     QWidget *m_readerPage = nullptr;

@@ -28,8 +28,10 @@ int main(int argc, char *argv[])
     ReaderWidget *reader = new ReaderWidget(root, nullptr);
     reader->resize(1200, 800);
     reader->show();
+    std::printf("shown, processing events\n"); std::fflush(stdout);
     for (int i = 0; i < 8; ++i)
         app.processEvents();
+    std::printf("after 8 events\n"); std::fflush(stdout);
 
     // The widget must still be alive and its library created.
     if (!reader->library()) {
@@ -37,22 +39,24 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Explicitly re-trigger the same dynamic-property event on the quick-import
+    // Explicitly re-trigger the same dynamic-property event on the timer
     // card to make sure eventFilter() tolerates it after construction too.
     const auto cards = reader->findChildren<QWidget *>();
     bool sawCard = false;
     for (QWidget *w : cards) {
-        if (w->property("readerQuickImportCard").toBool()) {
+        if (w->property("readerTimerCard").toBool()) {
             sawCard = true;
-            w->setProperty("readerQuickImportCard", true); // DynamicPropertyChange again
+            w->setProperty("readerTimerCard", true); // DynamicPropertyChange again
             QCoreApplication::sendEvent(w, new QEvent(QEvent::DynamicPropertyChange));
         }
     }
+    std::printf("after sendEvent, sawCard=%d\n", (int)sawCard); std::fflush(stdout);
     for (int i = 0; i < 4; ++i)
         app.processEvents();
+    std::printf("after 4 more events\n"); std::fflush(stdout);
 
     if (!sawCard) {
-        std::printf("FAIL: quick-import card (readerQuickImportCard) not found\n");
+        std::printf("FAIL: timer card (readerTimerCard) not found\n");
         return 1;
     }
 

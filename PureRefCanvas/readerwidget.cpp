@@ -57,6 +57,7 @@ constexpr int kShelfTotalCharsRole = Qt::UserRole + 5;
 constexpr int kShelfChapterRole = Qt::UserRole + 6;
 constexpr int kShelfLastReadRole = Qt::UserRole + 7;
 constexpr int kShelfCoverColorRole = Qt::UserRole + 8;
+constexpr int kShelfCoverImageRole = Qt::UserRole + 9;
 
 class ShelfBookDelegate : public QStyledItemDelegate
 {
@@ -83,31 +84,41 @@ public:
         painter->drawRoundedRect(card, 16, 16);
 
         const QRect coverRect(card.left() + 20, card.top() + 22, 60, 92);
-        // Book cover: gradient background from the book's cover color, then the
-        // title rendered vertically (two chars per line) in large white text.
-        // (No tiny scaled-down pixmap — that made the cover text unreadable.)
         {
-            QStringList colors = index.data(kShelfCoverColorRole).toString().split(",");
-            QLinearGradient cg(coverRect.topLeft(), coverRect.bottomRight());
-            if (colors.size() >= 2) {
-                cg.setColorAt(0, QColor(colors[0]));
-                cg.setColorAt(1, QColor(colors[1]));
+            // Custom cover image if user picked one; otherwise gradient + vertical title.
+            const QString coverImg = index.data(kShelfCoverImageRole).toString();
+            if (!coverImg.isEmpty() && QFile::exists(coverImg)) {
+                QPixmap cover(coverImg);
+                if (!cover.isNull()) {
+                    painter->setPen(Qt::NoPen);
+                    painter->setBrush(QColor("#E5E7EB"));
+                    painter->drawRoundedRect(coverRect, 6, 6);
+                    painter->drawPixmap(coverRect, cover.scaled(coverRect.size(),
+                        Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+                }
             } else {
-                cg.setColorAt(0, QColor("#667eea"));
-                cg.setColorAt(1, QColor("#764ba2"));
-            }
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(cg);
-            painter->drawRoundedRect(coverRect, 6, 6);
+                QStringList colors = index.data(kShelfCoverColorRole).toString().split(",");
+                QLinearGradient cg(coverRect.topLeft(), coverRect.bottomRight());
+                if (colors.size() >= 2) {
+                    cg.setColorAt(0, QColor(colors[0]));
+                    cg.setColorAt(1, QColor(colors[1]));
+                } else {
+                    cg.setColorAt(0, QColor("#667eea"));
+                    cg.setColorAt(1, QColor("#764ba2"));
+                }
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(cg);
+                painter->drawRoundedRect(coverRect, 6, 6);
 
-            QFont coverFont("Microsoft YaHei", 14, QFont::Bold);
-            painter->setFont(coverFont);
-            painter->setPen(QColor(255, 255, 255, 235));
-            QStringList lines;
-            for (int i = 0; i < index.data(Qt::DisplayRole).toString().size(); i += 2)
-                lines << index.data(Qt::DisplayRole).toString().mid(i, 2);
-            painter->drawText(coverRect.adjusted(2, 8, -2, -8), Qt::AlignCenter | Qt::TextWordWrap,
-                              lines.join("\n"));
+                QFont coverFont("Microsoft YaHei", 14, QFont::Bold);
+                painter->setFont(coverFont);
+                painter->setPen(QColor(255, 255, 255, 235));
+                QStringList lines;
+                for (int i = 0; i < index.data(Qt::DisplayRole).toString().size(); i += 2)
+                    lines << index.data(Qt::DisplayRole).toString().mid(i, 2);
+                painter->drawText(coverRect.adjusted(2, 8, -2, -8), Qt::AlignCenter | Qt::TextWordWrap,
+                                  lines.join("\n"));
+            }
         }
 
         const int textX = card.left() + 100;
@@ -339,44 +350,43 @@ void ReaderWidget::setupShelfPage()
     quickRow->setContentsMargins(0, 0, 0, 0);
     quickRow->setSpacing(16);
 
-    // Quick import card
-    QWidget *quickImportCard = new QWidget;
-    quickImportCard->setFixedHeight(132);
-    quickImportCard->setCursor(Qt::PointingHandCursor);
-    quickImportCard->setStyleSheet("background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px;");
+    // Reading-timer card — today / cumulative reading stats
+    QWidget *timerCard = new QWidget;
+    timerCard->setFixedHeight(132);
+    timerCard->setStyleSheet("background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px;");
     {
-        QHBoxLayout *row = new QHBoxLayout(quickImportCard);
+        QHBoxLayout *row = new QHBoxLayout(timerCard);
         row->setContentsMargins(20, 18, 20, 18);
         row->setSpacing(16);
 
-        QLabel *icon = new QLabel("+");
+        QLabel *icon = new QLabel("时");
         icon->setFixedSize(36, 36);
         icon->setAlignment(Qt::AlignCenter);
-        icon->setStyleSheet("background: #E6F1FB; color: #185FA5; border-radius: 18px; font-size: 20px; font-weight: 500;");
+        icon->setStyleSheet("background: #EAF3DE; color: #3F7A2E; border-radius: 18px; font-size: 14px; font-weight: 500;");
         row->addWidget(icon, 0, Qt::AlignTop);
 
         QVBoxLayout *texts = new QVBoxLayout;
         texts->setContentsMargins(0, 0, 0, 0);
         texts->setSpacing(6);
-        QLabel *t = new QLabel("快速导入");
+        QLabel *t = new QLabel("阅读计时");
         t->setStyleSheet("font-size: 14px; font-weight: 500; color: #111827;");
-        QLabel *d1 = new QLabel("拖拽文件到书架");
-        d1->setStyleSheet("font-size: 12px; color: #6B7280;");
-        QLabel *d2 = new QLabel("支持 .txt/.epub");
-        d2->setStyleSheet("font-size: 12px; color: #6B7280;");
-        QLabel *badge = new QLabel("选择文件");
+        m_timerTodayLabel = new QLabel("今日阅读 0 分钟");
+        m_timerTodayLabel->setStyleSheet("font-size: 12px; color: #6B7280;");
+        m_timerTotalLabel = new QLabel("累计阅读 0 小时");
+        m_timerTotalLabel->setStyleSheet("font-size: 12px; color: #6B7280;");
+        QLabel *badge = new QLabel("继续阅读");
         badge->setAlignment(Qt::AlignCenter);
         badge->setFixedSize(86, 24);
-        badge->setStyleSheet("background: #E6F1FB; color: #185FA5; border-radius: 12px; font-size: 12px; font-weight: 500;");
+        badge->setStyleSheet("background: #EAF3DE; color: #3F7A2E; border-radius: 12px; font-size: 12px; font-weight: 500;");
         texts->addWidget(t);
-        texts->addWidget(d1);
-        texts->addWidget(d2);
+        texts->addWidget(m_timerTodayLabel);
+        texts->addWidget(m_timerTotalLabel);
         texts->addWidget(badge, 0, Qt::AlignLeft);
         row->addLayout(texts, 1);
     }
-    quickImportCard->installEventFilter(this);
-    quickImportCard->setProperty("readerQuickImportCard", true);
-    quickRow->addWidget(quickImportCard, 1);
+    timerCard->installEventFilter(this);
+    timerCard->setProperty("readerTimerCard", true);
+    quickRow->addWidget(timerCard, 1);
 
     // Reading record card — book / chapter + segmented progress pill badge
     QWidget *recordCard = new QWidget;
@@ -1659,6 +1669,7 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
     if (item) {
         QString id = item->data(Qt::UserRole).toString();
         menu.addAction("打开阅读", this, [this, item]() { openBook(item); });
+        menu.addAction("更改封面图片", this, [this, id]() { changeBookCover(id); });
         menu.addAction("删除书籍", this, [this, id]() {
             if (QMessageBox::question(this, "确认删除", "确定从书架删除这本书？") == QMessageBox::Yes)
                 m_library->removeBook(id);
@@ -1667,6 +1678,32 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
         menu.addAction("导入书籍", this, &ReaderWidget::importBook);
     }
     menu.exec(m_shelfGrid->mapToGlobal(pos));
+}
+
+void ReaderWidget::continueReadingLatest()
+{
+    if (!m_lastReadBookId.isEmpty())
+        openBookById(m_lastReadBookId);
+}
+
+void ReaderWidget::changeBookCover(const QString &bookId)
+{
+    QString path = QFileDialog::getOpenFileName(
+        this, "选择封面图片", QString(),
+        "图片文件 (*.png *.jpg *.jpeg *.bmp *.webp)");
+    if (path.isEmpty()) return;
+
+    // Persist custom cover as books/covers/<bookId>.png
+    const QString dir = m_library->rootPath() + "/covers";
+    QDir().mkpath(dir);
+    const QString dest = dir + "/" + bookId + ".png";
+    QPixmap pm(path);
+    if (pm.isNull()) {
+        QMessageBox::warning(this, "封面", "无法读取所选图片");
+        return;
+    }
+    pm.save(dest, "PNG");
+    refreshShelf();
 }
 
 // ========== Annotations ==========
@@ -1995,6 +2032,7 @@ void ReaderWidget::refreshShelf()
 
     int latestPct = 0;
     QDateTime latestRead;
+    QString latestBookId;
 
     for (const auto &book : books) {
         QListWidgetItem *item = new QListWidgetItem(m_shelfGrid);
@@ -2006,6 +2044,8 @@ void ReaderWidget::refreshShelf()
         item->setData(kShelfAnnotationCountRole, m_library->annotations(book.id).size());
         item->setData(kShelfNoteCountRole, m_library->notes(book.id).size());
         item->setData(kShelfCoverColorRole, book.coverColor);
+        const QString coverImgPath = m_library->rootPath() + "/covers/" + book.id + ".png";
+        item->setData(kShelfCoverImageRole, QFile::exists(coverImgPath) ? coverImgPath : QString());
 
         // Current chapter from loaded text (only if reading has started).
         QString chapter;
@@ -2044,6 +2084,8 @@ void ReaderWidget::refreshShelf()
         if (!latestRead.isValid() || book.lastRead > latestRead) {
             latestRead = book.lastRead;
             latestPct = pct;
+            latestBookId = book.id;
+            m_lastReadBookId = book.id;
             if (m_recordBookLabel) m_recordBookLabel->setText(QStringLiteral("《%1》").arg(book.title));
             if (m_recordChapterLabel) {
                 const QString full =
@@ -2097,6 +2139,28 @@ void ReaderWidget::refreshShelf()
 
     if (m_recordBadge) {
         m_recordBadge->setText(books.isEmpty() ? QStringLiteral("暂无记录") : QStringLiteral("已读 %1%").arg(latestPct));
+    }
+
+    // Reading-timer card: today's active books + cumulative reading.
+    if (m_timerTodayLabel || m_timerTotalLabel) {
+        const QDate today = QDate::currentDate();
+        int todayCount = 0;
+        long long totalCharsRead = 0;
+        long long totalCharsAll = 0;
+        for (const auto &b : books) {
+            if (b.lastRead.date() == today) todayCount++;
+            totalCharsRead += b.progress;
+            totalCharsAll += b.totalChars;
+        }
+        if (m_timerTodayLabel) {
+            m_timerTodayLabel->setText(todayCount > 0
+                ? QStringLiteral("今日在读 %1 本书").arg(todayCount)
+                : QStringLiteral("今日尚未阅读"));
+        }
+        if (m_timerTotalLabel) {
+            const int avgPct = totalCharsAll > 0 ? (int)(totalCharsRead * 100 / totalCharsAll) : 0;
+            m_timerTotalLabel->setText(QStringLiteral("累计 %1 本 · 总进度 %2%").arg(books.size()).arg(avgPct));
+        }
     }
 }
 
@@ -2222,9 +2286,9 @@ void ReaderWidget::setPanelsTransparent(bool transparent)
 
 bool ReaderWidget::eventFilter(QObject *obj, QEvent *event)
 {
-    if (obj && obj->property("readerQuickImportCard").toBool()
+    if (obj && obj->property("readerTimerCard").toBool()
         && event->type() == QEvent::MouseButtonPress) {
-        importBook();
+        continueReadingLatest();
         return true;
     }
 
