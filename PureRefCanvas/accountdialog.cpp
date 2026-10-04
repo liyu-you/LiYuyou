@@ -1,4 +1,4 @@
-#include "accountdialog.h"
+﻿#include "accountdialog.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -10,13 +10,74 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QLinearGradient>
-#include <QInputDialog>
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QMovie>
 #include <QSettings>
+#include <QCoreApplication>
+#include <QDialogButtonBox>
+
+// 弹窗标题统一带程序名前缀（“里与由 - ××”，与登录窗“里与由 - 登录”同款）。
+// 程序名取自 QApplication::applicationName()，与 main.cpp 单一来源，不写死。
+static QString boxTitle(const QString &subject)
+{
+    const QString app = QCoreApplication::applicationName();
+    return app.isEmpty() ? subject : QString("%1 - %2").arg(app, subject);
+}
+
+// Qt 默认按钮是英文 OK/Yes/No/Cancel，与全中文界面不符，统一换成中文。
+static void showNotice(QWidget *parent, const QString &subject, const QString &text)
+{
+    QMessageBox box(QMessageBox::Information, boxTitle(subject), text, QMessageBox::NoButton, parent);
+    box.addButton("确定", QMessageBox::AcceptRole);
+    box.exec();
+}
+
+static void showWarning(QWidget *parent, const QString &subject, const QString &text)
+{
+    QMessageBox box(QMessageBox::Warning, boxTitle(subject), text, QMessageBox::NoButton, parent);
+    box.addButton("确定", QMessageBox::AcceptRole);
+    box.exec();
+}
+
+// 确认框：主按钮文案按场景给（如“退出”），副按钮固定“取消”。
+static bool askConfirm(QWidget *parent, const QString &subject, const QString &text,
+                       const QString &acceptText)
+{
+    QMessageBox box(QMessageBox::Question, boxTitle(subject), text, QMessageBox::NoButton, parent);
+    QAbstractButton *accept = box.addButton(acceptText, QMessageBox::AcceptRole);
+    box.addButton("取消", QMessageBox::RejectRole);
+    box.exec();
+    return box.clickedButton() == accept;
+}
+
+// 密码输入框：QInputDialog 的按钮要到首次 show 才创建，且 show 后再 exec
+// 会脱离 Qt 的模态窗口追踪，因此直接拼一个等价的 QDialog：标题带程序名、
+// 按钮中文、回车确定 Esc 取消（QDialogButtonBox 默认接好）。
+static bool askPassword(QWidget *parent, const QString &subject, const QString &label,
+                        QString *out)
+{
+    QDialog dlg(parent);
+    dlg.setWindowTitle(boxTitle(subject));
+    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+    QLabel *caption = new QLabel(label);
+    QLineEdit *edit = new QLineEdit;
+    edit->setEchoMode(QLineEdit::Password);
+    QDialogButtonBox *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    if (QPushButton *ok = bb->button(QDialogButtonBox::Ok)) ok->setText("确定");
+    if (QPushButton *cancel = bb->button(QDialogButtonBox::Cancel)) cancel->setText("取消");
+    QObject::connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    lay->addWidget(caption);
+    lay->addWidget(edit);
+    lay->addWidget(bb);
+    edit->setFocus();
+    if (dlg.exec() != QDialog::Accepted) return false;
+    *out = edit->text();
+    return true;
+}
 
 // 账户对话框的两套配色：无封面时整窗纯白（空白底），有封面（图片或动图）时
 // 表单区用半透明深色玻璃浮在图上、文字转白。仅作用于本对话框，与软件启动页
@@ -381,14 +442,14 @@ void AccountDialog::onChangeAvatar()
 
     QPixmap pix(path);
     if (pix.isNull()) {
-        QMessageBox::warning(this, "错误", "无法读取该图片文件");
+        showWarning(this, "选择头像", "无法读取该图片文件");
         return;
     }
 
     // Copy to user data directory (same root as the account store)
     QString dataDir = UserAuth::dataRoot() + "/avatars";
     if (!QDir().mkpath(dataDir)) {
-        QMessageBox::warning(this, "错误", QString("无法创建头像目录：\n%1").arg(dataDir));
+        showWarning(this, "保存头像", QString("无法创建头像目录：\n%1").arg(dataDir));
         return;
     }
     QString ext = QFileInfo(path).suffix().toLower();
@@ -402,7 +463,7 @@ void AccountDialog::onChangeAvatar()
         tmp.avatarPath = destPath;
         m_avatarLabel->setPixmap(loadAvatar(tmp, 72));
     } else {
-        QMessageBox::warning(this, "错误", "保存头像失败\n\n" + why);
+        showWarning(this, "保存头像", "保存头像失败\n\n" + why);
     }
 }
 
@@ -417,14 +478,14 @@ void AccountDialog::onChangeBackground()
     const bool animOk = probe.isValid();
     QPixmap still(path);
     if (!animOk && still.isNull()) {
-        QMessageBox::warning(this, "错误", "无法读取该图片文件");
+        showWarning(this, "选择封面", "无法读取该图片文件");
         return;
     }
 
     // Copy to user data directory (same root as the account store)
     QString dataDir = UserAuth::dataRoot() + "/covers";
     if (!QDir().mkpath(dataDir)) {
-        QMessageBox::warning(this, "错误", QString("无法创建封面目录：\n%1").arg(dataDir));
+        showWarning(this, "保存封面", QString("无法创建封面目录：\n%1").arg(dataDir));
         return;
     }
     QString ext = QFileInfo(path).suffix().toLower();
@@ -436,7 +497,7 @@ void AccountDialog::onChangeBackground()
         m_newCoverPath = destPath;
         applyCover(destPath);
     } else {
-        QMessageBox::warning(this, "错误", "保存封面失败\n\n" + why);
+        showWarning(this, "保存封面", "保存封面失败\n\n" + why);
     }
 }
 
@@ -463,7 +524,7 @@ void AccountDialog::onSave()
     // Update nickname if changed
     if (m_nicknameEdit->text().trimmed() != user.nickname) {
         if (!m_auth->updateNickname(user.username, m_nicknameEdit->text().trimmed(), &error)) {
-            QMessageBox::warning(this, "保存失败", error);
+            showWarning(this, "保存失败", error);
             return;
         }
     }
@@ -471,7 +532,7 @@ void AccountDialog::onSave()
     // Update username if changed
     if (m_usernameEdit->text().trimmed() != user.username) {
         if (!m_auth->updateUsername(user.username, m_usernameEdit->text().trimmed(), &error)) {
-            QMessageBox::warning(this, "保存失败", error);
+            showWarning(this, "保存失败", error);
             return;
         }
     }
@@ -479,7 +540,7 @@ void AccountDialog::onSave()
     // Update user ID if changed
     if (m_userIdEdit->text().trimmed() != user.userId) {
         if (!m_auth->updateUserId(m_auth->currentUser().username, m_userIdEdit->text().trimmed(), &error)) {
-            QMessageBox::warning(this, "保存失败", error);
+            showWarning(this, "保存失败", error);
             return;
         }
         if (m_coverIdLabel) m_coverIdLabel->setText("ID: " + m_auth->currentUser().userId);
@@ -488,7 +549,7 @@ void AccountDialog::onSave()
     // Update email if changed
     if (m_emailEdit->text().trimmed().toLower() != user.email) {
         if (!m_auth->bindEmail(m_auth->currentUser().username, m_emailEdit->text().trimmed(), &error)) {
-            QMessageBox::warning(this, "保存失败", error);
+            showWarning(this, "保存失败", error);
             return;
         }
     }
@@ -496,7 +557,7 @@ void AccountDialog::onSave()
     // Update avatar
     if (!m_newAvatarPath.isEmpty()) {
         if (!m_auth->updateAvatar(m_auth->currentUser().username, m_newAvatarPath, &error)) {
-            QMessageBox::warning(this, "保存失败", error);
+            showWarning(this, "保存失败", error);
             return;
         }
     }
@@ -504,49 +565,44 @@ void AccountDialog::onSave()
     // Update account cover (independent from the splash/startup background)
     if (!m_newCoverPath.isEmpty()) {
         if (!m_auth->updateAccountCover(m_auth->currentUser().username, m_newCoverPath, &error)) {
-            QMessageBox::warning(this, "保存失败", error);
+            showWarning(this, "保存失败", error);
             return;
         }
     } else if (m_coverClearPending) {
         // 用户点了“恢复默认背景”：把账号里的封面路径清空（启动页背景不受影响）。
         if (!m_auth->clearAccountCover(m_auth->currentUser().username, &error)) {
-            QMessageBox::warning(this, "保存失败", error);
+            showWarning(this, "保存失败", error);
             return;
         }
     }
 
-    QMessageBox::information(this, "成功", "账号信息已更新！");
+    showNotice(this, "保存成功", "账号信息已更新！");
     accept();
 }
 
 void AccountDialog::onChangePassword()
 {
-    bool ok;
-    QString oldPwd = QInputDialog::getText(this, "修改密码", "原密码：", QLineEdit::Password, "", &ok);
-    if (!ok || oldPwd.isEmpty()) return;
-
-    QString newPwd = QInputDialog::getText(this, "修改密码", "新密码（6-32位，含字母和数字）：", QLineEdit::Password, "", &ok);
-    if (!ok || newPwd.isEmpty()) return;
-
-    QString confirmPwd = QInputDialog::getText(this, "修改密码", "确认新密码：", QLineEdit::Password, "", &ok);
-    if (!ok || confirmPwd.isEmpty()) return;
+    QString oldPwd, newPwd, confirmPwd;
+    if (!askPassword(this, "修改密码", "原密码：", &oldPwd) || oldPwd.isEmpty()) return;
+    if (!askPassword(this, "修改密码", "新密码（6-32位，含字母和数字）：", &newPwd) || newPwd.isEmpty()) return;
+    if (!askPassword(this, "修改密码", "确认新密码：", &confirmPwd) || confirmPwd.isEmpty()) return;
 
     if (newPwd != confirmPwd) {
-        QMessageBox::warning(this, "错误", "两次密码不一致");
+        showWarning(this, "修改密码", "两次密码不一致");
         return;
     }
 
     QString error;
     if (m_auth->changePassword(m_auth->currentUser().username, oldPwd, newPwd, &error)) {
-        QMessageBox::information(this, "成功", "密码修改成功！");
+        showNotice(this, "修改密码", "密码修改成功！");
     } else {
-        QMessageBox::warning(this, "失败", error);
+        showWarning(this, "修改密码", error);
     }
 }
 
 void AccountDialog::onLogout()
 {
-    if (QMessageBox::question(this, "退出登录", "确定退出当前账号？") == QMessageBox::Yes) {
+    if (askConfirm(this, "退出登录", "确定退出当前账号？", "退出")) {
         m_auth->logout();
         // Clear auto login
         QSettings settings("PureRefCanvas", "里与由");
