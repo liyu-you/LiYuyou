@@ -293,7 +293,16 @@ void MusicPlayerWidget::setupUI()
     mainLayout->setSpacing(0);
     // Top search bar removed per request; splitter (music shelf) + player bar only.
     mainLayout->addWidget(m_splitter, 1);
-    mainLayout->addWidget(m_playerBar);
+
+    // Player bar: offset by the shelf sidebar width (220px) so it does not
+    // extend underneath the left content-browser panel.
+    QWidget *playerWrap = new QWidget;
+    playerWrap->setStyleSheet("background:transparent;");
+    QHBoxLayout *pw = new QHBoxLayout(playerWrap);
+    pw->setContentsMargins(220, 0, 0, 0);
+    pw->setSpacing(0);
+    pw->addWidget(m_playerBar);
+    mainLayout->addWidget(playerWrap);
 }
 
 void MusicPlayerWidget::setupTopBar()
