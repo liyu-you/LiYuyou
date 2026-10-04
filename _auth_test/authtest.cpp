@@ -233,6 +233,57 @@ int main(int argc, char **argv)
         check(auth.login("restored", "Passw0rd1", &error), "account from the backup can log in");
     }
 
+    // ---- 8. account cover is independent from the splash background ---------
+    qInfo().noquote() << "\n[8] account cover vs startup background";
+    {
+        QDir(dir).removeRecursively();
+        QDir().mkpath(dir);
+        UserAuth auth;
+        QString error;
+        check(auth.registerUser("dave", "dave@example.com", "Passw0rd1", "q", "a", &error),
+              "register dave (" + error + ")");
+        check(auth.login("dave", "Passw0rd1", &error), "login dave");
+
+        // Setting the account cover must not touch the startup background.
+        check(auth.updateAccountCover("dave", "C:/fake/covers/cover.gif", &error),
+              "set account cover (" + error + ")");
+        check(auth.currentUser().accountCoverPath == "C:/fake/covers/cover.gif",
+              "cover stored on the current user");
+        check(auth.currentUser().backgroundPath.isEmpty(),
+              "startup background untouched by the cover");
+
+        // Setting the startup background must not touch the account cover.
+        check(auth.updateBackground("dave", "C:/fake/splash.png", &error),
+              "set startup background (" + error + ")");
+        check(auth.currentUser().backgroundPath == "C:/fake/splash.png",
+              "startup background stored");
+        check(auth.currentUser().accountCoverPath == "C:/fake/covers/cover.gif",
+              "cover untouched by the startup background");
+
+        // Both fields must survive a reload from disk.
+        const QString store = readStore(dir);
+        check(store.contains("cover.gif") && store.contains("splash.png"),
+              "both paths persisted into users.json");
+        {
+            UserAuth auth2;
+            check(auth2.login("dave", "Passw0rd1", &error), "re-login after reload");
+            check(auth2.currentUser().accountCoverPath == "C:/fake/covers/cover.gif",
+                  "cover path survived a fresh load");
+            check(auth2.currentUser().backgroundPath == "C:/fake/splash.png",
+                  "startup background survived a fresh load");
+
+            // Clearing the cover leaves the startup background alone.
+            check(auth2.clearAccountCover("dave", &error), "clear cover (" + error + ")");
+            check(auth2.currentUser().accountCoverPath.isEmpty(), "cover cleared");
+            check(auth2.currentUser().backgroundPath == "C:/fake/splash.png",
+                  "startup background kept after clearing the cover");
+        }
+
+        // Unknown users are refused.
+        check(!auth.updateAccountCover("ghost", "C:/x.gif", &error),
+              "cover update refused for an unknown user");
+    }
+
     // ---- 7. data-root selection ------------------------------------------
     // dataRoot() caches its decision for the process, so this has to run in a
     // fresh process; --root-only does exactly that and writes no store data.

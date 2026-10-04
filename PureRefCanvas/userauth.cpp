@@ -486,6 +486,36 @@ bool UserAuth::updateBackground(const QString &username, const QString &bgPath, 
     return false;
 }
 
+bool UserAuth::updateAccountCover(const QString &username, const QString &coverPath, QString *error)
+{
+    for (UserInfo &u : m_users) {
+        if (u.username == username) {
+            u.accountCoverPath = coverPath;
+            if (m_currentUser.username == username) {
+                m_currentUser.accountCoverPath = coverPath;
+            }
+            return commit(error);
+        }
+    }
+    if (error) *error = "用户不存在";
+    return false;
+}
+
+bool UserAuth::clearAccountCover(const QString &username, QString *error)
+{
+    for (UserInfo &u : m_users) {
+        if (u.username == username) {
+            u.accountCoverPath.clear();
+            if (m_currentUser.username == username) {
+                m_currentUser.accountCoverPath.clear();
+            }
+            return commit(error);
+        }
+    }
+    if (error) *error = "用户不存在";
+    return false;
+}
+
 bool UserAuth::isValidUserId(const QString &id)
 {
     // 必须以字母开头，只能包含字母和数字，长度6-20
@@ -660,6 +690,7 @@ bool UserAuth::load()
         u.emailVerified = obj["emailVerified"].toBool(false);
         u.avatarPath = obj["avatarPath"].toString();
         u.backgroundPath = obj["backgroundPath"].toString();
+        u.accountCoverPath = obj["accountCoverPath"].toString();
         // 迁移：旧用户没有userId，自动生成
         if (u.userId.isEmpty()) {
             QString newId;
@@ -705,6 +736,7 @@ bool UserAuth::save()
         obj["emailVerified"] = u.emailVerified;
         obj["avatarPath"] = u.avatarPath;
         obj["backgroundPath"] = u.backgroundPath;
+        obj["accountCoverPath"] = u.accountCoverPath;
         arr.append(obj);
     }
     QJsonDocument doc(arr);

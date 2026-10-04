@@ -25,7 +25,8 @@ struct UserInfo {
     QString securityQuestion;
     QString securityAnswerHash;
     QString avatarPath;
-    QString backgroundPath;
+    QString backgroundPath;   // 启动页背景（splash）
+    QString accountCoverPath; // 账户对话框封面（独立于启动页）
     QDateTime createdAt;
     QDateTime lastLogin;
     QDateTime lastIdChangeTime;
@@ -62,6 +63,8 @@ public:
     bool updateUsername(const QString &oldUsername, const QString &newUsername, QString *error = nullptr);
     bool updateNickname(const QString &username, const QString &newNickname, QString *error = nullptr);
     bool updateBackground(const QString &username, const QString &bgPath, QString *error = nullptr);
+    bool updateAccountCover(const QString &username, const QString &coverPath, QString *error = nullptr);
+    bool clearAccountCover(const QString &username, QString *error = nullptr);
     bool updateUserId(const QString &username, const QString &newId, QString *error = nullptr);
     static bool isValidUserId(const QString &id);
 

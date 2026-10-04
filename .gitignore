@@ -10,6 +10,7 @@ build.ninja
 .ninja_log
 *_autogen/
 /PureRefCanvas/build/
+/_auth_test/build/
 
 # ---- Qt 自动生成的构建目录内容 ----
 .qt/
