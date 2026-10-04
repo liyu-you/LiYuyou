@@ -836,10 +836,6 @@ void MainWindow::setupNavigation()
     m_userNickname->setMinimumWidth(40);
     userBtnLayout->addWidget(m_userNickname);
 
-    QLabel *arrow = new QLabel("▾");
-    arrow->setStyleSheet("color: #6B7280; font-size: 10px;");
-    userBtnLayout->addWidget(arrow);
-
     // User popup menu
     QMenu *userMenu = new QMenu(this);
     userMenu->setStyleSheet(R"(
