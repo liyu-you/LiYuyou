@@ -176,6 +176,7 @@ void NoteWidget::setupUI()
 
     // Editor (create before toolbar since toolbar connects to it)
     m_editor = new QTextEdit;
+    // Logseq-style [[wiki-links]]: detected via setSource on anchor clicks.
     m_editor->setStyleSheet(R"(
         QTextEdit {
             background-color: rgba(255,255,255,0.95);
