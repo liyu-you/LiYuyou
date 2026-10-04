@@ -1,0 +1,48 @@
+# ===== Git 元数据 =====
+# 本文件只影响“哪些文件纳入版本管理”，不会删除磁盘上的任何文件。
+
+# ---- CMake / Ninja 构建产物 ----
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+build.ninja
+.ninja_deps
+.ninja_log
+*_autogen/
+/PureRefCanvas/build/
+
+# ---- Qt 自动生成的构建目录内容 ----
+.qt/
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.qrc.depends
+moc_predefs.h
+
+# ---- 编译中间文件 ----
+*.obj
+*.o
+*.a
+*.lib
+*.pdb
+*.ilk
+*.exp
+*.rsp
+*.tmp
+*.log
+
+# ---- 可执行文件与动态库 ----
+*.exe
+*.dll
+*.exe.manifest
+*.manifest
+/release/
+
+# ---- 打包输出（体积大，不入库）----
+/*.zip
+/*.7z
+/*.rar
+
+# ---- 构建日志 ----
+build_log*.txt
+build_check.log

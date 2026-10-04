@@ -1,0 +1,64 @@
+﻿mw_probe.exe : qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.5 LGPL version 2.1 or later
+At line:1 char:13408
++ ... lyContinue; & "C:\Users\LiyuYou\Desktop\Q\_reader_test\mw_probe.exe"  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (qt.multimedia.f...on 2.1 or later:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+����ͼ���Ѵ���
+readerWidget found: 000002602d8745d0
+reader visible: 0  stack=00000260095dde80 central=000002602da448d0
+stack           x=210 w=967 visible=1
+central        x=0 w=1177
+readerWidget      x=0 w=100
+bookId: 9fef1afb-db6e-4f38-8ac4-72ca64cc4fb8
+readingView       x=0 w=640
+view viewport     w=630
+doc textWidth     0
+doc pageWidth     630.0
+firstBlock lineWidth 622.0
+chapterLabel      x=0 w=640
+--- after resize to 1282x832 ---
+readerWidget      w=100 visible=0
+stack           w=1072
+readingView       w=640
+view viewport     w=630
+doc pageWidth     630.0
+done
+--- user flow: open book then click 阅读 ---
+after reopen (reader hidden): view w=640 doc pageWidth=630.0
+nav click: 1
+after nav: reader visible=1 w=1072, view w=960 vp=950, doc pageWidth=950.0
+  [chain] QWidget vis=1 geo=0,34 1072x611
+  [chain] QWidget vis=1 geo=0,40 1072x655
+  [chain] QWidget vis=1 geo=0,0 1072x755
+  [chain] QStackedWidget vis=1 geo=0,0 1072x755
+  [chain] ReaderWidget geo=0,0 1072x755
+  [panel] notePanel vis=0 geo=0,0 300x480
+  current-doc firstBlock lineWidth=942.0
+after window resize: window=1282x832 central=1282 stack=1072 reader=1072 view=960 vp=950
+  stack max=16777215x16777215 policy=13/13  layoutActive=1
+  after layout->activate(): stack=1072 reader=1072 view=960
+  after window 1700: window=1700 stack=1490 reader=1490 view=1378
+  after activate 1700: stack=1490 reader=1490 view=1378
+  doc pageWidth=1368.0 firstBlock lineWidth=1360.0
+  doc pageWidth=1368.0
+  current-doc firstBlock lineWidth=1360.0
+--- note workspace ---
+note nav click: 1
+NoteWidget found: visible=1
+  sidebar list rows=3
+  sidebar list rows=4
+  combo items=[�������] cur=0
+  combo items=[����] cur=0
+  combo items=[] cur=72
+  combo items=[10] cur=4
+  button: ����ȫ���ʼ�
+  button: ����
+--- library preview ---
+library nav click: 1
+masonry cards=8
+preview view visible=1 size=1490x779
+zoom label = 16%
+zoom after wheel = 19%
+all done

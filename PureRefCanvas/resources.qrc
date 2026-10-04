@@ -1,0 +1,6 @@
+﻿<RCC>
+    <qresource prefix="/">
+        <file>app.ico</file>
+        <file>icons/note_feather.png</file>
+    </qresource>
+</RCC>
