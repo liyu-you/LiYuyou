@@ -1888,7 +1888,18 @@ void MainWindow::createMenus()
 {
     auto &a = m_actions;
 
+    // Google Material dropdown menu style (applied per-menu because the global
+    // QSS QMenu selector doesn't reach menubar popups on Fusion style).
+    const QString menuSS = R"(
+        QMenu { background: #ffffff; color: #202124; border: 1px solid #dadce0;
+                border-radius: 8px; padding: 6px; font-size: 13px; }
+        QMenu::item { padding: 8px 28px 8px 16px; border-radius: 4px; }
+        QMenu::item:selected { background: #e8f0fe; color: #1a73e8; }
+        QMenu::separator { height: 1px; background: #e0e0e0; margin: 4px 8px; }
+    )";
+
     QMenu *fileMenu = menuBar()->addMenu("文件(&F)");
+    fileMenu->setStyleSheet(menuSS);
     fileMenu->addAction(a[0]);  // Open
     fileMenu->addSeparator();
     fileMenu->addAction(a[1]);  // Save
@@ -1900,6 +1911,7 @@ void MainWindow::createMenus()
     fileMenu->addAction(a[5]);  // Quit
 
     QMenu *editMenu = menuBar()->addMenu("编辑(&E)");
+    editMenu->setStyleSheet(menuSS);
     editMenu->addAction(a[6]);  // Select All
     editMenu->addSeparator();
     editMenu->addAction(a[8]);  // Copy
@@ -1916,12 +1928,14 @@ void MainWindow::createMenus()
     editMenu->addAction(a[19]); // Settings
 
     QMenu *viewMenu = menuBar()->addMenu("视图(&V)");
+    viewMenu->setStyleSheet(menuSS);
     viewMenu->addAction(a[13]); // Zoom In
     viewMenu->addAction(a[14]); // Zoom Out
     viewMenu->addAction(a[15]); // Actual Size
     viewMenu->addAction(a[16]); // Fit
 
     QMenu *helpMenu = menuBar()->addMenu("帮助(&H)");
+    helpMenu->setStyleSheet(menuSS);
     helpMenu->addAction(a[17]); // About
 }
 
