@@ -2412,7 +2412,10 @@ void NoteWidget::setEditorBackground(const QString &path)
     else
         settings.remove("note/editorBg");
 
-    if (!path.isEmpty() && QFile::exists(path)) {
+    // Decode-check (not just existence): an undecodable image (WebP without
+    // the qwebp plugin) would set a background-image that never paints,
+    // leaving the page transparent over the dark page-stack.
+    if (!path.isEmpty() && QFile::exists(path) && !QImage(path).isNull()) {
         // background-size: cover keeps aspect ratio (no stretching), unlike border-image
         m_editorPage->setStyleSheet(QString(
             "QWidget#noteEditorPage {"

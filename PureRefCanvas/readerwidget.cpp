@@ -2279,7 +2279,12 @@ void ReaderWidget::applyTheme()
 void ReaderWidget::setShelfBackground(const QString &imagePath)
 {
     m_shelfBgPath = imagePath;
-    if (!imagePath.isEmpty() && QFile::exists(imagePath)) {
+    // Decode-check, not just existence: a file the current build can't decode
+    // (e.g. WebP without the qwebp imageformats plugin) would leave the page
+    // transparent, leaking the dark page-stack behind it in light mode.
+    const bool usable = !imagePath.isEmpty() && QFile::exists(imagePath)
+                        && !QImage(imagePath).isNull();
+    if (usable) {
         m_shelfPage->setStyleSheet(QString(
             "QWidget#shelfPage { border-image: url(%1) 0 0 0 0 stretch stretch; }"
         ).arg(imagePath));

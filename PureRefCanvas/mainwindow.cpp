@@ -2458,8 +2458,12 @@ void MainWindow::applyBgImage(const QString &path)
             m_canvasView->setStyleSheet("background: transparent; border: none;");
         }
     } else {
-        // Restore default solid backgrounds
-        m_stack->setStyleSheet("background: #1b2838; border: none;");
+        // Restore default solid backgrounds. Theme-aware: the stack sits
+        // BEHIND pages whose own background is transparent or failed to load
+        // (e.g. an undecodable reader-shelf image), so a hardcoded dark color
+        // would leak through in light mode.
+        m_stack->setStyleSheet(QString("background: %1; border: none;")
+                                   .arg(m_currentTheme == "light" ? "#f0f2f5" : "#1b2838"));
         for (int i = 0; i < m_stack->count(); ++i) {
             QWidget *page = m_stack->widget(i);
             if (page) page->setStyleSheet("");

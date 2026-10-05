@@ -159,6 +159,13 @@ int main(int argc, char **argv)
             printf("  current-doc firstBlock lineWidth=%.1f\n", bn2.layout()->lineAt(0).width()); fflush(stdout);
         }
         reader->grab().save(QStringLiteral("C:/Users/LiyuYou/Desktop/Q/_reader_test/_after_resize.png"));
+        // Back to the shelf and grab it: verifies the shelf background follows
+        // the app theme (a broken/undecodable shelf image used to leave the
+        // page transparent, leaking the dark page-stack in light mode).
+        QMetaObject::invokeMethod(reader, "backToShelf");
+        for (int i = 0; i < 10; ++i) app.processEvents();
+        reader->grab().save(QStringLiteral("C:/Users/LiyuYou/Desktop/Q/_reader_test/_reader_shelf.png"));
+        printf("  shelf grabbed\n"); fflush(stdout);
     }
 
     // ===== Note workspace (笔记页) =====

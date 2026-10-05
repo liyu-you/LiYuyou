@@ -84,6 +84,9 @@ int main(int argc, char *argv[])
     const QString root = QStringLiteral("C:/Users/LiyuYou/Desktop/Q/_reader_test/scratch_bookshelf");
 
     // 1) Reading-time accounting unit checks (no widget needed).
+    // Wipe the scratch root first: the accounting fixture adds 120s "today",
+    // which would otherwise accumulate across same-day reruns (120→240…).
+    QDir(root).removeRecursively();
     if (int rc = testReadingTimeAccounting(root)) return rc;
 
     // This constructor triggers setupShelfPage() -> quickImportCard->setProperty()
