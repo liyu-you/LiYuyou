@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QMediaPlayer>
 #include <QHash>
+#include <QSet>
 #include <QPainter>
 #include <QPainterPath>
 #include <QVariantAnimation>
@@ -138,7 +139,7 @@ private:
     QFileSystemWatcher *m_musicWatcher = nullptr;
     QTimer *m_musicScanTimer = nullptr;
     QList<PlaylistInfo> m_playlists;
-    QStringList m_favorites;
+    QSet<QString> m_favorites;  // QSet for O(1) contains()
     QString m_currentNav; // "local", "favorites", or playlist name
     int m_currentIndex = -1;
     PlayMode m_playMode = LoopAll;

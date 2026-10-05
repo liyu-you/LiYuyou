@@ -12,12 +12,25 @@
 #include <QFileInfo>
 #include <QString>
 #include <QStringList>
+#include <QHash>
 
 namespace CoverArt {
+
+/// LRU cache for cover art paths — avoids repeated filesystem probes.
+inline QHash<QString, QString> &cache()
+{
+    static QHash<QString, QString> c;
+    return c;
+}
 
 inline QString find(const QString &audioPath)
 {
     if (audioPath.isEmpty()) return QString();
+
+    // Cache hit
+    auto it = cache().constFind(audioPath);
+    if (it != cache().constEnd()) return it.value();
+
     const QFileInfo fi(audioPath);
     const QString dir = fi.absolutePath();
     const QString base = fi.completeBaseName();
@@ -25,16 +38,23 @@ inline QString find(const QString &audioPath)
     static const QStringList exts = {"jpg", "jpeg", "png", "webp"};
     for (const QString &e : exts) {
         const QString p = dir + QLatin1Char('/') + base + QLatin1Char('.') + e;
-        if (QFile::exists(p)) return p;
+        if (QFile::exists(p)) { cache().insert(audioPath, p); return p; }
     }
     static const QStringList folderNames = {"cover", "folder", "front", "album", "AlbumArt"};
     for (const QString &n : folderNames) {
         for (const QString &e : exts) {
             const QString p = dir + QLatin1Char('/') + n + QLatin1Char('.') + e;
-            if (QFile::exists(p)) return p;
+            if (QFile::exists(p)) { cache().insert(audioPath, p); return p; }
         }
     }
+    cache().insert(audioPath, QString());
     return QString();
+}
+
+/// Clear the cover art path cache (call when the music folder changes).
+inline void invalidateCache()
+{
+    cache().clear();
 }
 
 } // namespace CoverArt
