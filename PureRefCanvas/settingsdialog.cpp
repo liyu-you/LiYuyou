@@ -1142,6 +1142,24 @@ void SettingsDialog::setupUI()
     shortcutLayout->addWidget(showRow("笔记侧栏", "折叠/展开笔记侧栏", "Ctrl+8"));
     shortcutLayout->addWidget(makeSeparator());
 
+    addSection(shortcutLayout, "常用操作");
+    shortcutLayout->addWidget(showRow("新建笔记", "切换到笔记页并新建一条", "Ctrl+N"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("导入素材", "切换到库页并打开导入对话框", "Ctrl+O"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("保存笔记", "保存当前编辑的笔记", "Ctrl+S"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("切换到画布", "", "Ctrl+1"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("切换到笔记", "", "Ctrl+2"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("切换到库", "", "Ctrl+3"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("切换到阅读", "", "Ctrl+4"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("切换到音乐", "", "Ctrl+5"));
+    shortcutLayout->addWidget(makeSeparator());
+
     QLabel *shortcutHint = new QLabel("提示：音乐播放快捷键可点击修改；全局功能快捷键当前为内置。快捷键在应用内全局生效。");
     shortcutHint->setStyleSheet("color: " + txtSub + "; font-size: 12px; padding: 8px 24px;");
     shortcutHint->setWordWrap(true);

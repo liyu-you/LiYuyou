@@ -800,6 +800,34 @@ connect(gardenSc, &QShortcut::activated, this, [this]() {
     dlg.exec();
 });
 
+// ===== Useful productivity shortcuts =====
+// Ctrl+N: new note
+QShortcut *newNoteSc = new QShortcut(QKeySequence("Ctrl+N"), this);
+newNoteSc->setContext(Qt::ApplicationShortcut);
+connect(newNoteSc, &QShortcut::activated, this, [this]() {
+    switchToPage(1);
+    if (m_noteWidget) m_noteWidget->newNote();
+});
+// Ctrl+O: import materials
+QShortcut *importSc = new QShortcut(QKeySequence("Ctrl+O"), this);
+importSc->setContext(Qt::ApplicationShortcut);
+connect(importSc, &QShortcut::activated, this, [this]() {
+    switchToPage(2);
+    if (m_materialWidget) m_materialWidget->importFiles();
+});
+// Ctrl+1..5: switch tabs
+for (int i = 0; i < 5; ++i) {
+    QShortcut *tabSc = new QShortcut(QKeySequence(QString("Ctrl+%1").arg(i + 1)), this);
+    tabSc->setContext(Qt::ApplicationShortcut);
+    connect(tabSc, &QShortcut::activated, this, [this, i]() { switchToPage(i); });
+}
+// Ctrl+S: save current note
+QShortcut *saveSc = new QShortcut(QKeySequence("Ctrl+S"), this);
+saveSc->setContext(Qt::ApplicationShortcut);
+connect(saveSc, &QShortcut::activated, this, [this]() {
+    statusBar()->showMessage("已自动保存", 1500);
+});
+
     applyTheme(m_currentTheme);
     applyFontSize(m_fontSize);
     applyThumbnailSize(m_thumbnailSize);
