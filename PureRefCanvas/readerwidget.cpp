@@ -1854,7 +1854,33 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
 {
     QListWidgetItem *item = m_shelfGrid->itemAt(pos);
     QMenu menu;
-    menu.setStyleSheet("QMenu { background: white; border: 1px solid #ddd; } QMenu::item { padding: 8px 24px; } QMenu::item:selected { background: #2ea043; color: white; }");
+    // Google Material-style menu: white card, rounded 8px, soft shadow,
+    // hover light-grey, 14px padding, 13px text, danger item in red.
+    menu.setStyleSheet(R"(
+        QMenu {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 8px 0;
+        }
+        QMenu::item {
+            padding: 8px 24px 8px 20px;
+            font-size: 13px;
+            color: #202124;
+            min-width: 160px;
+        }
+        QMenu::item:selected {
+            background: #f1f3f4;
+            border-radius: 4px;
+        }
+        QMenu::separator {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 6px 12px;
+        }
+        QMenu::item#dangerItem { color: #d93025; }
+        QMenu::item#dangerItem:selected { background: #fce8e6; }
+    )");
 
     // Always-available: import + batch scan
     menu.addAction("导入书籍", this, &ReaderWidget::importBook);
@@ -1865,10 +1891,11 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
         QString id = item->data(Qt::UserRole).toString();
         menu.addAction("打开阅读", this, [this, item]() { openBook(item); });
         menu.addAction("更改封面图片", this, [this, id]() { changeBookCover(id); });
-        menu.addAction("删除书籍", this, [this, id]() {
+        QAction *delAct = menu.addAction("删除书籍", this, [this, id]() {
             if (QMessageBox::question(this, "确认删除", "确定从书架删除这本书？") == QMessageBox::Yes)
                 m_library->removeBook(id);
         });
+        delAct->setObjectName("dangerItem");
     } else {
         // empty area — nothing extra beyond the top-level import/scan
     }
