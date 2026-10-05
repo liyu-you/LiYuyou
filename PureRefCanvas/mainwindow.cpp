@@ -2385,9 +2385,8 @@ void MainWindow::applyTheme(const QString &theme)
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
             QSplitter::handle { background-color: #e0e0e0; }
             QLabel { background-color: transparent; color: #333; }
-            QToolTip { background-color: #ffffff; color: #333; border: 1px solid #dadce0; padding: 4px 8px; font-size: 12px; }
+            QToolTip { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 6px; padding: 8px 12px; font-size: 12px; }
             QDialog, QInputDialog, QMessageBox, QFileDialog { background-color: #f0f2f5; }
-            QToolTip { background-color: #ffffff; color: #333; border: 1px solid #dadce0; padding: 4px 8px; font-size: 12px; }
             QDialog, QInputDialog, QMessageBox, QFileDialog { background-color: #f0f2f5; }
             QGroupBox { border: 1px solid #dadce0; border-radius: 4px; margin-top: 12px; padding-top: 8px; color: #666; font-size: 13px; }
             QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
@@ -2455,7 +2454,7 @@ void MainWindow::applyTheme(const QString &theme)
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
             QSplitter::handle { background-color: #2a475e; }
             QLabel { background-color: transparent; color: #c7d5e0; }
-            QToolTip { background-color: #16202d; color: #c7d5e0; border: 1px solid #2a475e; padding: 4px 8px; font-size: 12px; }
+            QToolTip { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 6px; padding: 8px 12px; font-size: 12px; }
             QDialog, QInputDialog, QMessageBox, QFileDialog { background-color: #1b2838; }
             QGroupBox { border: 1px solid #2a475e; border-radius: 4px; margin-top: 12px; padding-top: 8px; color: #8f98a0; font-size: 13px; }
             QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
