@@ -153,27 +153,26 @@ LoginDialog::LoginDialog(UserAuth *auth, QWidget *parent)
     setFixedSize(400, 640);
     setStyleSheet(R"(
         QDialog { background: #ffffff; }
-        QLabel { color: #333; }
-        QLineEdit { background: #f7f8fa; color: #333; border: 1px solid #e5e7eb; border-radius: 10px; padding: 11px 16px; font-size: 14px; }
-        QLineEdit:focus { border: 1px solid #34c759; background: #fff; }
-        QComboBox { background: #f7f8fa; color: #333; border: 1px solid #e5e7eb; border-radius: 10px; padding: 11px 14px; font-size: 14px; }
-        QComboBox:focus { border-color: #34c759; }
-        QComboBox:hover { border-color: #ccc; }
+        QLabel { color: #202124; }
+        QLineEdit { background: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 4px; padding: 11px 14px; font-size: 14px; }
+        QLineEdit:focus { border: 2px solid #1a73e8; padding: 10px 13px; }
+        QComboBox { background: #fff; color: #202124; border: 1px solid #dadce0; border-radius: 4px; padding: 11px 14px; font-size: 14px; }
+        QComboBox:focus { border: 2px solid #1a73e8; }
+        QComboBox:hover { border-color: #202124; }
         QComboBox::drop-down { border: none; width: 26px; }
         QComboBox::down-arrow {
             image: none;
             border-left: 4px solid transparent;
             border-right: 4px solid transparent;
-            border-top: 5px solid #999;
+            border-top: 5px solid #5f6368;
             width: 0; height: 0; margin-right: 6px;
         }
-        QComboBox:hover::down-arrow { border-top-color: #34c759; }
         QComboBox QAbstractItemView {
-            background: #fff; color: #333; border: 1px solid #e0e0e0; border-radius: 8px;
-            padding: 4px; outline: none; selection-background-color: #e8f9ed; selection-color: #34c759;
+            background: #fff; color: #202124; border: 1px solid #dadce0; border-radius: 4px;
+            padding: 4px; outline: none; selection-background-color: #e8f0fe; selection-color: #1a73e8;
         }
-        QComboBox QAbstractItemView::item { padding: 8px 12px; border-radius: 4px; }
-        QComboBox QAbstractItemView::item:hover { background: #f5f5f5; }
+        QComboBox QAbstractItemView::item { padding: 8px 12px; border-radius: 3px; }
+        QComboBox QAbstractItemView::item:hover { background: #f8f9fa; }
     )");
 
     // Load last user and saved credentials
@@ -410,17 +409,18 @@ void LoginDialog::setupLoginPage()
     layout->setContentsMargins(36, 36, 36, 24);
     layout->setSpacing(14);
 
-    // Brand logo + name (语雀-style centered)
+    // Brand name centered
     QLabel *logo = new QLabel;
     logo->setAlignment(Qt::AlignCenter);
-    QFont logoFont;
-    logoFont.setPointSize(22);
-    logoFont.setBold(true);
-    logo->setFont(logoFont);
     logo->setText("里与由");
-    logo->setStyleSheet("font-size: 26px; font-weight: 700; color: #1f2329; letter-spacing: 1px;");
+    logo->setStyleSheet("font-size: 28px; font-weight: 500; color: #202124; letter-spacing: 2px;");
     layout->addWidget(logo);
-    layout->addSpacing(10);
+
+    QLabel *subtitle = new QLabel("使用你的账号登录");
+    subtitle->setAlignment(Qt::AlignCenter);
+    subtitle->setStyleSheet("font-size: 14px; color: #5f6368; padding-bottom: 8px;");
+    layout->addWidget(subtitle);
+    layout->addSpacing(8);
 
     m_loginAccount = new QLineEdit;
     m_loginAccount->setPlaceholderText("用户名 / 邮箱");
@@ -429,7 +429,7 @@ void LoginDialog::setupLoginPage()
     // Slider captcha (drag right to unlock)
     m_sliderTrack = new QWidget;
     m_sliderTrack->setFixedHeight(44);
-    m_sliderTrack->setStyleSheet("background: #f2f3f5; border: 1px solid #e5e7eb; border-radius: 10px;");
+    m_sliderTrack->setStyleSheet("background: #f8f9fa; border: 1px solid #dadce0; border-radius: 4px;");
     QHBoxLayout *sliderLay = new QHBoxLayout(m_sliderTrack);
     sliderLay->setContentsMargins(0, 0, 0, 0);
     sliderLay->setSpacing(0);
@@ -437,9 +437,9 @@ void LoginDialog::setupLoginPage()
     m_sliderHandle->setFixedSize(44, 42);
     m_sliderHandle->setCursor(Qt::PointingHandCursor);
     m_sliderHandle->setStyleSheet(
-        "QPushButton { background: #ffffff; border: 1px solid #d0d3d6; border-radius: 9px; "
-        "font-size: 16px; color: #86909c; }"
-        "QPushButton:hover { background: #e8f9ed; color: #34c759; border-color: #34c759; }");
+        "QPushButton { background: #ffffff; border: 1px solid #dadce0; border-radius: 4px; "
+        "font-size: 16px; color: #5f6368; }"
+        "QPushButton:hover { background: #e8f0fe; color: #1a73e8; border-color: #1a73e8; }");
     m_sliderHint = new QLabel("按住滑块，拖动到最右边");
     m_sliderHint->setAlignment(Qt::AlignCenter);
     m_sliderHint->setStyleSheet("color: #86909c; font-size: 12px; background: transparent;");
@@ -493,12 +493,13 @@ void LoginDialog::setupLoginPage()
 
     layout->addSpacing(6);
 
-    QPushButton *loginBtn = new QPushButton("确认登录");
+    QPushButton *loginBtn = new QPushButton("登录");
     loginBtn->setStyleSheet(R"(
-        QPushButton { background: #b8e9c5; color: #ffffff; border: none; border-radius: 10px;
-                      padding: 12px; font-size: 15px; font-weight: 500; }
-        QPushButton:hover { background: #34c759; }
-        QPushButton:disabled { background: #d4f0dc; color: #f0f0f0; }
+        QPushButton { background: #1a73e8; color: #ffffff; border: none; border-radius: 4px;
+                      padding: 11px; font-size: 14px; font-weight: 500; }
+        QPushButton:hover { background: #1b66c9; }
+        QPushButton:pressed { background: #1a5bb8; }
+        QPushButton:disabled { background: #c6cacf; color: #f1f3f4; }
     )");
     loginBtn->setDefault(true);
     m_loginBtn = loginBtn;
@@ -510,11 +511,11 @@ void LoginDialog::setupLoginPage()
 
     QHBoxLayout *links = new QHBoxLayout;
     QPushButton *forgotBtn = new QPushButton("忘记密码？");
-    forgotBtn->setStyleSheet("QPushButton { background: transparent; color: #34c759; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
+    forgotBtn->setStyleSheet("QPushButton { background: transparent; color: #1a73e8; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
     forgotBtn->setAutoDefault(false);
     connect(forgotBtn, &QPushButton::clicked, this, [this]() { m_stack->setCurrentIndex(4); clearError(); });
     QPushButton *regBtn = new QPushButton("注册账号");
-    regBtn->setStyleSheet("QPushButton { background: transparent; color: #34c759; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
+    regBtn->setStyleSheet("QPushButton { background: transparent; color: #1a73e8; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
     regBtn->setAutoDefault(false);
     connect(regBtn, &QPushButton::clicked, this, [this]() { m_stack->setCurrentIndex(3); clearError(); });
     links->addWidget(forgotBtn);
@@ -906,10 +907,10 @@ bool LoginDialog::eventFilter(QObject *obj, QEvent *ev)
             if (newX >= maxX - 2) {
                 m_sliderUnlocked = true;
                 m_sliderHint->setText("✓ 验证通过");
-                m_sliderHint->setStyleSheet("color: #34c759; font-size: 12px; background: transparent; font-weight: 500;");
+                m_sliderHint->setStyleSheet("color: #1a73e8; font-size: 12px; background: transparent; font-weight: 500;");
                 m_sliderHandle->setText("✓");
                 m_sliderHandle->setStyleSheet(
-                    "QPushButton { background: #34c759; border: 1px solid #34c759; border-radius: 9px; "
+                    "QPushButton { background: #1a73e8; border: 1px solid #1a73e8; border-radius: 4px; "
                     "font-size: 16px; color: #fff; }");
                 if (m_loginBtn) m_loginBtn->setEnabled(true);
             }
