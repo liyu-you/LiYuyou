@@ -1892,6 +1892,9 @@ void ReaderWidget::changeBookCover(const QString &bookId)
         return;
     }
     pm.save(dest, "PNG");
+    // Invalidate cached covers for this book so refreshShelf() picks up the
+    // new custom image instead of the previously-generated gradient default.
+    m_coverCache.remove(bookId);
     refreshShelf();
 }
 
@@ -2260,10 +2263,29 @@ void ReaderWidget::refreshShelf()
         // never hits disk or does SmoothTransformation on every paint/scroll frame.
         if (!coverPath.isEmpty()) {
             QPixmap coverPm;
+            // If a custom cover exists on disk, always decode it fresh (or use
+            // the pre-decoded pixmap stashed at UserRole+2) — never fall back to
+            // the cached default gradient.
             auto cit = m_coverCache.constFind(book.id);
             if (cit != m_coverCache.constEnd() && !cit.value().isNull()) {
-                // Already cached as QIcon; pull its pixmap.
-                coverPm = cit.value().pixmap(60, 92);
+                // The cache entry is only valid when it's already the custom cover.
+                // Heuristic: if the custom cover file exists, re-decode from disk.
+                QImageReader ir(coverPath);
+                ir.setAutoTransform(true);
+                QSize orig = ir.size();
+                if (orig.isValid()) {
+                    const qreal s = qMax(60.0 / orig.width(), 92.0 / orig.height());
+                    ir.setScaledSize(QSize(qMax(1, qRound(orig.width() * s)),
+                                           qMax(1, qRound(orig.height() * s))));
+                }
+                QImage img = ir.read();
+                if (!img.isNull()) {
+                    coverPm = QPixmap::fromImage(img)
+                                  .scaled(60, 92, Qt::KeepAspectRatioByExpanding,
+                                          Qt::SmoothTransformation);
+                    // Also overwrite the cache so later refreshes hit the cached version.
+                    m_coverCache.insert(book.id, QIcon(coverPm));
+                }
             } else {
                 QImageReader ir(coverPath);
                 ir.setAutoTransform(true);
