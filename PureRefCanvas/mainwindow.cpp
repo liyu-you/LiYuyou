@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "autosavecontroller.h"
 #include "updatechecker.h"
 #include "canvasscene.h"
 #include "canvasview.h"
@@ -837,10 +838,42 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
     applyEditorSettings(m_cfg.noteDefaultFont, m_cfg.noteDefaultFontSize);
     applyTransparencySettings();
     applyMenuBarMode();
-    setupAutoSaveTimer();
 
-    // Auto-generate weekly report on Monday morning (if not already done this week).
-    maybeGenerateWeeklyReport();
+    // Auto-save: delegate to a dedicated controller. We hand it callbacks that
+    // reach into our child widgets; it owns the timer and the on-disk paths.
+    {
+        AutoSaveController::Hooks h;
+        h.canvasDirty  = [this] { return m_canvasDirty; };
+        h.canvasState  = [this]() -> QByteArray {
+            if (!m_canvasView || !m_canvasView->scene()) return {};
+            return qobject_cast<CanvasScene*>(m_canvasView->scene())->saveState();
+        };
+        h.canvasSaved  = [this] { m_canvasDirty = false; };
+        h.noteModified = [this] { return m_noteWidget && m_noteWidget->isModified(); };
+        h.noteHtml     = [this] { return m_noteWidget ? m_noteWidget->toHtml().toUtf8() : QByteArray(); };
+        h.countNotes   = [this] { return m_noteWidget ? m_noteWidget->allNotes().size() : 0; };
+        h.countSongs   = [this] { return m_musicWidget ? m_musicWidget->currentSongList().size() : 0; };
+        h.countMaterials = [this]() -> int {
+            if (m_materialWidget && m_materialWidget->library())
+                return m_materialWidget->library()->allItems().size();
+            return 0;
+        };
+        h.countBooks   = [this]() -> int {
+            if (m_readerWidget && m_readerWidget->library())
+                return m_readerWidget->library()->books().size();
+            return 0;
+        };
+        h.createNote   = [this](const QString &title, const QString &html, const QString &tag) {
+            if (m_noteWidget) m_noteWidget->createNoteWithContent(title, html, tag);
+        };
+        h.showStatus   = [this](const QString &msg) { statusBar()->showMessage(msg, 2000); };
+
+        m_autosave = new AutoSaveController(std::move(h), this);
+        m_autosave->setIntervalMinutes(m_cfg.autoSaveInterval);
+        m_autosave->setEnabled(m_cfg.autoSave);
+        m_autosave->start();
+        m_autosave->generateWeeklyReportIfDue();
+    }
 
     // Startup restore
     if (m_cfg.startupRestore && m_lastPage >= 0 && m_lastPage < m_stack->count()) {
@@ -2275,7 +2308,11 @@ void MainWindow::openSettings()
             m_musicWidget->setVolume(m_cfg.defaultVolume);
             m_musicWidget->setInitialPlayMode(m_cfg.defaultPlayMode);
         }
-        setupAutoSaveTimer();
+        // Apply auto-save settings immediately
+        if (m_autosave) {
+            m_autosave->setIntervalMinutes(m_cfg.autoSaveInterval);
+            m_autosave->setEnabled(m_cfg.autoSave);
+        }
 
         // Restart-required settings (just save, prompt user)
         bool needRestart = (m_cfg.uiScale != dlg.uiScale())
@@ -2900,88 +2937,4 @@ void MainWindow::logoutUser()
 {
     if (m_userAuth) m_userAuth->logout();
     close();
-}
-
-void MainWindow::setupAutoSaveTimer()
-{
-    if (!m_autoSaveTimer) {
-        m_autoSaveTimer = new QTimer(this);
-        connect(m_autoSaveTimer, &QTimer::timeout, this, &MainWindow::doAutoSave);
-    }
-    if (m_cfg.autoSave && m_cfg.autoSaveInterval > 0) {
-        m_autoSaveTimer->start(m_cfg.autoSaveInterval * 60 * 1000);
-    } else {
-        m_autoSaveTimer->stop();
-    }
-}
-
-void MainWindow::doAutoSave()
-{
-    // Auto save canvas
-    if (m_canvasView && m_canvasView->scene()) {
-        CanvasScene *scene = qobject_cast<CanvasScene*>(m_canvasView->scene());
-        // Skip untouched canvases entirely: serializing means re-encoding every
-        // image, which measured 1.25 s (5 x 12 MP photos) to 12 s (50 photos).
-        if (scene && m_canvasDirty) {
-            QString path = UserAuth::dataRoot() + "/autosave.prc";
-            QDir().mkpath(QFileInfo(path).absolutePath());
-            if (writeAtomically(path, scene->saveState()))
-                m_canvasDirty = false;
-        }
-    }
-    // Auto save note
-    if (m_noteWidget && m_noteWidget->isModified()) {
-        QString path = UserAuth::dataRoot() + "/autosave_note.html";
-        QDir().mkpath(QFileInfo(path).absolutePath());
-        writeAtomically(path, m_noteWidget->toHtml().toUtf8());
-    }
-    statusBar()->showMessage("已自动保存", 2000);
-}
-
-void MainWindow::maybeGenerateWeeklyReport()
-{
-    // Run once per calendar week (Monday). Skip if we already generated one this week.
-    QSettings settings("PureRefCanvas", "里与由");
-    const QString lastReport = settings.value("lastWeeklyReport", "").toString();
-    const QDate today = QDate::currentDate();
-    // Monday of current week
-    const QDate monday = today.addDays(-(today.dayOfWeek() - 1));
-    const QString weekKey = monday.toString("yyyy-MM-dd");
-    if (lastReport == weekKey) return;
-
-    // Collect stats
-    const int noteCount = m_noteWidget ? m_noteWidget->allNotes().size() : 0;
-    const int songCount = m_musicWidget ? m_musicWidget->currentSongList().size() : 0;
-    // Material count: ask the library
-    int materialCount = 0;
-    if (m_materialWidget && m_materialWidget->library()) {
-        materialCount = m_materialWidget->library()->allItems().size();
-    }
-    // Books count
-    int bookCount = 0;
-    if (m_readerWidget && m_readerWidget->library())
-        bookCount = m_readerWidget->library()->books().size();
-
-    const QString html = QStringLiteral(
-        "<h2>📊 每周概览 · %1</h2>"
-        "<p style='color:#5f6368'>本周自动生成于 %2</p>"
-        "<table style='border-collapse:collapse; width:100%%; margin:16px 0;'>"
-        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>📁 素材库</td>"
-        "<td style='padding:10px; font-weight:500;'>%3 张</td></tr>"
-        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>📝 笔记</td>"
-        "<td style='padding:10px; font-weight:500;'>%4 条</td></tr>"
-        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>📚 书籍</td>"
-        "<td style='padding:10px; font-weight:500;'>%5 本</td></tr>"
-        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>🎵 音乐</td>"
-        "<td style='padding:10px; font-weight:500;'>%6 首</td></tr>"
-        "</table>"
-        "<p style='color:#888; font-size:12px;'>保持节奏，继续积累 ✨</p>"
-    ).arg(weekKey, today.toString("yyyy-MM-dd HH:mm"))
-     .arg(materialCount).arg(noteCount).arg(bookCount).arg(songCount);
-
-    const QString title = QStringLiteral("周报 %1").arg(weekKey);
-    if (m_noteWidget) {
-        m_noteWidget->createNoteWithContent(title, html, "周报");
-    }
-    settings.setValue("lastWeeklyReport", weekKey);
 }

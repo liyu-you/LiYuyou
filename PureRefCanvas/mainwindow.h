@@ -23,6 +23,7 @@ class QListWidget;
 class MaterialLibrary;
 class ContentBrowserPanel;
 class UserAuth;
+class AutoSaveController;
 #include "userauth.h"
 
 class MainWindow : public QMainWindow
@@ -118,9 +119,6 @@ private:
     void refreshCanvasItemList();
     void showAccountDialog();
     void logoutUser();
-    void setupAutoSaveTimer();
-    void maybeGenerateWeeklyReport();
-    void doAutoSave();
     void loadSettings();
     void saveSettings();
     void applyMusicShortcuts();
@@ -174,8 +172,8 @@ private:
     QWidget *m_userWidget = nullptr;
     QMenu *m_userMenu = nullptr;
 
-    // Auto save timer
-    QTimer *m_autoSaveTimer = nullptr;
+    // Auto-save timer + weekly report are delegated to a dedicated controller.
+    AutoSaveController *m_autosave = nullptr;
 
     // System tray
     QSystemTrayIcon *m_tray = nullptr;
