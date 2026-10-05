@@ -694,6 +694,9 @@ connect(shotSc, &QShortcut::activated, this, [this]() {
     applyMenuBarMode();
     setupAutoSaveTimer();
 
+    // Auto-generate weekly report on Monday morning (if not already done this week).
+    maybeGenerateWeeklyReport();
+
     // Startup restore
     if (m_startupRestore && m_lastPage >= 0 && m_lastPage < m_stack->count()) {
         switchToPage(m_lastPage);
@@ -2885,4 +2888,52 @@ void MainWindow::doAutoSave()
         writeAtomically(path, m_noteWidget->toHtml().toUtf8());
     }
     statusBar()->showMessage("已自动保存", 2000);
+}
+
+void MainWindow::maybeGenerateWeeklyReport()
+{
+    // Run once per calendar week (Monday). Skip if we already generated one this week.
+    QSettings settings("PureRefCanvas", "里与由");
+    const QString lastReport = settings.value("lastWeeklyReport", "").toString();
+    const QDate today = QDate::currentDate();
+    // Monday of current week
+    const QDate monday = today.addDays(-(today.dayOfWeek() - 1));
+    const QString weekKey = monday.toString("yyyy-MM-dd");
+    if (lastReport == weekKey) return;
+
+    // Collect stats
+    const int noteCount = m_noteWidget ? m_noteWidget->allNotes().size() : 0;
+    const int songCount = m_musicWidget ? m_musicWidget->currentSongList().size() : 0;
+    // Material count: ask the library
+    int materialCount = 0;
+    if (m_materialWidget && m_materialWidget->library()) {
+        materialCount = m_materialWidget->library()->allItems().size();
+    }
+    // Books count
+    int bookCount = 0;
+    if (m_readerWidget && m_readerWidget->library())
+        bookCount = m_readerWidget->library()->books().size();
+
+    const QString html = QStringLiteral(
+        "<h2>📊 每周概览 · %1</h2>"
+        "<p style='color:#5f6368'>本周自动生成于 %2</p>"
+        "<table style='border-collapse:collapse; width:100%%; margin:16px 0;'>"
+        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>📁 素材库</td>"
+        "<td style='padding:10px; font-weight:500;'>%3 张</td></tr>"
+        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>📝 笔记</td>"
+        "<td style='padding:10px; font-weight:500;'>%4 条</td></tr>"
+        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>📚 书籍</td>"
+        "<td style='padding:10px; font-weight:500;'>%5 本</td></tr>"
+        "<tr><td style='padding:10px; background:#f1f3f4; border-radius:8px;'>🎵 音乐</td>"
+        "<td style='padding:10px; font-weight:500;'>%6 首</td></tr>"
+        "</table>"
+        "<p style='color:#888; font-size:12px;'>保持节奏，继续积累 ✨</p>"
+    ).arg(weekKey, today.toString("yyyy-MM-dd HH:mm"))
+     .arg(materialCount).arg(noteCount).arg(bookCount).arg(songCount);
+
+    const QString title = QStringLiteral("周报 %1").arg(weekKey);
+    if (m_noteWidget) {
+        m_noteWidget->createNoteWithContent(title, html, "周报");
+    }
+    settings.setValue("lastWeeklyReport", weekKey);
 }

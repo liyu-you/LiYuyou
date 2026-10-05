@@ -900,6 +900,22 @@ void NoteWidget::openOrCreateByTitle(const QString &title)
     openNote(note.id);
 }
 
+QString NoteWidget::createNoteWithContent(const QString &title, const QString &htmlContent,
+                                          const QString &folder)
+{
+    saveCurrentNote();
+    NoteData note;
+    note.id = generateId();
+    note.title = title;
+    note.content = htmlContent;
+    note.createdAt = QDateTime::currentDateTime();
+    note.updatedAt = QDateTime::currentDateTime();
+    note.folder = folder;
+    m_notes.prepend(note);
+    saveNotes();
+    return note.id;
+}
+
 void NoteWidget::deleteNote()
 {
     if (m_currentNoteId.isEmpty()) return;

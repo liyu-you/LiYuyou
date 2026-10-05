@@ -115,6 +115,7 @@ private:
     void showAccountDialog();
     void logoutUser();
     void setupAutoSaveTimer();
+    void maybeGenerateWeeklyReport();
     void doAutoSave();
     void loadSettings();
     void saveSettings();

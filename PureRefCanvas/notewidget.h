@@ -84,6 +84,10 @@ public slots:
     void journalToday();  // Logseq-style: open/create today's daily note
     void openFindBar(bool withReplace = false);  // Word-style Ctrl+F / Ctrl+H
     void openOrCreateByTitle(const QString &title);  // [[wiki-link]] resolver
+    // Silently create a note with given HTML content (for weekly report / flashcards).
+    // Does NOT switch to it; caller decides whether to open it. Returns new note id.
+    QString createNoteWithContent(const QString &title, const QString &htmlContent,
+                                  const QString &folder = QStringLiteral("日记"));
     void toggleSidebar();  // 折叠/展开左侧内容浏览器（Ctrl+8）
     // Create a new note pre-filled with an excerpt from another workspace
     // (e.g. a reader selection). title is the note title, excerpt is the
