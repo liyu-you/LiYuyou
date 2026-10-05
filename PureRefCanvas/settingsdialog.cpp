@@ -1107,7 +1107,42 @@ void SettingsDialog::setupUI()
     shortcutLayout->addWidget(makeShortcutRow("音量减少", "降低播放音量", m_scVolDown, QKeySequence("Ctrl+Down")));
     shortcutLayout->addWidget(makeSeparator());
 
-    QLabel *shortcutHint = new QLabel("提示：点击快捷键输入框后按下想要的组合键即可设置。快捷键在应用内全局生效。");
+    addSection(shortcutLayout, "全局功能");
+    auto showRow = [&txtMain, &txtSub, &accent](const QString &label, const QString &desc, const QString &keys) -> QWidget* {
+        QWidget *row = new QWidget;
+        row->setMinimumHeight(48);
+        QHBoxLayout *l = new QHBoxLayout(row);
+        l->setContentsMargins(24, 8, 24, 8);
+        l->setSpacing(16);
+        QVBoxLayout *tl = new QVBoxLayout; tl->setSpacing(3);
+        QLabel *t = new QLabel(label);
+        t->setStyleSheet("color: " + txtMain + "; font-size: 14px; font-weight: 500;");
+        tl->addWidget(t);
+        if (!desc.isEmpty()) {
+            QLabel *d = new QLabel(desc);
+            d->setStyleSheet("color: " + txtSub + "; font-size: 12px;");
+            tl->addWidget(d);
+        }
+        l->addLayout(tl, 1);
+        QLabel *k = new QLabel(keys);
+        k->setStyleSheet(QString("color: %1; font-size: 13px; font-weight: 600; "
+                                 "background: rgba(26,115,232,0.08); padding: 4px 10px; border-radius: 4px;")
+                                 .arg(accent));
+        l->addWidget(k, 0, Qt::AlignVCenter | Qt::AlignRight);
+        return row;
+    };
+    shortcutLayout->addWidget(showRow("全局搜索", "搜索笔记/素材/书籍/音乐，输 ? 问知识库", "Ctrl+K"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("截图入库", "截全屏并自动保存到素材库", "Ctrl+Shift+A"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("闪卡复习", "开始复习今天到期的闪卡", "Ctrl+Shift+F"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("数字花园", "打开笔记关系图", "Ctrl+Shift+G"));
+    shortcutLayout->addWidget(makeSeparator());
+    shortcutLayout->addWidget(showRow("笔记侧栏", "折叠/展开笔记侧栏", "Ctrl+8"));
+    shortcutLayout->addWidget(makeSeparator());
+
+    QLabel *shortcutHint = new QLabel("提示：音乐播放快捷键可点击修改；全局功能快捷键当前为内置。快捷键在应用内全局生效。");
     shortcutHint->setStyleSheet("color: " + txtSub + "; font-size: 12px; padding: 8px 24px;");
     shortcutHint->setWordWrap(true);
     shortcutLayout->addWidget(shortcutHint);
