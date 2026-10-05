@@ -555,9 +555,12 @@ void LoginDialog::setupRegisterPage()
     layout->setContentsMargins(28, 12, 20, 12);
     layout->setSpacing(4);
 
-    QLabel *title = new QLabel("注册账号");
-    title->setStyleSheet("font-size: 20px; font-weight: 600; color: #191919; padding-bottom: 2px;");
+    QLabel *title = new QLabel("创建账号");
+    title->setStyleSheet("font-size: 24px; font-weight: 500; color: #202124; padding-bottom: 2px;");
     layout->addWidget(title);
+    QLabel *sub = new QLabel("加入里与由");
+    sub->setStyleSheet("font-size: 13px; color: #5f6368; padding-bottom: 10px;");
+    layout->addWidget(sub);
 
     m_regUsername = new QLineEdit;
     m_regUsername->setPlaceholderText("用户名（2-20位）");
@@ -652,8 +655,12 @@ void LoginDialog::setupRegisterPage()
 
     layout->addSpacing(4);
 
-    QPushButton *regBtn = new QPushButton("确认注册");
-    regBtn->setStyleSheet(GREEN_BTN_STYLE);
+    QPushButton *regBtn = new QPushButton("注册");
+    regBtn->setStyleSheet(R"(
+        QPushButton { background: #1a73e8; color: #fff; border: none; border-radius: 4px;
+                      padding: 11px; font-size: 14px; font-weight: 500; }
+        QPushButton:hover { background: #1b66c9; }
+    )");
     regBtn->setDefault(true); // Enter submits from any field on this page
     connect(regBtn, &QPushButton::clicked, this, &LoginDialog::doRegister);
     connect(m_regConfirmPassword, &QLineEdit::returnPressed, this, &LoginDialog::doRegister);
@@ -661,7 +668,7 @@ void LoginDialog::setupRegisterPage()
     layout->addWidget(regBtn);
 
     QPushButton *backBtn = new QPushButton("已有账号？返回登录");
-    backBtn->setStyleSheet(LINK_BTN_STYLE);
+    backBtn->setStyleSheet("QPushButton { background: transparent; color: #1a73e8; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
     backBtn->setAutoDefault(false);
     connect(backBtn, &QPushButton::clicked, this, [this]() { m_stack->setCurrentIndex(2); clearError(); });
     layout->addWidget(backBtn);
@@ -682,11 +689,11 @@ void LoginDialog::setupForgotPage()
     layout->setSpacing(10);
 
     QLabel *title = new QLabel("找回密码");
-    title->setStyleSheet("font-size: 20px; font-weight: 600; color: #191919; padding-bottom: 4px;");
+    title->setStyleSheet("font-size: 24px; font-weight: 500; color: #202124; padding-bottom: 4px;");
     layout->addWidget(title);
 
-    QLabel *hint = new QLabel("请输入注册邮箱和安全问题答案以重置密码");
-    hint->setStyleSheet("color: #888; font-size: 12px;");
+    QLabel *hint = new QLabel("输入注册邮箱和安全问题答案以重置密码");
+    hint->setStyleSheet("color: #5f6368; font-size: 13px; padding-bottom: 8px;");
     hint->setWordWrap(true);
     layout->addWidget(hint);
 
@@ -730,15 +737,19 @@ void LoginDialog::setupForgotPage()
 
     layout->addSpacing(8);
 
-    QPushButton *resetBtn = new QPushButton("确认重置");
-    resetBtn->setStyleSheet(GREEN_BTN_STYLE);
+    QPushButton *resetBtn = new QPushButton("重置密码");
+    resetBtn->setStyleSheet(R"(
+        QPushButton { background: #1a73e8; color: #fff; border: none; border-radius: 4px;
+                      padding: 11px; font-size: 14px; font-weight: 500; }
+        QPushButton:hover { background: #1b66c9; }
+    )");
     resetBtn->setDefault(true); // Enter submits from any field on this page
     connect(resetBtn, &QPushButton::clicked, this, &LoginDialog::doResetPassword);
     connect(m_forgotConfirmPassword, &QLineEdit::returnPressed, this, &LoginDialog::doResetPassword);
     layout->addWidget(resetBtn);
 
     QPushButton *backBtn = new QPushButton("返回登录");
-    backBtn->setStyleSheet(LINK_BTN_STYLE);
+    backBtn->setStyleSheet("QPushButton { background: transparent; color: #1a73e8; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
     backBtn->setAutoDefault(false);
     connect(backBtn, &QPushButton::clicked, this, [this]() { m_stack->setCurrentIndex(2); clearError(); });
     layout->addWidget(backBtn);
