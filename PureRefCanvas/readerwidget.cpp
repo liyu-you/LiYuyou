@@ -90,14 +90,15 @@ public:
         {
             // Custom cover image if user picked one; otherwise gradient + vertical title.
             const QString coverImg = index.data(kShelfCoverImageRole).toString();
-            if (!coverImg.isEmpty() && QFile::exists(coverImg)) {
-                QPixmap cover(coverImg);
+            if (!coverImg.isEmpty()) {
+                // Pre-decoded pixmap is stashed in Qt::UserRole+2 by refreshShelf()
+                // so paint() never touches disk on every scroll frame.
+                const QPixmap cover = qvariant_cast<QPixmap>(index.data(Qt::UserRole + 2));
                 if (!cover.isNull()) {
                     painter->setPen(Qt::NoPen);
                     painter->setBrush(QColor("#E5E7EB"));
                     painter->drawRoundedRect(coverRect, 6, 6);
-                    painter->drawPixmap(coverRect, cover.scaled(coverRect.size(),
-                        Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+                    painter->drawPixmap(coverRect, cover);
                 }
             } else {
                 QStringList colors = index.data(kShelfCoverColorRole).toString().split(",");
@@ -2155,7 +2156,34 @@ void ReaderWidget::refreshShelf()
         item->setData(kShelfNoteCountRole, m_library->notes(book.id).size());
         item->setData(kShelfCoverColorRole, book.coverColor);
         const QString coverImgPath = m_library->rootPath() + "/covers/" + book.id + ".png";
-        item->setData(kShelfCoverImageRole, QFile::exists(coverImgPath) ? coverImgPath : QString());
+        const QString coverPath = QFile::exists(coverImgPath) ? coverImgPath : QString();
+        item->setData(kShelfCoverImageRole, coverPath);
+        // Pre-decode the user-cover image at display size (60x92) so the delegate
+        // never hits disk or does SmoothTransformation on every paint/scroll frame.
+        if (!coverPath.isEmpty()) {
+            QPixmap coverPm;
+            auto cit = m_coverCache.constFind(book.id);
+            if (cit != m_coverCache.constEnd() && !cit.value().isNull()) {
+                // Already cached as QIcon; pull its pixmap.
+                coverPm = cit.value().pixmap(60, 92);
+            } else {
+                QImageReader ir(coverPath);
+                ir.setAutoTransform(true);
+                QSize orig = ir.size();
+                if (orig.isValid()) {
+                    const qreal s = qMax(60.0 / orig.width(), 92.0 / orig.height());
+                    ir.setScaledSize(QSize(qMax(1, qRound(orig.width() * s)),
+                                           qMax(1, qRound(orig.height() * s))));
+                }
+                QImage img = ir.read();
+                if (!img.isNull()) {
+                    coverPm = QPixmap::fromImage(img)
+                                  .scaled(60, 92, Qt::KeepAspectRatioByExpanding,
+                                          Qt::SmoothTransformation);
+                }
+            }
+            item->setData(Qt::UserRole + 2, coverPm);
+        }
 
         // Current chapter from loaded text (only if reading has started).
         // Cached per bookId — loadBookText reads the whole book file, which was
