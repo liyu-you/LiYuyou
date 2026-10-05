@@ -1198,7 +1198,37 @@ void MaterialWidget::previewActual()
 void MaterialWidget::onGridContextMenu(const QPoint &pos)
 {
     QMenu menu;
-    menu.setStyleSheet("QMenu { background: #2a2a2a; color: #ddd; border: 1px solid #444; padding: 4px; } QMenu::item { padding: 6px 20px; border-radius: 3px; } QMenu::item:selected { background: #2a475e; color: #66c0f4; } QMenu::separator { height: 1px; background: #444; margin: 4px 8px; }");
+    // Google-style Material menu: frosted dark, 12px rounded corners, generous
+    // padding, white-on-translucent hover (not blue accent).
+    menu.setStyleSheet(R"(
+        QMenu {
+            background: rgba(38,42,52,0.94);
+            color: #e8eaed;
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 12px;
+            padding: 8px;
+        }
+        QMenu::item {
+            padding: 8px 28px 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        QMenu::item:selected {
+            background: rgba(255,255,255,0.14);
+            color: #ffffff;
+        }
+        QMenu::item:disabled {
+            color: rgba(232,234,237,0.35);
+        }
+        QMenu::separator {
+            height: 1px;
+            background: rgba(255,255,255,0.10);
+            margin: 6px 12px;
+        }
+        QMenu::indicator {
+            width: 16px; height: 16px;
+        }
+    )");
 
     QPoint masonryPos = m_masonry->mapFrom(m_gridScroll->viewport(), pos);
     QWidget *card = m_masonry->cardAt(masonryPos);
@@ -1240,7 +1270,24 @@ void MaterialWidget::onTreeContextMenu(const QPoint &pos)
 {
     QTreeWidgetItem *item = m_folderTree->itemAt(pos);
     QMenu menu;
-    menu.setStyleSheet("QMenu { background: #2a2a2a; color: #ddd; border: 1px solid #444; padding: 4px; } QMenu::item { padding: 6px 20px; border-radius: 3px; } QMenu::item:selected { background: #2a475e; color: #66c0f4; }");
+    menu.setStyleSheet(R"(
+        QMenu {
+            background: rgba(38,42,52,0.94);
+            color: #e8eaed;
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 12px;
+            padding: 8px;
+        }
+        QMenu::item {
+            padding: 8px 28px 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        QMenu::item:selected {
+            background: rgba(255,255,255,0.14);
+            color: #ffffff;
+        }
+    )");
     menu.addAction("新建文件夹", this, &MaterialWidget::createFolder);
     if (item) {
         QString path = item->data(0, Qt::UserRole).toString();
