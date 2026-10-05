@@ -870,40 +870,6 @@ void MainWindow::setupNavigation()
         navLayout->addWidget(btn);
     }
 
-    // ===== Mini music bar (always visible, controls music across tabs) =====
-    QWidget *miniMusic = new QWidget(navContainer);
-    miniMusic->setStyleSheet("background: transparent;");
-    QHBoxLayout *mmL = new QHBoxLayout(miniMusic);
-    mmL->setContentsMargins(0, 0, 0, 0);
-    mmL->setSpacing(2);
-    auto mmBtn = [](const QString &text, const QString &tip) {
-        QToolButton *b = new QToolButton;
-        b->setText(text);
-        b->setToolTip(tip);
-        b->setFixedSize(30, 30);
-        b->setCursor(Qt::PointingHandCursor);
-        b->setStyleSheet(
-            "QToolButton { font-size: 14px; color: #5f6368; border: none; border-radius: 15px; background: transparent; }"
-            "QToolButton:hover { background: rgba(0,0,0,0.08); color: #202124; }");
-        return b;
-    };
-    QToolButton *mmPrev = mmBtn("⏮", "上一首");
-    QToolButton *mmPlay = mmBtn("▶", "播放/暂停");
-    QToolButton *mmNext = mmBtn("⏭", "下一首");
-    mmL->addWidget(mmPrev);
-    mmL->addWidget(mmPlay);
-    mmL->addWidget(mmNext);
-    connect(mmPrev, &QToolButton::clicked, this, [this]() { if (m_musicWidget) m_musicWidget->playPrev(); });
-    connect(mmPlay, &QToolButton::clicked, this, [this, mmPlay]() {
-        if (m_musicWidget) {
-            m_musicWidget->togglePlay();
-            // We don't have a signal to know play/pause state yet; just keep icon static.
-        }
-    });
-    connect(mmNext, &QToolButton::clicked, this, [this]() { if (m_musicWidget) m_musicWidget->playNext(); });
-    navLayout->addWidget(miniMusic);
-    navLayout->addSpacing(12);
-
     // Spacer
     navLayout->addStretch();
 
