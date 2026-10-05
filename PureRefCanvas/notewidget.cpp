@@ -71,13 +71,15 @@
 namespace {
 // Shared dark style for the two toolbar rows (Steam-like palette).
 const char kToolbarSS[] =
-    "QToolBar { background: #1b2838; border-bottom: 1px solid #2a475e; spacing: 1px; padding: 3px 6px; }"
-    "QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 5px; font-size: 13px; }"
-    "QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; }"
-    "QToolButton:checked { background: #2a475e; color: #66c0f4; }"
-    "QComboBox { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 4px; padding: 2px 8px; font-size: 12px; min-width: 60px; }"
-    "QComboBox:hover { border-color: #66c0f4; }"
-    "QComboBox QAbstractItemView { background: #16202d; color: #c7d5e0; selection-background-color: #2a475e; selection-color: #66c0f4; outline: none; }";
+    "QToolBar { background: rgba(22,27,34,0.55); border-bottom: 1px solid rgba(255,255,255,0.08); spacing: 2px; padding: 4px 10px; }"
+    "QToolButton { background: transparent; color: rgba(255,255,255,0.85); border: none; border-radius: 6px; padding: 6px 10px; font-size: 13px; min-width: 24px; }"
+    "QToolButton:hover { background: rgba(255,255,255,0.12); color: #fff; }"
+    "QToolButton:checked { background: rgba(138,180,248,0.30); color: #fff; }"
+    "QComboBox { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; padding: 4px 12px; font-size: 12px; min-width: 64px; }"
+    "QComboBox:hover { background: rgba(255,255,255,0.20); }"
+    "QComboBox::drop-down { border: none; width: 18px; }"
+    "QComboBox QAbstractItemView { background: rgba(38,42,52,0.96); color: #e8eaed; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; selection-background-color: rgba(138,180,248,0.35); outline: none; padding: 4px; }"
+    "QToolBar::separator { background: rgba(255,255,255,0.12); width: 1px; margin: 6px 4px; }";
 const char kDarkMenuSS[] =
     "QMenu { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; }"
     "QMenu::item { padding: 8px 24px; }"
@@ -218,17 +220,19 @@ void NoteWidget::setupUI()
     // Logseq-style [[wiki-links]]: detected via setSource on anchor clicks.
     m_editor->setStyleSheet(R"(
         QTextEdit {
-            background-color: rgba(255,255,255,0.95);
-            color: #2c2c2c;
+            background-color: #ffffff;
+            color: #202124;
             border: none;
-            padding: 32px 72px;
-            font-size: 14px;
+            padding: 40px 80px;
+            font-size: 15px;
+            line-height: 1.6;
             font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
             selection-background-color: #cfe8ff;
+            selection-color: #202124;
         }
         QScrollBar:vertical { background: transparent; width: 10px; margin: 4px; }
-        QScrollBar::handle:vertical { background: rgba(42,71,94,0.5); border-radius: 5px; min-height: 30px; }
-        QScrollBar::handle:vertical:hover { background: #2a475e; }
+        QScrollBar::handle:vertical { background: rgba(0,0,0,0.18); border-radius: 5px; min-height: 30px; }
+        QScrollBar::handle:vertical:hover { background: rgba(0,0,0,0.30); }
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
     )");
     m_editor->viewport()->setAutoFillBackground(false);
