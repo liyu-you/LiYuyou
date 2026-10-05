@@ -1,0 +1,20 @@
+{
+    "books": [
+        {
+            "addedAt": "2026-10-04T17:38:56",
+            "author": "probe",
+            "bookmarks": [
+            ],
+            "coverColor": "#fa709a,#fee140",
+            "filePath": "books/_probe.txt",
+            "id": "03ae1c6b-b212-4f67-b293-5dceece52425",
+            "lastActiveDate": "2026-10-04",
+            "lastRead": "2026-10-04T17:38:56",
+            "progress": 0,
+            "title": "",
+            "todayReadSec": 120,
+            "totalChars": 20,
+            "totalReadSec": 120
+        }
+    ]
+}

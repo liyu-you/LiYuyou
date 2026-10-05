@@ -1,0 +1,36 @@
+{
+    "folders": [
+        "工作",
+        "学习",
+        "生活"
+    ],
+    "notes": [
+        {
+            "content": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Microsoft YaHei','Segoe UI','sans-serif'; font-size:14px; font-weight:400; font-style:normal;\">\n<h2 style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><a href=\"wikilink://Project Ideas\"><span style=\" font-size:20pt; font-weight:700;\">persist me</span></a></h2></body></html>",
+            "createdAt": "2026-10-05T11:47:26",
+            "folder": "",
+            "id": "ed702d7e-3035-4539-ad87-d4ba40b2abbf",
+            "starred": false,
+            "title": "无标题笔记",
+            "updatedAt": "2026-10-05T11:47:27"
+        },
+        {
+            "content": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Microsoft YaHei','Segoe UI','sans-serif'; font-size:14px; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><a href=\"wikilink://Project Ideas\">PDF export smoke test</a></p></body></html>",
+            "createdAt": "2026-10-05T11:47:26",
+            "folder": "日记",
+            "id": "6f67f7c1-82e4-4ca5-a5ab-eb451793367f",
+            "starred": false,
+            "title": "Project Ideas",
+            "updatedAt": "2026-10-05T11:47:26"
+        },
+        {
+            "content": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Microsoft YaHei','Segoe UI','sans-serif'; font-size:14px; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><a href=\"wikilink://Project Ideas\">[[Project Ideas]]</a></p></body></html>",
+            "createdAt": "2026-10-05T11:47:26",
+            "folder": "",
+            "id": "6a580f9b-29f8-4af2-8f63-52be21587146",
+            "starred": false,
+            "title": "无标题笔记",
+            "updatedAt": "2026-10-05T11:47:26"
+        }
+    ]
+}

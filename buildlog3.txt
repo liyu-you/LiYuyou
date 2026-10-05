@@ -1,0 +1,8 @@
+﻿ninja.exe : ninja: warning: build log version is too new; starting over
+所在位置 行:1 字符: 52
++ ... efCanvas\build; & "D:\software\QT\Tools\Ninja\ninja.exe" 2>&1 | Out-F ...
++                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ninja: warning:...; starting over:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ninja: error: '������.exe.manifest', needed by '������.exe', missing and no known rule to make it

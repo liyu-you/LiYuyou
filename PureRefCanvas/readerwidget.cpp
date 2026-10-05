@@ -1,5 +1,6 @@
 #include "readerwidget.h"
 #include "booklibrary.h"
+#include "flashcardstore.h"
 
 #include <QStackedWidget>
 #include <QListWidget>
@@ -1931,6 +1932,16 @@ void ReaderWidget::showSelectionMenu(const QPoint &globalPos)
             ? QStringLiteral("%1").arg(book.title)
             : QStringLiteral("%1 · %2").arg(book.title, chapter);
         emit saveExcerptRequested(title, excerpt, source);
+        clearTextSelection();
+    });
+    menu.addAction("生成闪卡", this, [this, excerpt]() {
+        bool ok = false;
+        const QString front = QInputDialog::getText(
+            this, "生成闪卡",
+            "正面问题（提示）：", QLineEdit::Normal, QString(), &ok);
+        if (!ok || front.trimmed().isEmpty()) return;
+        const BookInfo book = m_library->bookById(m_currentBookId);
+        FlashcardStore::instance().add(front, excerpt, book.title);
         clearTextSelection();
     });
     menu.addAction("复制原文", this, [this, s, e]() {

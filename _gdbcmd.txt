@@ -1,0 +1,4 @@
+run
+bt 30
+frame 3
+info line *

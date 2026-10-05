@@ -1,0 +1,72 @@
+[1/3] Building CXX object CMakeFiles/PureRefCanvas.dir/gaplessengine.cpp.obj
+FAILED: [code=1] CMakeFiles/PureRefCanvas.dir/gaplessengine.cpp.obj 
+D:\software\QT\Tools\mingw1310_64\bin\c++.exe -DAPP_VERSION=\"1.0.0\" -DMINGW_HAS_SECURE_API=1 -DQT_CONCURRENT_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_SQL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IC:/Users/LiyuYou/Desktop/Q/PureRefCanvas/build/PureRefCanvas_autogen/include -isystem D:/software/QT/6.11.2/mingw_64/include/QtCore -isystem D:/software/QT/6.11.2/mingw_64/include -isystem D:/software/QT/6.11.2/mingw_64/mkspecs/win32-g++ -isystem D:/software/QT/6.11.2/mingw_64/include/QtWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtGui -isystem D:/software/QT/6.11.2/mingw_64/include/QtMultimedia -isystem D:/software/QT/6.11.2/mingw_64/include/QtNetwork -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGL -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGLWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtConcurrent -isystem D:/software/QT/6.11.2/mingw_64/include/QtSql -O3 -DNDEBUG -std=gnu++17 -MD -MT CMakeFiles/PureRefCanvas.dir/gaplessengine.cpp.obj -MF CMakeFiles\PureRefCanvas.dir\gaplessengine.cpp.obj.d -o CMakeFiles/PureRefCanvas.dir/gaplessengine.cpp.obj -c C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.cpp
+In file included from C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.cpp:1:
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.h:60:18: error: field 'm_format' has incomplete type 'QAudioFormat'
+   60 |     QAudioFormat m_format;
+      |                  ^~~~~~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.h:21:7: note: forward declaration of 'class QAudioFormat'
+   21 | class QAudioFormat;
+      |       ^~~~~~~~~~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.cpp: In constructor 'GaplessEngine::GaplessEngine(QObject*)':
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.cpp:16:12: error: no matching function for call to 'GaplessEngine::connect(QAudioDecoder*&, <unresolved overloaded function type>, GaplessEngine*, GaplessEngine::GaplessEngine(QObject*)::<lambda(QAudioDecoder::Error)>)'
+   16 |     connect(m_decoder, &QAudioDecoder::error, this, [this](QAudioDecoder::Error) {
+      |     ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   17 |         onDecoderError(m_decoder->errorString());
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   18 |     });
+      |     ~~      
+In file included from D:/software/QT/6.11.2/mingw_64/include/QtCore/QObject:1,
+                 from C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.h:14:
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:233:9: note: candidate: 'template<class Func1, class Func2> static QMetaObject::Connection QObject::connect(const typename QtPrivate::FunctionPointer<Prototype>::Object*, Func1, const typename QtPrivate::ContextTypeForFunctor<Func2>::ContextType*, Func2&&, Qt::ConnectionType)'
+  233 |         connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal,
+      |         ^~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:233:9: note:   template argument deduction/substitution failed:
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.cpp:16:12: note:   couldn't deduce template parameter 'Func1'
+   16 |     connect(m_decoder, &QAudioDecoder::error, this, [this](QAudioDecoder::Error) {
+      |     ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   17 |         onDecoderError(m_decoder->errorString());
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   18 |     });
+      |     ~~      
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:282:9: note: candidate: 'template<class Func1, class Func2> static QMetaObject::Connection QObject::connect(const typename QtPrivate::FunctionPointer<Prototype>::Object*, Func1, Func2&&)'
+  282 |         connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal, Func2 &&slot)
+      |         ^~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:282:9: note:   template argument deduction/substitution failed:
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.cpp:16:12: note:   candidate expects 3 arguments, 4 provided
+   16 |     connect(m_decoder, &QAudioDecoder::error, this, [this](QAudioDecoder::Error) {
+      |     ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   17 |         onDecoderError(m_decoder->errorString());
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   18 |     });
+      |     ~~      
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:212:36: note: candidate: 'static QMetaObject::Connection QObject::connect(const QObject*, const char*, const QObject*, const char*, Qt::ConnectionType)'
+  212 |     static QMetaObject::Connection connect(const QObject *sender, const char *signal,
+      |                                    ^~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:212:79: note:   no known conversion for argument 2 from '<unresolved overloaded function type>' to 'const char*'
+  212 |     static QMetaObject::Connection connect(const QObject *sender, const char *signal,
+      |                                                                   ~~~~~~~~~~~~^~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:215:36: note: candidate: 'static QMetaObject::Connection QObject::connect(const QObject*, const QMetaMethod&, const QObject*, const QMetaMethod&, Qt::ConnectionType)'
+  215 |     static QMetaObject::Connection connect(const QObject *sender, const QMetaMethod &signal,
+      |                                    ^~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:215:86: note:   no known conversion for argument 2 from '<unresolved overloaded function type>' to 'const QMetaMethod&'
+  215 |     static QMetaObject::Connection connect(const QObject *sender, const QMetaMethod &signal,
+      |                                                                   ~~~~~~~~~~~~~~~~~~~^~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:411:32: note: candidate: 'QMetaObject::Connection QObject::connect(const QObject*, const char*, const char*, Qt::ConnectionType) const'
+  411 | inline QMetaObject::Connection QObject::connect(const QObject *asender, const char *asignal,
+      |                                ^~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtCore/qobject.h:411:85: note:   no known conversion for argument 2 from '<unresolved overloaded function type>' to 'const char*'
+  411 | inline QMetaObject::Connection QObject::connect(const QObject *asender, const char *asignal,
+      |                                                                         ~~~~~~~~~~~~^~~~~~~
+[2/3] Building CXX object CMakeFiles/PureRefCanvas.dir/PureRefCanvas_autogen/mocs_compilation.cpp.obj
+FAILED: [code=1] CMakeFiles/PureRefCanvas.dir/PureRefCanvas_autogen/mocs_compilation.cpp.obj 
+D:\software\QT\Tools\mingw1310_64\bin\c++.exe -DAPP_VERSION=\"1.0.0\" -DMINGW_HAS_SECURE_API=1 -DQT_CONCURRENT_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_SQL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IC:/Users/LiyuYou/Desktop/Q/PureRefCanvas/build/PureRefCanvas_autogen/include -isystem D:/software/QT/6.11.2/mingw_64/include/QtCore -isystem D:/software/QT/6.11.2/mingw_64/include -isystem D:/software/QT/6.11.2/mingw_64/mkspecs/win32-g++ -isystem D:/software/QT/6.11.2/mingw_64/include/QtWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtGui -isystem D:/software/QT/6.11.2/mingw_64/include/QtMultimedia -isystem D:/software/QT/6.11.2/mingw_64/include/QtNetwork -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGL -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGLWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtConcurrent -isystem D:/software/QT/6.11.2/mingw_64/include/QtSql -O3 -DNDEBUG -std=gnu++17 -MD -MT CMakeFiles/PureRefCanvas.dir/PureRefCanvas_autogen/mocs_compilation.cpp.obj -MF CMakeFiles\PureRefCanvas.dir\PureRefCanvas_autogen\mocs_compilation.cpp.obj.d -o CMakeFiles/PureRefCanvas.dir/PureRefCanvas_autogen/mocs_compilation.cpp.obj -c C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/build/PureRefCanvas_autogen/mocs_compilation.cpp
+In file included from C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/build/PureRefCanvas_autogen/EWIEGA46WW/moc_gaplessengine.cpp:9,
+                 from C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/build/PureRefCanvas_autogen/mocs_compilation.cpp:8:
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.h:60:18: error: field 'm_format' has incomplete type 'QAudioFormat'
+   60 |     QAudioFormat m_format;
+      |                  ^~~~~~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/gaplessengine.h:21:7: note: forward declaration of 'class QAudioFormat'
+   21 | class QAudioFormat;
+      |       ^~~~~~~~~~~~
+ninja: build stopped: subcommand failed.

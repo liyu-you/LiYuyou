@@ -1,0 +1,17 @@
+[1/2] Building CXX object CMakeFiles/PureRefCanvas.dir/maengine.cpp.obj
+FAILED: [code=1] CMakeFiles/PureRefCanvas.dir/maengine.cpp.obj 
+D:\software\QT\Tools\mingw1310_64\bin\c++.exe -DAPP_VERSION=\"1.0.0\" -DMINGW_HAS_SECURE_API=1 -DQT_CONCURRENT_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_SQL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IC:/Users/LiyuYou/Desktop/Q/PureRefCanvas/build/PureRefCanvas_autogen/include -isystem D:/software/QT/6.11.2/mingw_64/include/QtCore -isystem D:/software/QT/6.11.2/mingw_64/include -isystem D:/software/QT/6.11.2/mingw_64/mkspecs/win32-g++ -isystem D:/software/QT/6.11.2/mingw_64/include/QtWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtGui -isystem D:/software/QT/6.11.2/mingw_64/include/QtMultimedia -isystem D:/software/QT/6.11.2/mingw_64/include/QtNetwork -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGL -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGLWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtConcurrent -isystem D:/software/QT/6.11.2/mingw_64/include/QtSql -O3 -DNDEBUG -std=gnu++17 -MD -MT CMakeFiles/PureRefCanvas.dir/maengine.cpp.obj -MF CMakeFiles\PureRefCanvas.dir\maengine.cpp.obj.d -o CMakeFiles/PureRefCanvas.dir/maengine.cpp.obj -c C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/maengine.cpp
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/maengine.cpp: In member function 'void MaEngine::advance()':
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/maengine.cpp:35:9: error: 'ma_decoder_initFile' was not declared in this scope; did you mean 'ma_decoder_init_file'?
+   35 |     if (ma_decoder_initFile(path.toUtf8().constData(), &cfg, m_decoder) != MA_SUCCESS) {
+      |         ^~~~~~~~~~~~~~~~~~~
+      |         ma_decoder_init_file
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/maengine.cpp: In member function 'void MaEngine::play(const QList<QUrl>&)':
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/maengine.cpp:83:5: error: 'ma_deviceConfig' was not declared in this scope; did you mean 'ma_device_config'?
+   83 |     ma_deviceConfig cfg = ma_device_config_init(ma_device_type_playback);
+      |     ^~~~~~~~~~~~~~~
+      |     ma_device_config
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/maengine.cpp:84:5: error: 'cfg' was not declared in this scope
+   84 |     cfg.playback.format = ma_format_f32;
+      |     ^~~
+ninja: build stopped: subcommand failed.

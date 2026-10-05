@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>里与由 - Google 风登录页</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Google Sans', -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  body { background: #e8eaed; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+  .window { width: 400px; height: 640px; background: #fff; border-radius: 8px;
+             box-shadow: 0 2px 10px rgba(0,0,0,0.15); padding: 40px 36px;
+             display: flex; flex-direction: column; }
+  .brand { text-align: center; font-size: 28px; font-weight: 500; color: #202124; letter-spacing: 2px; }
+  .subtitle { text-align: center; font-size: 14px; color: #5f6368; margin-top: 8px; margin-bottom: 28px; }
+  input { width: 100%; background: #fff; color: #202124; border: 1px solid #dadce0; border-radius: 4px;
+          padding: 11px 14px; font-size: 14px; outline: none; margin-bottom: 14px; }
+  input:focus { border: 2px solid #1a73e8; padding: 10px 13px; }
+  .slider { height: 44px; background: #f8f9fa; border: 1px solid #dadce0; border-radius: 4px;
+            display: flex; align-items: center; margin-bottom: 14px; position: relative; }
+  .handle { width: 44px; height: 42px; background: #fff; border: 1px solid #dadce0; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center; color: #5f6368; font-size: 16px; }
+  .hint { flex: 1; text-align: center; color: #5f6368; font-size: 12px; }
+  .row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 20px; font-size: 13px; color: #444; }
+  .btn { width: 100%; background: #1a73e8; color: #fff; border: none; border-radius: 4px;
+         padding: 11px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .btn:hover { background: #1b66c9; }
+  .links { display: flex; justify-content: space-between; margin-top: 16px; }
+  .link { color: #1a73e8; background: none; border: none; font-size: 13px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="brand">里与由</div>
+  <div class="subtitle">使用你的账号登录</div>
+  <input type="text" placeholder="用户名 / 邮箱">
+  <div class="slider">
+    <div class="handle">»</div>
+    <div class="hint">按住滑块，拖动到最右边</div>
+  </div>
+  <input type="password" placeholder="密码">
+  <div class="row">
+    <label><input type="checkbox"> 记住密码</label>
+    <label><input type="checkbox"> 自动登录</label>
+  </div>
+  <button class="btn">登录</button>
+  <div class="links">
+    <button class="link">忘记密码？</button>
+    <button class="link">注册账号</button>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+=== 10/04/2026 13:54:15 ===
+故障存储段 1318018898199472276，类型 4
+事件名称: APPCRASH
+响应: 不可用
+Cab ID: 0
+
+问题签名:
+P1: 里与由.exe
+P2: 0.0.0.0
+P3: 6ac1e3ca
+P4: Qt6Widgets.dll
+P5: 6.11.2.0
+P6: 6a7cfcbe
+P7: c0000005
+P8: 000000000009fb84
+P9: 
+P10: 
+
+附加文件:
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.22f17439-c365-4968-9302-c2aeb71f4dec.tmp.dmp
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.690a827b-4496-4b0d-ae28-fd6830d6e180.tmp.WERInternalMetadata.xml
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.bfd6b409-f68e-41ae-bb55-e61fc08b4bfa.tmp.csv
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.f7344ff4-6a46-4dc0-9019-15759b1e7e38.tmp.txt
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.9a32be32-28cc-4ee7-bf72-d38ee7c09e1c.tmp.xml
+
+可在此处获取这些文件:
+\\?\C:\ProgramData\Microsoft\Windows\WER\ReportArchive\AppCras
+
+=== 10/04/2026 13:54:12 ===
+出错应用程序名称： 里与由.exe，版本： 0.0.0.0，时间戳： 0x6ac1e3ca
+出错模块名称： Qt6Widgets.dll， 版本： 6.11.2.0，时间戳： 0x6a7cfcbe
+异常代码： 0xc0000005
+错误偏移： 0x000000000009fb84
+出错进程 ID： 0x6838
+出错应用程序开始时间： 0x1DD53C4C70C49DD
+Faulting 应用程序路径： C:\Users\LiyuYou\Desktop\Q\PureRefCanvas\build\里与由.exe
+Faulting 模块路径： C:\Users\LiyuYou\Desktop\Q\PureRefCanvas\build\Qt6Widgets.dll
+Report ID： 656ca3d0-f900-400c-8257-e054e18f5892
+Faulting 包全名： 
+Faulting 程序包相对应用程序 ID：  个
+
+=== 10/04/2026 13:52:41 ===
+故障存储段 1318018898199472276，类型 4
+事件名称: APPCRASH
+响应: 不可用
+Cab ID: 0
+
+问题签名:
+P1: 里与由.exe
+P2: 0.0.0.0
+P3: 6ac1e3ca
+P4: Qt6Widgets.dll
+P5: 6.11.2.0
+P6: 6a7cfcbe
+P7: c0000005
+P8: 000000000009fb84
+P9: 
+P10: 
+
+附加文件:
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.1f43d9a8-daec-49d6-8944-36cd78e4bdc5.tmp.dmp
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.f1dc12c0-d660-4bf1-91f0-07afda59db48.tmp.WERInternalMetadata.xml
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.85125bf4-0a71-4296-b089-6035c1564877.tmp.csv
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.dad1d912-bfda-48f8-846b-3b7913fc3b74.tmp.txt
+\\?\C:\ProgramData\Microsoft\Windows\WER\Temp\WER.bdd505b2-5464-4fd2-8ef7-cffbeaef3840.tmp.xml
+
+可在此处获取这些文件:
+\\?\C:\ProgramData\Microsoft\Windows\WER\ReportArchive\AppCras
+
+=== 10/04/2026 13:52:38 ===
+出错应用程序名称： 里与由.exe，版本： 0.0.0.0，时间戳： 0x6ac1e3ca
+出错模块名称： Qt6Widgets.dll， 版本： 6.11.2.0，时间戳： 0x6a7cfcbe
+异常代码： 0xc0000005
+错误偏移： 0x000000000009fb84
+出错进程 ID： 0x70C0
+出错应用程序开始时间： 0x1DD53C48F078896
+Faulting 应用程序路径： C:\Users\LiyuYou\Desktop\Q\PureRefCanvas\build\里与由.exe
+Faulting 模块路径： C:\Users\LiyuYou\Desktop\Q\PureRefCanvas\build\Qt6Widgets.dll
+Report ID： 0b4077ae-f13a-4a40-91a5-b024ec2aee9f
+Faulting 包全名： 
+Faulting 程序包相对应用程序 ID：  个
+

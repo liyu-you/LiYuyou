@@ -1,0 +1,47 @@
+﻿manifest exists: True
+rc= 1
+=== STDOUT (tail) ===
+               ^~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/musiclibrarydb.cpp:77:12: warning: 'QSqlQuery QSqlDatabase::exec(const QString&) const' is deprecated: Use QSqlQuery::exec() instead. [-Wdeprecated-declarations]
+   77 |     db.exec(R"(CREATE TABLE IF NOT EXISTS stats (
+      |     ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   78 |         path TEXT PRIMARY KEY,
+      |         ~~~~~~~~~~~~~~~~~~~~~~
+   79 |         play_count INTEGER NOT NULL DEFAULT 0,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   80 |         listen_ms INTEGER NOT NULL DEFAULT 0,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   81 |         favorite INTEGER NOT NULL DEFAULT 0,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   82 |         favorite_at INTEGER NOT NULL DEFAULT 0,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   83 |         last_played_at INTEGER NOT NULL DEFAULT 0
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   84 |     ))");
+      |     ~~~~    
+D:/software/QT/6.11.2/mingw_64/include/QtSql/qsqldatabase.h:72:15: note: declared here
+   72 |     QSqlQuery exec(const QString& query = QString()) const;
+      |               ^~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/musiclibrarydb.cpp:85:12: warning: 'QSqlQuery QSqlDatabase::exec(const QString&) const' is deprecated: Use QSqlQuery::exec() instead. [-Wdeprecated-declarations]
+   85 |     db.exec("CREATE INDEX IF NOT EXISTS idx_songs_fingerprint ON songs(fingerprint)");
+      |     ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtSql/qsqldatabase.h:72:15: note: declared here
+   72 |     QSqlQuery exec(const QString& query = QString()) const;
+      |               ^~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/musiclibrarydb.cpp:86:12: warning: 'QSqlQuery QSqlDatabase::exec(const QString&) const' is deprecated: Use QSqlQuery::exec() instead. [-Wdeprecated-declarations]
+   86 |     db.exec("CREATE INDEX IF NOT EXISTS idx_stats_last_played ON stats(last_played_at DESC)");
+      |     ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtSql/qsqldatabase.h:72:15: note: declared here
+   72 |     QSqlQuery exec(const QString& query = QString()) const;
+      |               ^~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/musiclibrarydb.cpp:87:12: warning: 'QSqlQuery QSqlDatabase::exec(const QString&) const' is deprecated: Use QSqlQuery::exec() instead. [-Wdeprecated-declarations]
+   87 |     db.exec("CREATE INDEX IF NOT EXISTS idx_stats_favorite ON stats(favorite, last_played_at DESC)");
+      |     ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/software/QT/6.11.2/mingw_64/include/QtSql/qsqldatabase.h:72:15: note: declared here
+   72 |     QSqlQuery exec(const QString& query = QString()) const;
+      |               ^~~~
+ninja: build stopped: subcommand failed.
+
+
+=== STDERR ===
+

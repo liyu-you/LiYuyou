@@ -1,0 +1,20 @@
+{
+    "books": [
+        {
+            "addedAt": "2026-10-05T11:45:14",
+            "author": "book",
+            "bookmarks": [
+            ],
+            "coverColor": "#30cfd0,#330867",
+            "filePath": "books/_wrap_book.txt",
+            "id": "5094e0d8-9e6c-4d94-859c-a76dc876a9b5",
+            "lastActiveDate": "",
+            "lastRead": "2026-10-05T11:45:14",
+            "progress": 0,
+            "title": "",
+            "todayReadSec": 0,
+            "totalChars": 5949,
+            "totalReadSec": 0
+        }
+    ]
+}

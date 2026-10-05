@@ -1,0 +1,14 @@
+[1/2] Building CXX object CMakeFiles/PureRefCanvas.dir/notewidget.cpp.obj
+FAILED: [code=1] CMakeFiles/PureRefCanvas.dir/notewidget.cpp.obj 
+D:\software\QT\Tools\mingw1310_64\bin\c++.exe -DAPP_VERSION=\"1.0.0\" -DMINGW_HAS_SECURE_API=1 -DQT_CONCURRENT_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_SQL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IC:/Users/LiyuYou/Desktop/Q/PureRefCanvas/build/PureRefCanvas_autogen/include -isystem D:/software/QT/6.11.2/mingw_64/include/QtCore -isystem D:/software/QT/6.11.2/mingw_64/include -isystem D:/software/QT/6.11.2/mingw_64/mkspecs/win32-g++ -isystem D:/software/QT/6.11.2/mingw_64/include/QtWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtGui -isystem D:/software/QT/6.11.2/mingw_64/include/QtMultimedia -isystem D:/software/QT/6.11.2/mingw_64/include/QtNetwork -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGL -isystem D:/software/QT/6.11.2/mingw_64/include/QtOpenGLWidgets -isystem D:/software/QT/6.11.2/mingw_64/include/QtConcurrent -isystem D:/software/QT/6.11.2/mingw_64/include/QtSql -O3 -DNDEBUG -std=gnu++17 -MD -MT CMakeFiles/PureRefCanvas.dir/notewidget.cpp.obj -MF CMakeFiles\PureRefCanvas.dir\notewidget.cpp.obj.d -o CMakeFiles/PureRefCanvas.dir/notewidget.cpp.obj -c C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/notewidget.cpp
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/notewidget.cpp: In member function 'void NoteWidget::setupUI()':
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/notewidget.cpp:179:15: error: 'class QTextEdit' has no member named 'setOpenLinks'
+  179 |     m_editor->setOpenLinks(false);
+      |               ^~~~~~~~~~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/notewidget.cpp:180:15: error: 'class QTextEdit' has no member named 'setOpenExternalLinks'
+  180 |     m_editor->setOpenExternalLinks(false);
+      |               ^~~~~~~~~~~~~~~~~~~~
+C:/Users/LiyuYou/Desktop/Q/PureRefCanvas/notewidget.cpp:182:35: error: 'anchorClicked' is not a member of 'QTextEdit'
+  182 |     connect(m_editor, &QTextEdit::anchorClicked, this, [this](const QUrl &url) {
+      |                                   ^~~~~~~~~~~~~
+ninja: build stopped: subcommand failed.

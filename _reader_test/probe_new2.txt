@@ -1,0 +1,13 @@
+﻿mw_probe.exe : qt.core.plugin.loader: C:/Users/LiyuYou/Desktop/Q/_reader_test/p
+latforms/qwindows.dll: cannot open: Unknown error 0x00000005.
+所在位置 行:445 字符: 277
++ ... sers\LiyuYou\Desktop\Q\_reader_test"; & ".\mw_probe.exe" 2>&1 | Out-F ...
++                                           ~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (qt.core.plugin....ror 0x00000005. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+qt.qpa.plugin: Could not find the Qt platform plugin "windows" in ""
+This application failed to start because no Qt platform plugin could be initial
+ized. Reinstalling the application may fix this problem.
+

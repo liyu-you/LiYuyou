@@ -71,6 +71,7 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include <QClipboard>
+#include "flashcardstore.h"
 
 // ========== Windows Acrylic Blur (毛玻璃效果) ==========
 #ifdef Q_OS_WIN
@@ -681,6 +682,66 @@ connect(shotSc, &QShortcut::activated, this, [this]() {
     QGuiApplication::clipboard()->setPixmap(pm);
     switchToPage(2); // library tab
     if (m_materialWidget) m_materialWidget->importFromClipboard();
+});
+
+// ===== Flashcard review: Ctrl+Shift+F =====
+QShortcut *fcSc = new QShortcut(QKeySequence("Ctrl+Shift+F"), this);
+fcSc->setContext(Qt::ApplicationShortcut);
+connect(fcSc, &QShortcut::activated, this, [this]() {
+    const QList<Flashcard> due = FlashcardStore::instance().dueToday();
+    if (due.isEmpty()) {
+        QMessageBox::information(this, "闪卡复习", "今天没有需要复习的卡片 🎉");
+        return;
+    }
+    // Simple modal review loop
+    int idx = 0;
+    while (idx < due.size()) {
+        const Flashcard &c = due.at(idx);
+        QDialog dlg(this);
+        dlg.setWindowTitle(QString("闪卡复习 · %1/%2").arg(idx + 1).arg(due.size()));
+        dlg.setFixedSize(480, 360);
+        QVBoxLayout *lay = new QVBoxLayout(&dlg);
+        QLabel *src = new QLabel(QString("📖 %1").arg(c.source));
+        src->setStyleSheet("color:#5f6368; font-size:12px;");
+        QLabel *front = new QLabel(c.front);
+        front->setWordWrap(true);
+        front->setAlignment(Qt::AlignCenter);
+        front->setStyleSheet("font-size:18px; font-weight:500; padding:20px;");
+        QLabel *back = new QLabel(c.back);
+        back->setWordWrap(true);
+        back->setAlignment(Qt::AlignCenter);
+        back->setStyleSheet("font-size:14px; color:#1a73e8; padding:20px; background:#f1f3f4; border-radius:8px;");
+        back->hide();
+        QPushButton *showAns = new QPushButton("显示答案");
+        showAns->setStyleSheet("padding:10px;");
+        connect(showAns, &QPushButton::clicked, &dlg, [back, showAns]() {
+            back->show();
+            showAns->hide();
+        });
+        QPushButton *known = new QPushButton("✓ 认识");
+        known->setStyleSheet("background:#07c160;color:white;padding:10px;border:none;border-radius:6px;");
+        QPushButton *unknown = new QPushButton("✗ 不认识");
+        unknown->setStyleSheet("background:#fa5151;color:white;padding:10px;border:none;border-radius:6px;");
+        QHBoxLayout *btns = new QHBoxLayout;
+        btns->addWidget(unknown);
+        btns->addWidget(known);
+        lay->addWidget(src);
+        lay->addWidget(front, 1);
+        lay->addWidget(back, 1);
+        lay->addWidget(showAns);
+        lay->addLayout(btns);
+        connect(known, &QPushButton::clicked, &dlg, [&dlg, c]() {
+            FlashcardStore::instance().grade(c.id, true);
+            dlg.accept();
+        });
+        connect(unknown, &QPushButton::clicked, &dlg, [&dlg, c]() {
+            FlashcardStore::instance().grade(c.id, false);
+            dlg.accept();
+        });
+        dlg.exec();
+        idx++;
+    }
+    QMessageBox::information(this, "闪卡复习", "今天的卡片复习完了 ✨");
 });
 
     applyTheme(m_currentTheme);
