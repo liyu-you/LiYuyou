@@ -249,6 +249,19 @@ CanvasView::CanvasView(CanvasScene *scene, QWidget *parent)
     m_minimap->move(width() - m_minimap->width() - 10, height() - m_minimap->height() - 10);
     m_minimap->raise();
 
+    // Empty-state hint: shown when the scene has no items. Centered on the
+    // viewport, sits above the background image but below real canvas items.
+    m_emptyHint = new QLabel(this);
+    m_emptyHint->setAlignment(Qt::AlignCenter);
+    m_emptyHint->setText(
+        "<div style='color:rgba(255,255,255,0.75); font-family:\"Microsoft YaHei\";'>"
+        "<p style='font-size:20px; font-weight:300; margin-bottom:8px;'>画布是空的</p>"
+        "<p style='font-size:13px; color:rgba(255,255,255,0.55);'>从左侧素材库拖图片到这里</p>"
+        "<p style='font-size:13px; color:rgba(255,255,255,0.55);'>或按 Ctrl+V 粘贴剪贴板图片</p>"
+        "</div>");
+    m_emptyHint->setStyleSheet("background: transparent;");
+    m_emptyHint->raise();
+
     // Update minimap when scene changes, optionally throttled so rapid changes
     // (e.g. dragging items) re-render the thumbnail at most every 150ms instead
     // of every frame. The 80ms timer below keeps repainting the cached
@@ -266,6 +279,7 @@ CanvasView::CanvasView(CanvasScene *scene, QWidget *parent)
         } else {
             m_minimap->updateMinimap();
         }
+        updateEmptyHint();
     });
 
     // Periodic viewport rectangle update (for zoom/pan)
@@ -763,6 +777,10 @@ void CanvasView::resizeEvent(QResizeEvent *event)
         m_scaledBgPixmap = m_bgPixmap.scaled(viewport()->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
     positionOverlays();
+    if (m_emptyHint) {
+        m_emptyHint->setGeometry(0, 0, width(), height());
+    }
+    updateEmptyHint();
 }
 
 void CanvasView::showEvent(QShowEvent *event)
@@ -805,4 +823,12 @@ void CanvasView::setMinimapThrottleEnabled(bool enabled)
     if (!enabled && m_minimapThrottle) m_minimapThrottle->stop();
     // Refresh immediately so the thumbnail reflects the new mode
     if (m_minimap && m_minimap->isVisible()) m_minimap->updateMinimap();
+}
+
+void CanvasView::updateEmptyHint()
+{
+    if (!m_emptyHint || !m_canvasScene) return;
+    const bool empty = m_canvasScene->items().isEmpty();
+    m_emptyHint->setVisible(empty);
+    if (empty) m_emptyHint->raise();
 }

@@ -19,7 +19,7 @@
 ContentBrowserPanel::ContentBrowserPanel(MaterialLibrary *sharedLib, QWidget *parent)
     : QWidget(parent), m_lib(sharedLib)
 {
-    setFixedWidth(210);
+    setFixedWidth(240);
     setAttribute(Qt::WA_TranslucentBackground);
     setTransparent(true);
 
@@ -86,17 +86,24 @@ ContentBrowserPanel::ContentBrowserPanel(MaterialLibrary *sharedLib, QWidget *pa
     layout->addWidget(imgTitleWidget);
 
     // Asset list (always visible, shows all asset types)
+    // IconMode grid: square thumbnails in 2 columns, much easier to scan than
+    // the old single-row list where filenames were truncated to hashes.
     m_imageList = new ImageDragList;
-    m_imageList->setViewMode(QListView::ListMode);
-    m_imageList->setIconSize(QSize(24, 24));
+    m_imageList->setViewMode(QListView::IconMode);
+    m_imageList->setIconSize(QSize(72, 72));
+    m_imageList->setGridSize(QSize(104, 104));
     m_imageList->setResizeMode(QListView::Adjust);
-    m_imageList->setSpacing(2);
+    m_imageList->setSpacing(8);
     m_imageList->setMovement(QListView::Static);
+    m_imageList->setWrapping(true);
+    m_imageList->setWordWrap(true);
+    m_imageList->setFlow(QListView::LeftToRight);
+    m_imageList->setSelectionMode(QAbstractItemView::SingleSelection);
     m_imageList->setStyleSheet(R"(
-        QListWidget { background: rgba(0,0,0,0.15); border: 1px solid #2a475e; border-radius: 6px; outline: none; padding: 4px; }
-        QListWidget::item { background: transparent; border-radius: 4px; color: #c7d5e0; padding: 4px 6px; font-size: 12px; }
-        QListWidget::item:selected { background: #2a475e; color: #66c0f4; }
-        QListWidget::item:hover:!selected { background: rgba(42,71,94,0.5); }
+        QListWidget { background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; outline: none; padding: 6px; }
+        QListWidget::item { background: transparent; border-radius: 6px; color: #e2e8f0; padding: 4px; font-size: 11px; text-align: center; }
+        QListWidget::item:selected { background: rgba(46,160,67,0.35); border: 1px solid #2ea043; }
+        QListWidget::item:hover:!selected { background: rgba(255,255,255,0.10); }
     )");
     connect(m_imageList, &QListWidget::itemDoubleClicked, this, &ContentBrowserPanel::onImageDoubleClicked);
     layout->addWidget(m_imageList, 3);

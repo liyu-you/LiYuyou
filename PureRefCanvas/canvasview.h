@@ -125,6 +125,8 @@ private:
     QWidget *m_zoomBar = nullptr;
     QToolButton *m_zoomPercent = nullptr;
     qreal m_zoomBarOpacity = 0.85;
+    QLabel *m_emptyHint = nullptr;
+    void updateEmptyHint();
 
     // Floating-overlay layout metrics (logical px)
     static constexpr int OVERLAY_MARGIN = 10;
