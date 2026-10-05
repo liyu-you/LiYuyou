@@ -282,9 +282,11 @@ QList<QWidget*> MasonryContainer::selectedCards() const
 void MasonryContainer::applyCardSelection(QWidget *card, bool selected)
 {
     if (!card) return;
+    // Material-style: selected card gets a soft green tint + rounded outline,
+    // no harsh 2px blue border.
     card->setStyleSheet(selected
-        ? "#masonryCard { background: rgba(60,130,200,50); border: 2px solid #3c82c8; border-radius: 6px; }"
-        : "#masonryCard { background: transparent; border: 2px solid transparent; border-radius: 6px; }");
+        ? "#masonryCard { background: rgba(46,160,67,0.25); border: 2px solid #2ea043; border-radius: 10px; }"
+        : "#masonryCard { background: transparent; border: 2px solid transparent; border-radius: 10px; }");
 }
 
 void MasonryContainer::setCardInfoVisible(QWidget *card, bool visible)
@@ -1610,41 +1612,46 @@ void MaterialWidget::createColorFilterBar()
 
     lay->addStretch();
 
+    // Material-style filter chip: frosted translucent white pill, 8px radius,
+    // no heavy borders. Sits lightly on the background image like Google Photos.
+    const QString chipStyle =
+        "QComboBox { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.22); border-radius: 16px; padding: 4px 14px; font-size: 12px; }"
+        "QComboBox:hover { background: rgba(255,255,255,0.28); }"
+        "QComboBox::drop-down { border: none; width: 18px; }"
+        "QComboBox QAbstractItemView { background: rgba(40,45,55,0.95); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; selection-background-color: #2ea043; padding: 4px; }";
+
     // Size filter
     m_sizeFilter = new QComboBox;
     m_sizeFilter->addItems({"尺寸: 全部", "小 (<500px)", "中 (500-2000px)", "大 (>2000px)"});
-    m_sizeFilter->setFixedHeight(22);
-    m_sizeFilter->setStyleSheet(
-        "QComboBox { background: #2a2a2a; color: #c7d5e0; border: 1px solid #444; border-radius: 3px; padding: 0 6px; font-size: 11px; }"
-        "QComboBox:hover { border-color: #66c0f4; }"
-        "QComboBox QAbstractItemView { background: #2a2a2a; color: #e0e0e0; selection-background-color: #2a475e; }");
+    m_sizeFilter->setFixedHeight(30);
+    m_sizeFilter->setStyleSheet(chipStyle);
     connect(m_sizeFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MaterialWidget::refreshAssetGrid);
     lay->addWidget(m_sizeFilter);
 
     // Format filter
     m_formatFilter = new QComboBox;
     m_formatFilter->addItems({"格式: 全部", "图片", "视频", "文本"});
-    m_formatFilter->setFixedHeight(22);
-    m_formatFilter->setStyleSheet(m_sizeFilter->styleSheet());
+    m_formatFilter->setFixedHeight(30);
+    m_formatFilter->setStyleSheet(chipStyle);
     connect(m_formatFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MaterialWidget::refreshAssetGrid);
     lay->addWidget(m_formatFilter);
 
     // Rating filter: 全部 / ≥1★ / ≥2★ / ... / ≥5★
     m_ratingFilter = new QComboBox;
     m_ratingFilter->addItems({"星级: 全部", "★≥1", "★≥2", "★≥3", "★≥4", "★=5"});
-    m_ratingFilter->setFixedHeight(22);
-    m_ratingFilter->setStyleSheet(m_sizeFilter->styleSheet());
+    m_ratingFilter->setFixedHeight(30);
+    m_ratingFilter->setStyleSheet(chipStyle);
     connect(m_ratingFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MaterialWidget::refreshAssetGrid);
     lay->addWidget(m_ratingFilter);
 
     // View mode toggle (Masonry / Grid / List)
     m_viewModeBtn = new QToolButton;
     m_viewModeBtn->setText("▦ 瀑布流");
-    m_viewModeBtn->setFixedHeight(22);
+    m_viewModeBtn->setFixedHeight(30);
     m_viewModeBtn->setCursor(Qt::PointingHandCursor);
     m_viewModeBtn->setStyleSheet(
-        "QToolButton { background: #2a2a2a; color: #c7d5e0; border: 1px solid #444; border-radius: 3px; padding: 0 8px; font-size: 11px; }"
-        "QToolButton:hover { border-color: #66c0f4; color: #66c0f4; }");
+        "QToolButton { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.22); border-radius: 16px; padding: 0 14px; font-size: 12px; }"
+        "QToolButton:hover { background: rgba(255,255,255,0.28); }");
     connect(m_viewModeBtn, &QToolButton::clicked, this, [this]() {
         switch (m_viewMode) {
             case ViewMode::Masonry: m_viewMode = ViewMode::Grid; m_viewModeBtn->setText("▦ 网格"); break;
