@@ -173,8 +173,15 @@ bool MaterialLibrary::openDatabase()
 
     applySchema();
 
-    // One-shot migration from the legacy JSON file.
-    if (QFileInfo::exists(metadataPath()) && !QFileInfo::exists(dbPath() + "-wal")) {
+    // One-shot migration from the legacy JSON file. Trigger condition:
+    // the items table is empty AND a library.json is sitting next to the db.
+    // (Earlier versions keyed off the presence of a -wal file, but PRAGMA
+    // journal_mode=WAL creates that file immediately, so migration was
+    // silently skipped and the old library never showed up.)
+    QSqlQuery countQ(db);
+    countQ.exec("SELECT COUNT(*) FROM items");
+    const bool hasItems = countQ.next() && countQ.value(0).toInt() > 0;
+    if (!hasItems && QFileInfo::exists(metadataPath())) {
         migrateLegacyJson();
     }
     return true;

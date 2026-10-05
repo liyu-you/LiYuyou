@@ -1367,6 +1367,33 @@ void MaterialWidget::keyPressEvent(QKeyEvent *event)
     QWidget::keyPressEvent(event);
 }
 
+// Drag & drop onto the main grid: drop image files straight into the current
+// folder. (The left FolderDropTree also supports this; this catches drops that
+// land on the grid itself, where users naturally expect it to work.)
+void MaterialWidget::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
+        return;
+    }
+    QWidget::dragEnterEvent(event);
+}
+
+void MaterialWidget::dropEvent(QDropEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        QStringList files;
+        for (const QUrl &u : event->mimeData()->urls())
+            if (u.isLocalFile()) files << u.toLocalFile();
+        if (!files.isEmpty()) {
+            m_library->importFiles(files, m_currentPath);
+            event->acceptProposedAction();
+            return;
+        }
+    }
+    QWidget::dropEvent(event);
+}
+
 // ===== Metadata editing (tags / rating / note / source) =====
 void MaterialWidget::applyRatingToSelected(int stars)
 {
