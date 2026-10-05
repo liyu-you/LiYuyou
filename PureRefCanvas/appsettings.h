@@ -106,6 +106,9 @@ struct AppSettings {
     QString defaultPlayMode = "sequential"; // sequential/loopOne/loopAll/shuffle
     bool    showLyrics      = false;
 
+    // ---- Logging ----
+    bool    loggingEnabled  = true;   // write logs to dataRoot/logs/
+
     // Persist lastPage separately: it is UI state (current tab index), not a
     // preference. Caller passes it in on save because MainWindow owns the stack.
     void load(int &outLastPage);

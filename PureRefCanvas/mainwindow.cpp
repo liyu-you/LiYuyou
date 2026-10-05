@@ -3,6 +3,7 @@
 #include "themeapplier.h"
 #include "shutdowncontroller.h"
 #include "traycontroller.h"
+#include "logger.h"
 #include "updatechecker.h"
 #include "canvasscene.h"
 #include "canvasview.h"
@@ -2074,6 +2075,7 @@ void MainWindow::openSettings()
     dlg.setDefaultVolume(m_cfg.defaultVolume);
     dlg.setDefaultPlayMode(m_cfg.defaultPlayMode);
     dlg.setShowLyrics(m_cfg.showLyrics);
+    dlg.setLoggingEnabled(m_cfg.loggingEnabled);
 
     if (dlg.exec() == QDialog::Accepted) {
         m_cfg.currentTheme = dlg.theme();
@@ -2164,6 +2166,8 @@ void MainWindow::openSettings()
         m_cfg.defaultVolume = dlg.defaultVolume();
         m_cfg.defaultPlayMode = dlg.defaultPlayMode();
         m_cfg.showLyrics = dlg.showLyrics();
+        m_cfg.loggingEnabled = dlg.loggingEnabled();
+        Logger::setEnabled(m_cfg.loggingEnabled);
 
         // Apply music settings immediately
         if (m_musicWidget) {

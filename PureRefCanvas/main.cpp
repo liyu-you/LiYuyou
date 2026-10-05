@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "userauth.h"
 #include "logindialog.h"
+#include "logger.h"
 #include <QApplication>
 #include <QSurfaceFormat>
 #include <QIcon>
@@ -329,6 +330,10 @@ int main(int argc, char *argv[])
     app.setApplicationName("里与由");
     app.setOrganizationName("PureRefCanvas");
     app.setWindowIcon(QIcon(":/app.ico"));
+
+    // Install file logger as early as possible so we capture startup warnings.
+    Logger::install(settings.value("logging/enabled", true).toBool());
+    qDebug() << "=== 里与由 v1.0.0 starting ===";
 
     // Force Fusion style: on Windows, the native Windows style draws QToolTip
     // as a system-native dark popup that ignores stylesheet AND palette.

@@ -143,6 +143,10 @@ public:
     void setDefaultPlayMode(const QString &mode);
     void setShowLyrics(bool show);
 
+    // Logging
+    bool loggingEnabled() const;
+    void setLoggingEnabled(bool on);
+
     // Advanced (require restart)
     int uiScale() const; // 75, 100, 125, 150
     QString language() const; // "zh" or "en"
@@ -286,6 +290,7 @@ private:
     QComboBox *m_defaultVolumeCombo;
     QComboBox *m_defaultPlayModeCombo;
     QCheckBox *m_showLyricsCheck;
+    QCheckBox *m_loggingEnabledCheck = nullptr;
 
     // Advanced
     QComboBox *m_uiScaleCombo;

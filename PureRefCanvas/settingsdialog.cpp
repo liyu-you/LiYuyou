@@ -21,7 +21,10 @@
 #include <QListWidget>
 #include <QStackedWidget>
 #include <QFrame>
+#include <QDesktopServices>
+#include <QUrl>
 #include "thumbcache.h"
+#include "userauth.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
@@ -967,6 +970,22 @@ void SettingsDialog::setupUI()
     advancedLayout->addWidget(makeRow("同时关机", "关闭软件时一并关闭电脑", m_shutdownPCCheck));
     advancedLayout->addWidget(makeSeparator());
 
+    addSection(advancedLayout, "日志");
+
+    m_loggingEnabledCheck = new QCheckBox("启用日志文件");
+    m_loggingEnabledCheck->setChecked(true);
+    advancedLayout->addWidget(makeRow("日志记录", "将运行日志写入数据目录/logs/，保留最近 7 天", m_loggingEnabledCheck));
+    advancedLayout->addWidget(makeSeparator());
+
+    QPushButton *openLogsBtn = new QPushButton("打开日志目录");
+    openLogsBtn->setFixedHeight(32);
+    connect(openLogsBtn, &QPushButton::clicked, this, [] {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(
+            UserAuth::dataRoot() + "/logs"));
+    });
+    advancedLayout->addWidget(makeRow("日志目录", "打开日志文件所在文件夹", openLogsBtn));
+    advancedLayout->addWidget(makeSeparator());
+
     addSection(advancedLayout, "数据管理");
 
     QPushButton *resetBtn = new QPushButton("恢复默认设置");
@@ -1785,5 +1804,11 @@ bool SettingsDialog::showLyrics() const {
 }
 void SettingsDialog::setShowLyrics(bool show) {
     if (m_showLyricsCheck) m_showLyricsCheck->setChecked(show);
+}
+bool SettingsDialog::loggingEnabled() const {
+    return m_loggingEnabledCheck ? m_loggingEnabledCheck->isChecked() : true;
+}
+void SettingsDialog::setLoggingEnabled(bool on) {
+    if (m_loggingEnabledCheck) m_loggingEnabledCheck->setChecked(on);
 }
 

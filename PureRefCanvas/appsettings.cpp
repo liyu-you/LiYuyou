@@ -80,6 +80,9 @@ void AppSettings::load(int &outLastPage)
     defaultVolume     = s.value("music/defaultVolume", defaultVolume).toInt();
     defaultPlayMode   = s.value("music/defaultPlayMode", defaultPlayMode).toString();
     showLyrics        = s.value("music/showLyrics", showLyrics).toBool();
+
+    // Logging
+    loggingEnabled    = s.value("logging/enabled", loggingEnabled).toBool();
 }
 
 void AppSettings::save(int lastPage) const
@@ -159,4 +162,5 @@ void AppSettings::save(int lastPage) const
     s.setValue("music/defaultVolume", defaultVolume);
     s.setValue("music/defaultPlayMode", defaultPlayMode);
     s.setValue("music/showLyrics", showLyrics);
+    s.setValue("logging/enabled", loggingEnabled);
 }
