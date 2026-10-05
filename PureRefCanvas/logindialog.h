@@ -12,6 +12,8 @@ class QComboBox;
 class QCheckBox;
 class QProgressBar;
 class QTimer;
+class QWidget;
+class QMouseEvent;
 
 class LoginDialog : public QDialog
 {
@@ -19,6 +21,9 @@ class LoginDialog : public QDialog
 public:
     explicit LoginDialog(UserAuth *auth, QWidget *parent = nullptr);
     UserInfo loggedInUser() const { return m_loggedInUser; }
+
+protected:
+    bool eventFilter(QObject *obj, QEvent *ev) override;
 
 private slots:
     void doLogin();
@@ -62,6 +67,14 @@ private:
     QLineEdit *m_loginPassword;
     QCheckBox *m_rememberPwd;
     QCheckBox *m_autoLogin;
+    QPushButton *m_loginBtn;
+    // Slider captcha
+    QWidget *m_sliderTrack;
+    QPushButton *m_sliderHandle;
+    QLabel *m_sliderHint;
+    bool m_sliderUnlocked = false;
+    int m_sliderDragStartX = 0;
+    bool m_sliderDragging = false;
 
     // Register
     QLineEdit *m_regUsername;

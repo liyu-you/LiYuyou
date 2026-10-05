@@ -26,6 +26,8 @@
 #include <QSysInfo>
 #include <QAction>
 #include <QIcon>
+#include <QMouseEvent>
+#include <QEvent>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -148,14 +150,14 @@ LoginDialog::LoginDialog(UserAuth *auth, QWidget *parent)
     : QDialog(parent), m_auth(auth), m_connectProgress(nullptr), m_connectTimer(nullptr), m_connectValue(0), m_autoLoginPreValidated(false), m_autoLoginWillSucceed(false)
 {
     setWindowTitle("里与由 - 登录");
-    setFixedSize(380, 600);
+    setFixedSize(400, 640);
     setStyleSheet(R"(
-        QDialog { background: #f7f7f7; }
+        QDialog { background: #ffffff; }
         QLabel { color: #333; }
-        QLineEdit { background: #fff; color: #333; border: 1px solid #e0e0e0; border-radius: 4px; padding: 9px 14px; font-size: 14px; }
-        QLineEdit:focus { border-color: #07c160; }
-        QComboBox { background: #fff; color: #333; border: 1px solid #e0e0e0; border-radius: 4px; padding: 9px 30px 9px 14px; font-size: 14px; }
-        QComboBox:focus { border-color: #07c160; }
+        QLineEdit { background: #f7f8fa; color: #333; border: 1px solid #e5e7eb; border-radius: 10px; padding: 11px 16px; font-size: 14px; }
+        QLineEdit:focus { border: 1px solid #34c759; background: #fff; }
+        QComboBox { background: #f7f8fa; color: #333; border: 1px solid #e5e7eb; border-radius: 10px; padding: 11px 14px; font-size: 14px; }
+        QComboBox:focus { border-color: #34c759; }
         QComboBox:hover { border-color: #ccc; }
         QComboBox::drop-down { border: none; width: 26px; }
         QComboBox::down-arrow {
@@ -165,12 +167,12 @@ LoginDialog::LoginDialog(UserAuth *auth, QWidget *parent)
             border-top: 5px solid #999;
             width: 0; height: 0; margin-right: 6px;
         }
-        QComboBox:hover::down-arrow { border-top-color: #07c160; }
+        QComboBox:hover::down-arrow { border-top-color: #34c759; }
         QComboBox QAbstractItemView {
-            background: #fff; color: #333; border: 1px solid #e0e0e0; border-radius: 4px;
-            padding: 4px; outline: none; selection-background-color: #e8f5e9; selection-color: #07c160;
+            background: #fff; color: #333; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 4px; outline: none; selection-background-color: #e8f9ed; selection-color: #34c759;
         }
-        QComboBox QAbstractItemView::item { padding: 8px 12px; border-radius: 3px; }
+        QComboBox QAbstractItemView::item { padding: 8px 12px; border-radius: 4px; }
         QComboBox QAbstractItemView::item:hover { background: #f5f5f5; }
     )");
 
@@ -405,24 +407,56 @@ void LoginDialog::setupLoginPage()
 {
     QWidget *page = new QWidget;
     QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(30, 30, 30, 30);
-    layout->setSpacing(12);
+    layout->setContentsMargins(36, 36, 36, 24);
+    layout->setSpacing(14);
 
-    QLabel *title = new QLabel("登录");
-    title->setStyleSheet("font-size: 22px; font-weight: 600; color: #191919; padding-bottom: 8px;");
-    layout->addWidget(title);
+    // Brand logo + name (语雀-style centered)
+    QLabel *logo = new QLabel;
+    logo->setAlignment(Qt::AlignCenter);
+    QFont logoFont;
+    logoFont.setPointSize(22);
+    logoFont.setBold(true);
+    logo->setFont(logoFont);
+    logo->setText("🐦 里与由");
+    logo->setStyleSheet("font-size: 26px; font-weight: 700; color: #1f2329; letter-spacing: 1px;");
+    layout->addWidget(logo);
+    layout->addSpacing(10);
 
     m_loginAccount = new QLineEdit;
     m_loginAccount->setPlaceholderText("用户名 / 邮箱");
     layout->addWidget(m_loginAccount);
+
+    // Slider captcha (drag right to unlock)
+    m_sliderTrack = new QWidget;
+    m_sliderTrack->setFixedHeight(44);
+    m_sliderTrack->setStyleSheet("background: #f2f3f5; border: 1px solid #e5e7eb; border-radius: 10px;");
+    QHBoxLayout *sliderLay = new QHBoxLayout(m_sliderTrack);
+    sliderLay->setContentsMargins(0, 0, 0, 0);
+    sliderLay->setSpacing(0);
+    m_sliderHandle = new QPushButton("»");
+    m_sliderHandle->setFixedSize(44, 42);
+    m_sliderHandle->setCursor(Qt::PointingHandCursor);
+    m_sliderHandle->setStyleSheet(
+        "QPushButton { background: #ffffff; border: 1px solid #d0d3d6; border-radius: 9px; "
+        "font-size: 16px; color: #86909c; }"
+        "QPushButton:hover { background: #e8f9ed; color: #34c759; border-color: #34c759; }");
+    m_sliderHint = new QLabel("按住滑块，拖动到最右边");
+    m_sliderHint->setAlignment(Qt::AlignCenter);
+    m_sliderHint->setStyleSheet("color: #86909c; font-size: 12px; background: transparent;");
+    sliderLay->addWidget(m_sliderHandle);
+    sliderLay->addWidget(m_sliderHint);
+    layout->addWidget(m_sliderTrack);
+    m_sliderUnlocked = false;
+    // Simple drag handling: on mouse press start tracking, on move move the handle,
+    // on release check if it reached the end.
+    m_sliderHandle->installEventFilter(this);
 
     m_loginPassword = new QLineEdit;
     m_loginPassword->setPlaceholderText("密码");
     m_loginPassword->setEchoMode(QLineEdit::Password);
     layout->addWidget(m_loginPassword);
 
-    // Show/hide password (the icon used to be empty, so the toggle was invisible
-    // and effectively unclickable)
+    // Show/hide password
     QAction *toggleAct = m_loginPassword->addAction(makeEyeIcon(false), QLineEdit::TrailingPosition);
     toggleAct->setToolTip("显示/隐藏密码");
     bool pwdVisible = false;
@@ -432,8 +466,7 @@ void LoginDialog::setupLoginPage()
         toggleAct->setIcon(makeEyeIcon(pwdVisible));
     });
 
-    // Caps Lock turns a correct password into a rejected one, so say so instead of
-    // letting the user collect "密码错误" messages.
+    // Caps Lock hint
     QLabel *capsHint = new QLabel("⚠ 大写锁定已开启");
     capsHint->setStyleSheet("color: #fa9d3b; font-size: 11px; padding: 0 2px;");
     capsHint->setVisible(false);
@@ -447,9 +480,9 @@ void LoginDialog::setupLoginPage()
     // Remember / Auto login
     QHBoxLayout *opts = new QHBoxLayout;
     m_rememberPwd = new QCheckBox("记住密码");
-    m_rememberPwd->setStyleSheet("QCheckBox { color: #555; font-size: 12px; spacing: 6px; } QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #ccc; border-radius: 3px; background: #fff; } QCheckBox::indicator:checked { background: #07c160; border-color: #07c160; }");
+    m_rememberPwd->setStyleSheet("QCheckBox { color: #555; font-size: 12px; spacing: 6px; } QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #ccc; border-radius: 3px; background: #fff; } QCheckBox::indicator:checked { background: #34c759; border-color: #34c759; }");
     m_autoLogin = new QCheckBox("自动登录");
-    m_autoLogin->setStyleSheet("QCheckBox { color: #555; font-size: 12px; spacing: 6px; } QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #ccc; border-radius: 3px; background: #fff; } QCheckBox::indicator:checked { background: #07c160; border-color: #07c160; }");
+    m_autoLogin->setStyleSheet("QCheckBox { color: #555; font-size: 12px; spacing: 6px; } QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #ccc; border-radius: 3px; background: #fff; } QCheckBox::indicator:checked { background: #34c759; border-color: #34c759; }");
     connect(m_autoLogin, &QCheckBox::toggled, this, [this](bool checked) {
         if (checked) m_rememberPwd->setChecked(true);
     });
@@ -458,11 +491,18 @@ void LoginDialog::setupLoginPage()
     opts->addWidget(m_autoLogin);
     layout->addLayout(opts);
 
-    layout->addSpacing(8);
+    layout->addSpacing(6);
 
     QPushButton *loginBtn = new QPushButton("确认登录");
-    loginBtn->setStyleSheet(GREEN_BTN_STYLE);
-    loginBtn->setDefault(true); // Enter submits from any field on this page
+    loginBtn->setStyleSheet(R"(
+        QPushButton { background: #b8e9c5; color: #ffffff; border: none; border-radius: 10px;
+                      padding: 12px; font-size: 15px; font-weight: 500; }
+        QPushButton:hover { background: #34c759; }
+        QPushButton:disabled { background: #d4f0dc; color: #f0f0f0; }
+    )");
+    loginBtn->setDefault(true);
+    m_loginBtn = loginBtn;
+    m_loginBtn->setEnabled(false); // disabled until slider unlocked
     connect(loginBtn, &QPushButton::clicked, this, &LoginDialog::doLogin);
     connect(m_loginAccount, &QLineEdit::returnPressed, this, &LoginDialog::doLogin);
     connect(m_loginPassword, &QLineEdit::returnPressed, this, &LoginDialog::doLogin);
@@ -470,11 +510,11 @@ void LoginDialog::setupLoginPage()
 
     QHBoxLayout *links = new QHBoxLayout;
     QPushButton *forgotBtn = new QPushButton("忘记密码？");
-    forgotBtn->setStyleSheet(LINK_BTN_STYLE);
-    forgotBtn->setAutoDefault(false); // must not steal Enter from the login button
+    forgotBtn->setStyleSheet("QPushButton { background: transparent; color: #34c759; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
+    forgotBtn->setAutoDefault(false);
     connect(forgotBtn, &QPushButton::clicked, this, [this]() { m_stack->setCurrentIndex(4); clearError(); });
     QPushButton *regBtn = new QPushButton("注册账号");
-    regBtn->setStyleSheet(LINK_BTN_STYLE);
+    regBtn->setStyleSheet("QPushButton { background: transparent; color: #34c759; border: none; padding: 4px; font-size: 13px; } QPushButton:hover { text-decoration: underline; }");
     regBtn->setAutoDefault(false);
     connect(regBtn, &QPushButton::clicked, this, [this]() { m_stack->setCurrentIndex(3); clearError(); });
     links->addWidget(forgotBtn);
@@ -841,4 +881,51 @@ void LoginDialog::onConnectTick()
             m_stack->setCurrentIndex(2);
         }
     }
+}
+
+bool LoginDialog::eventFilter(QObject *obj, QEvent *ev)
+{
+    if (obj == m_sliderHandle) {
+        switch (ev->type()) {
+        case QEvent::MouseButtonPress: {
+            QMouseEvent *me = static_cast<QMouseEvent*>(ev);
+            m_sliderDragging = true;
+            m_sliderDragStartX = me->pos().x();
+            return true;
+        }
+        case QEvent::MouseMove: {
+            if (!m_sliderDragging || m_sliderUnlocked) return true;
+            QMouseEvent *me = static_cast<QMouseEvent*>(ev);
+            int dx = me->pos().x() - m_sliderDragStartX;
+            int maxX = m_sliderTrack->width() - m_sliderHandle->width() - 2;
+            int newX = qMax(0, qMin(maxX, m_sliderHandle->x() + dx - 0));
+            // We position the handle directly inside the track via a simple move.
+            // m_sliderHandle lives inside m_sliderTrack's layout, so we use
+            // setParent-free approach: move within track.
+            m_sliderHandle->move(newX, 1);
+            if (newX >= maxX - 2) {
+                m_sliderUnlocked = true;
+                m_sliderHint->setText("✓ 验证通过");
+                m_sliderHint->setStyleSheet("color: #34c759; font-size: 12px; background: transparent; font-weight: 500;");
+                m_sliderHandle->setText("✓");
+                m_sliderHandle->setStyleSheet(
+                    "QPushButton { background: #34c759; border: 1px solid #34c759; border-radius: 9px; "
+                    "font-size: 16px; color: #fff; }");
+                if (m_loginBtn) m_loginBtn->setEnabled(true);
+            }
+            return true;
+        }
+        case QEvent::MouseButtonRelease: {
+            m_sliderDragging = false;
+            if (!m_sliderUnlocked) {
+                // snap back
+                m_sliderHandle->move(0, 1);
+            }
+            return true;
+        }
+        default:
+            break;
+        }
+    }
+    return QDialog::eventFilter(obj, ev);
 }
