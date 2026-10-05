@@ -313,6 +313,9 @@ int main(int argc, char *argv[])
 
     // Global Google Material tooltip style (QToolTip is a top-level widget,
     // widget-level stylesheets can't reach it — must be set on QApplication).
+    // Use both stylesheet AND palette: on Windows, QToolTip sometimes ignores
+    // stylesheet background and falls back to the system tooltip color, so we
+    // force the palette too.
     app.setStyleSheet(R"(
         QToolTip {
             background-color: #ffffff;
@@ -323,6 +326,16 @@ int main(int argc, char *argv[])
             font-size: 12px;
         }
     )");
+    {
+        QPalette tipPal = QApplication::palette("QToolTip");
+        tipPal.setColor(QPalette::ToolTipBase, QColor("#ffffff"));
+        tipPal.setColor(QPalette::ToolTipText, QColor("#202124"));
+        tipPal.setColor(QPalette::Window, QColor("#ffffff"));
+        tipPal.setColor(QPalette::WindowText, QColor("#202124"));
+        tipPal.setColor(QPalette::Base, QColor("#ffffff"));
+        tipPal.setColor(QPalette::Text, QColor("#202124"));
+        QApplication::setPalette(tipPal, "QToolTip");
+    }
 
     // Single instance check
     bool singleInstance = settings.value("singleInstance", false).toBool();
