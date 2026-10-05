@@ -46,6 +46,7 @@
 #include <QtMath>
 #include <QStandardPaths>
 #include <QImageReader>
+#include <QCryptographicHash>
 
 // Custom text-format property id: carries an annotation id on highlighted text.
 static const int kAnnProp = 640000001;
@@ -2291,31 +2292,26 @@ void ReaderWidget::applyTheme()
         // repaint. On a multi-MB 4K photo that freezes the reader for seconds
         // per scroll tick. Pre-scale to a reasonable size once and cache the
         // result; the stylesheet then references the small cache file.
-        static const QString cachePath =
-            QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-            + "/reader_bg_cache.jpg";
         QImageReader reader(m_bgPath);
         const QSize srcSz = reader.size();
-        const bool needsScale = srcSz.width() > 2560 || srcSz.height() > 1600;
-        const QFileInfo srcInfo(m_bgPath);
-        const QFileInfo cacheInfo(cachePath);
-        const bool cacheStale = !cacheInfo.exists()
-            || cacheInfo.lastModified() < srcInfo.lastModified();
-
         QString imgRef = m_bgPath;
-        if (needsScale && cacheStale) {
-            reader.setScaledSize(srcSz.scaled(1920, 1200, Qt::KeepAspectRatio));
-            QImage img = reader.read();
-            if (!img.isNull()) {
-                QDir().mkpath(QFileInfo(cachePath).absolutePath());
-                img.save(cachePath, "JPG", 82);
-                imgRef = cachePath;
+        if (srcSz.width() > 2560 || srcSz.height() > 1600) {
+            // Per-source cache file: name it after the source path's hash so
+            // switching images doesn't reuse the previous image's cache.
+            const QByteArray key = QCryptographicHash::hash(
+                QFile::encodeName(m_bgPath), QCryptographicHash::Sha1).toHex();
+            const QString cachePath =
+                QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                + "/reader_bg_" + key.left(16) + ".jpg";
+            if (!QFileInfo::exists(cachePath)) {
+                reader.setScaledSize(srcSz.scaled(1920, 1200, Qt::KeepAspectRatio));
+                QImage img = reader.read();
+                if (!img.isNull()) {
+                    QDir().mkpath(QFileInfo(cachePath).absolutePath());
+                    img.save(cachePath, "JPG", 82);
+                }
             }
-        } else if (!needsScale && cacheStale) {
-            // Small enough: just point the stylesheet at the original.
-            imgRef = m_bgPath;
-        } else if (cacheInfo.exists()) {
-            imgRef = cachePath;
+            if (QFileInfo::exists(cachePath)) imgRef = cachePath;
         }
 
         const QString imgUrl = QDir::toNativeSeparators(imgRef).replace("\\", "/");
