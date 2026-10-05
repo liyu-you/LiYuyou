@@ -3,6 +3,9 @@
 
 #include <QMainWindow>
 
+#include "appsettings.h"
+#include "userauth.h"
+
 class QStackedWidget;
 class QPushButton;
 class QToolBar;
@@ -143,89 +146,20 @@ private:
     // Set whenever the canvas changes and cleared after a successful save, so
     // auto-save can skip untouched canvases instead of re-serializing them.
     bool m_canvasDirty = false;
-    QString m_currentTheme;
-    int m_fontSize;
 
-    // General settings
-    QString m_closeBehavior = "tray"; // "tray" or "quit"
-    bool m_startupRestore = true;
-    bool m_autoSave = true;
-    int m_autoSaveInterval = 5; // minutes
-    QString m_thumbnailSize = "medium"; // small/medium/large
+    // All persistent preferences used to live as 65 loose members here. They
+    // are now in AppSettings (appsettings.h); access them via m_cfg.
+    // lastPage is UI state (current tab), loaded but re-read from m_stack on save.
     int m_lastPage = 0;
-    QString m_startupPage = "last"; // last/canvas/note/library/reader/music
+    AppSettings m_cfg;
 
-    // Library settings
-    QString m_defaultSort = "name"; // name/date/size/type
-    bool m_showFileExt = true;
-    QString m_doubleClickBehavior = "preview"; // preview/external/canvas
-
-    // Reader settings
-    QString m_readerTheme = "light"; // light/dark/eye/parchment
-    QString m_readerFont = "系统默认";
-    qreal m_readerLineSpacing = 1.5;
-    int m_readerFontSize = 16;
-    QString m_readerMargin = "medium"; // narrow/medium/wide
-
-    // Music settings
-    int m_defaultVolume = 70;
-    QString m_defaultPlayMode = "sequential"; // sequential/loopOne/loopAll/shuffle
-    bool m_showLyrics = false;
-
-    // Advanced settings (require restart)
-    int m_uiScale = 100;
-    QString m_language = "zh";
-    bool m_hardwareAcceleration = true;
-    bool m_singleInstance = false;
-    bool m_autostart = false;
-    bool m_acrylicEnabled = true;
-    int m_acrylicOpacity = 73;
-    bool m_menuBarTransparent = true;
-    bool m_menuBarAutoHide = true;   // 半隐藏：菜单栏折叠成 ☰ 按钮，点击才弹出
-    bool m_navToolbarTransparent = true;
-    bool m_libraryStatusBarTransparent = true;
-    bool m_libraryGridTransparent = true;
-    bool m_contentBrowserTransparent = true;
-    bool m_musicPanelsTransparent = true;
-    bool m_notePanelsTransparent = true;
-    bool m_readerPanelsTransparent = true;
     QToolBar *m_navToolBar = nullptr;
     QToolButton *m_brandBtn = nullptr;  // 应用图标按钮 = 切换侧边栏
     QToolButton *m_menuHamburger = nullptr;  // 半隐藏模式下的 ☰ 菜单按钮
-    int m_minimapOpacity = 70;
-    int m_zoomBarOpacity = 85;
-    bool m_minimapVisible = true;
-    QString m_minimapSize = "medium";
-    bool m_minimapThrottle = true;
-    QString m_materialDir;
-    QString m_booksDir;
-    QString m_musicDir;
-    QColor m_noteBgColor = QColor(255, 255, 255);
-    QColor m_readerBgColor = QColor(255, 250, 240);
-    QColor m_readerTextColor = QColor(60, 50, 40);
-    QString m_bgImagePath;
-    QString m_readerShelfBgPath;
-    QString m_readerBgPath;
-    QString m_canvasBgPath;
-    QString m_noteBgPath;
-    QString m_libraryBgPath;
-    QString m_musicBgPath;
-    QString m_noteDefaultFont = "Microsoft YaHei";
-    int m_noteDefaultFontSize = 14;
 
-    // Music shortcuts
-    QString m_scPlayPause = "Ctrl+P";
-    QString m_scPrev = "Ctrl+Left";
-    QString m_scNext = "Ctrl+Right";
-    QString m_scVolUp = "Ctrl+Up";
-    QString m_scVolDown = "Ctrl+Down";
     QList<QShortcut*> m_musicShortcuts;
 
-    // Timer shutdown
-    bool m_timerShutdownEnabled = false;
-    int m_timerShutdownHours = 0;
-    int m_timerShutdownMinutes = 0;
-    bool m_shutdownPCEnabled = false;
+    // Timer shutdown runtime state
     QTimer *m_shutdownTimer = nullptr;
     qint64 m_shutdownRemainingMs = 0;
     void applyTimerShutdown();

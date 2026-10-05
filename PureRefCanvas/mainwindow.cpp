@@ -311,9 +311,9 @@ private slots:
         }
 
         // Search books (scan directory)
-        QString bookRoot = m_mainWindow->m_booksDir.isEmpty()
+        QString bookRoot = m_mainWindow->m_cfg.booksDir.isEmpty()
             ? QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/PureRefBooks"
-            : m_mainWindow->m_booksDir;
+            : m_mainWindow->m_cfg.booksDir;
         QDir bookDir(bookRoot);
         if (bookDir.exists()) {
             for (const QFileInfo &fi : bookDir.entryInfoList(QDir::Files)) {
@@ -828,13 +828,13 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
     statusBar()->showMessage("已自动保存", 1500);
 });
 
-    applyTheme(m_currentTheme);
-    applyFontSize(m_fontSize);
-    applyThumbnailSize(m_thumbnailSize);
-    applyNoteBgColor(m_noteBgColor);
-    applyReaderColors(m_readerBgColor, m_readerTextColor);
-    applyBgImage(m_bgImagePath);
-    applyEditorSettings(m_noteDefaultFont, m_noteDefaultFontSize);
+    applyTheme(m_cfg.currentTheme);
+    applyFontSize(m_cfg.fontSize);
+    applyThumbnailSize(m_cfg.thumbnailSize);
+    applyNoteBgColor(m_cfg.noteBgColor);
+    applyReaderColors(m_cfg.readerBgColor, m_cfg.readerTextColor);
+    applyBgImage(m_cfg.bgImagePath);
+    applyEditorSettings(m_cfg.noteDefaultFont, m_cfg.noteDefaultFontSize);
     applyTransparencySettings();
     applyMenuBarMode();
     setupAutoSaveTimer();
@@ -843,7 +843,7 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
     maybeGenerateWeeklyReport();
 
     // Startup restore
-    if (m_startupRestore && m_lastPage >= 0 && m_lastPage < m_stack->count()) {
+    if (m_cfg.startupRestore && m_lastPage >= 0 && m_lastPage < m_stack->count()) {
         switchToPage(m_lastPage);
     }
 
@@ -1088,9 +1088,9 @@ void MainWindow::setupNavigation()
 void MainWindow::setupPages()
 {
     // Shared library for all workspaces
-    QString matRoot = m_materialDir.isEmpty()
+    QString matRoot = m_cfg.materialDir.isEmpty()
         ? QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/PureRefLibrary"
-        : m_materialDir;
+        : m_cfg.materialDir;
     m_sharedLibrary = new MaterialLibrary(matRoot, this);
     qApp->processEvents();
 
@@ -1104,20 +1104,20 @@ void MainWindow::setupPages()
     // Auto-save serializes the entire canvas, so arm it only when something
     // actually changed; the timer then skips an untouched canvas entirely.
     connect(scene, &QGraphicsScene::changed, this, [this]() { m_canvasDirty = true; });
-    if (!m_canvasBgPath.isEmpty())
-        m_canvasView->setBackgroundImage(m_canvasBgPath);
+    if (!m_cfg.canvasBgPath.isEmpty())
+        m_canvasView->setBackgroundImage(m_cfg.canvasBgPath);
     // Apply saved minimap opacity
     if (m_canvasView->minimap())
-        m_canvasView->minimap()->setPanelOpacity(m_minimapOpacity / 100.0);
+        m_canvasView->minimap()->setPanelOpacity(m_cfg.minimapOpacity / 100.0);
     // Apply saved zoom bar opacity
     if (m_canvasView)
-        m_canvasView->setZoomBarOpacity(m_zoomBarOpacity / 100.0);
+        m_canvasView->setZoomBarOpacity(m_cfg.zoomBarOpacity / 100.0);
     // Apply saved minimap visibility & size
     if (m_canvasView) {
-        m_canvasView->setMinimapVisible(m_minimapVisible);
-        const qreal scale = (m_minimapSize == "small") ? 0.8 : (m_minimapSize == "large") ? 1.3 : 1.0;
+        m_canvasView->setMinimapVisible(m_cfg.minimapVisible);
+        const qreal scale = (m_cfg.minimapSize == "small") ? 0.8 : (m_cfg.minimapSize == "large") ? 1.3 : 1.0;
         m_canvasView->setMinimapScale(scale);
-        m_canvasView->setMinimapThrottleEnabled(m_minimapThrottle);
+        m_canvasView->setMinimapThrottleEnabled(m_cfg.minimapThrottle);
     }
     connect(m_canvasView, &CanvasView::zoomChanged, this, &MainWindow::updateZoomLabel);
     connect(m_canvasView, &CanvasView::fileDropped, this, &MainWindow::loadImages);
@@ -1129,8 +1129,8 @@ void MainWindow::setupPages()
     // ===== Note page =====
     QString noteRoot = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/PureRefNotes";
     m_noteWidget = new NoteWidget(noteRoot, this);
-    if (!m_noteBgPath.isEmpty())
-        m_noteWidget->setBackgroundImage(m_noteBgPath);
+    if (!m_cfg.noteBgPath.isEmpty())
+        m_noteWidget->setBackgroundImage(m_cfg.noteBgPath);
     connect(m_noteWidget, &NoteWidget::modificationChanged, this, &MainWindow::onNoteModified);
     // Keep the sidebar visible: it hosts search / categories / folders / sort / export
     // (mainstream note apps keep a navigation sidebar on the note page).
@@ -1139,8 +1139,8 @@ void MainWindow::setupPages()
 
     // ===== Material library page =====
     m_materialWidget = new MaterialWidget(matRoot, this);
-    if (!m_libraryBgPath.isEmpty())
-        m_materialWidget->setBackgroundImage(m_libraryBgPath);
+    if (!m_cfg.libraryBgPath.isEmpty())
+        m_materialWidget->setBackgroundImage(m_cfg.libraryBgPath);
     m_materialWidget->hideSidebar();
     connect(m_materialWidget, &MaterialWidget::addToCanvasRequested, this, [this](const QString &filePath) {
         if (!QFile::exists(filePath)) return;
@@ -1159,42 +1159,42 @@ void MainWindow::setupPages()
     qApp->processEvents();
 
     // ===== Reader page =====
-    QString bookRoot = m_booksDir.isEmpty()
+    QString bookRoot = m_cfg.booksDir.isEmpty()
         ? QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/PureRefBooks"
-        : m_booksDir;
+        : m_cfg.booksDir;
     m_readerWidget = new ReaderWidget(bookRoot, this);
-    if (!m_readerShelfBgPath.isEmpty())
-        m_readerWidget->setShelfBackground(m_readerShelfBgPath);
-    if (!m_readerBgPath.isEmpty())
-        m_readerWidget->setBackgroundImage(m_readerBgPath);
-    m_readerWidget->applyReaderSettings(m_readerTheme, m_readerFont,
-                                        m_readerFontSize, m_readerLineSpacing, m_readerMargin);
+    if (!m_cfg.readerShelfBgPath.isEmpty())
+        m_readerWidget->setShelfBackground(m_cfg.readerShelfBgPath);
+    if (!m_cfg.readerBgPath.isEmpty())
+        m_readerWidget->setBackgroundImage(m_cfg.readerBgPath);
+    m_readerWidget->applyReaderSettings(m_cfg.readerTheme, m_cfg.readerFont,
+                                        m_cfg.readerFontSize, m_cfg.readerLineSpacing, m_cfg.readerMargin);
     // Custom reader colors only override the theme when they differ from defaults.
-    if (m_readerBgColor.isValid() && m_readerTextColor.isValid()
-        && (m_readerBgColor != QColor(255, 250, 240) || m_readerTextColor != QColor(60, 50, 40)))
-        m_readerWidget->setCustomColors(m_readerBgColor, m_readerTextColor);
+    if (m_cfg.readerBgColor.isValid() && m_cfg.readerTextColor.isValid()
+        && (m_cfg.readerBgColor != QColor(255, 250, 240) || m_cfg.readerTextColor != QColor(60, 50, 40)))
+        m_readerWidget->setCustomColors(m_cfg.readerBgColor, m_cfg.readerTextColor);
     // Persist theme / background / custom-color changes made inside the reader.
     connect(m_readerWidget, &ReaderWidget::themeChanged, this, [this](const QString &key) {
-        m_readerTheme = key;
-        m_readerBgColor = QColor(255, 250, 240);   // preset theme replaces custom colors
-        m_readerTextColor = QColor(60, 50, 40);
+        m_cfg.readerTheme = key;
+        m_cfg.readerBgColor = QColor(255, 250, 240);   // preset theme replaces custom colors
+        m_cfg.readerTextColor = QColor(60, 50, 40);
         saveSettings();
     });
     connect(m_readerWidget, &ReaderWidget::backgroundImageChanged, this, [this](const QString &path) {
-        m_readerBgPath = path;
+        m_cfg.readerBgPath = path;
         saveSettings();
     });
     connect(m_readerWidget, &ReaderWidget::customColorsChanged, this, [this](const QColor &bg, const QColor &text) {
-        m_readerBgColor = bg;
-        m_readerTextColor = text;
+        m_cfg.readerBgColor = bg;
+        m_cfg.readerTextColor = text;
         saveSettings();
     });
     connect(m_readerWidget, &ReaderWidget::fontFamilyChanged, this, [this](const QString &displayName) {
-        m_readerFont = displayName;
+        m_cfg.readerFont = displayName;
         saveSettings();
     });
     connect(m_readerWidget, &ReaderWidget::lineSpacingChanged, this, [this](qreal spacing) {
-        m_readerLineSpacing = spacing;
+        m_cfg.readerLineSpacing = spacing;
         saveSettings();
     });
     // Cross-workspace: reader right-click "存为笔记" -> jump to notes and create
@@ -1209,12 +1209,12 @@ void MainWindow::setupPages()
     qApp->processEvents();
 
     // ===== Music page =====
-    QString musicRoot = m_musicDir.isEmpty()
+    QString musicRoot = m_cfg.musicDir.isEmpty()
         ? QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/PureRefMusic"
-        : m_musicDir;
+        : m_cfg.musicDir;
     m_musicWidget = new MusicPlayerWidget(musicRoot, this);
-    if (!m_musicBgPath.isEmpty())
-        m_musicWidget->setBackgroundImage(m_musicBgPath);
+    if (!m_cfg.musicBgPath.isEmpty())
+        m_musicWidget->setBackgroundImage(m_cfg.musicBgPath);
     m_stack->addWidget(m_musicWidget);
     applyMusicShortcuts();
     qApp->processEvents();
@@ -1253,18 +1253,18 @@ void MainWindow::setupPages()
 
     // Apply startup page
     int initialPage = 0;
-    if (m_startupPage == "last") initialPage = m_lastPage;
-    else if (m_startupPage == "canvas") initialPage = 0;
-    else if (m_startupPage == "note") initialPage = 1;
-    else if (m_startupPage == "library") initialPage = 2;
-    else if (m_startupPage == "reader") initialPage = 3;
-    else if (m_startupPage == "music") initialPage = 4;
+    if (m_cfg.startupPage == "last") initialPage = m_lastPage;
+    else if (m_cfg.startupPage == "canvas") initialPage = 0;
+    else if (m_cfg.startupPage == "note") initialPage = 1;
+    else if (m_cfg.startupPage == "library") initialPage = 2;
+    else if (m_cfg.startupPage == "reader") initialPage = 3;
+    else if (m_cfg.startupPage == "music") initialPage = 4;
     switchToPage(qBound(0, initialPage, 4));
 
     // Apply default music volume and play mode
     if (m_musicWidget) {
-        m_musicWidget->setVolume(m_defaultVolume);
-        m_musicWidget->setInitialPlayMode(m_defaultPlayMode);
+        m_musicWidget->setVolume(m_cfg.defaultVolume);
+        m_musicWidget->setInitialPlayMode(m_cfg.defaultPlayMode);
     }
 }
 
@@ -2097,7 +2097,7 @@ bool MainWindow::maybeSave()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     saveSettings();
-    if (m_closeBehavior == "tray" && m_trayInitialized && QSystemTrayIcon::isSystemTrayAvailable()) {
+    if (m_cfg.closeBehavior == "tray" && m_trayInitialized && QSystemTrayIcon::isSystemTrayAvailable()) {
         hide();
         m_tray->showMessage("里与由 工作区", "程序已最小化到托盘，点击托盘图标恢复。", QSystemTrayIcon::Information, 3000);
         event->ignore();
@@ -2118,196 +2118,196 @@ void MainWindow::openSettings()
     // first — otherwise the dialog always opens in the default dark theme.
     {
         QSettings settings("PureRefCanvas", "里与由");
-        settings.setValue("theme", m_currentTheme);
+        settings.setValue("theme", m_cfg.currentTheme);
     }
     SettingsDialog dlg(this);
-    dlg.setTheme(m_currentTheme);
-    dlg.setFontSize(m_fontSize);
-    dlg.setCloseBehavior(m_closeBehavior);
-    dlg.setStartupRestore(m_startupRestore);
-    dlg.setAutoSave(m_autoSave);
-    dlg.setAutoSaveInterval(m_autoSaveInterval);
-    dlg.setThumbnailSize(m_thumbnailSize);
-    dlg.setUiScale(m_uiScale);
-    dlg.setLanguage(m_language);
-    dlg.setHardwareAcceleration(m_hardwareAcceleration);
-    dlg.setSingleInstance(m_singleInstance);
-    dlg.setAutostart(m_autostart);
-    dlg.setAcrylicEnabled(m_acrylicEnabled);
-    dlg.setAcrylicOpacity(m_acrylicOpacity);
-    dlg.setMenuBarTransparent(m_menuBarTransparent);
-    dlg.setMenuBarAutoHide(m_menuBarAutoHide);
-    dlg.setNavToolbarTransparent(m_navToolbarTransparent);
-    dlg.setLibraryStatusBarTransparent(m_libraryStatusBarTransparent);
-    dlg.setLibraryGridTransparent(m_libraryGridTransparent);
-    dlg.setContentBrowserTransparent(m_contentBrowserTransparent);
-    dlg.setMusicPanelsTransparent(m_musicPanelsTransparent);
-    dlg.setNotePanelsTransparent(m_notePanelsTransparent);
-    dlg.setReaderPanelsTransparent(m_readerPanelsTransparent);
-    dlg.setMaterialDir(m_materialDir);
-    dlg.setBooksDir(m_booksDir);
-    dlg.setMusicDir(m_musicDir);
-    dlg.setNoteBgColor(m_noteBgColor);
-    dlg.setReaderBgColor(m_readerBgColor);
-    dlg.setReaderTextColor(m_readerTextColor);
-    dlg.setBgImagePath(m_bgImagePath);
-    dlg.setReaderShelfBgPath(m_readerShelfBgPath);
-    dlg.setReaderBgPath(m_readerBgPath);
-    dlg.setCanvasBgPath(m_canvasBgPath);
-    dlg.setMinimapOpacity(m_minimapOpacity);
-    dlg.setZoomBarOpacity(m_zoomBarOpacity);
-    dlg.setMinimapEnabled(m_minimapVisible);
-    dlg.setMinimapSize(m_minimapSize);
-    dlg.setMinimapThrottle(m_minimapThrottle);
-    dlg.setNoteBgPath(m_noteBgPath);
-    dlg.setLibraryBgPath(m_libraryBgPath);
-    dlg.setMusicBgPath(m_musicBgPath);
-    dlg.setEditorFont(m_noteDefaultFont);
-    dlg.setEditorFontSize(m_noteDefaultFontSize);
-    dlg.setShortcutPlayPause(m_scPlayPause);
-    dlg.setShortcutPrev(m_scPrev);
-    dlg.setShortcutNext(m_scNext);
-    dlg.setShortcutVolumeUp(m_scVolUp);
-    dlg.setShortcutVolumeDown(m_scVolDown);
-    dlg.setTimerShutdownEnabled(m_timerShutdownEnabled);
-    dlg.setTimerShutdownHours(m_timerShutdownHours);
-    dlg.setTimerShutdownMinutes(m_timerShutdownMinutes);
-    dlg.setShutdownPCEnabled(m_shutdownPCEnabled);
-    dlg.setStartupPage(m_startupPage);
-    dlg.setDefaultSort(m_defaultSort);
-    dlg.setShowFileExtension(m_showFileExt);
-    dlg.setDoubleClickBehavior(m_doubleClickBehavior);
-    dlg.setReaderTheme(m_readerTheme);
-    dlg.setReaderFont(m_readerFont);
-    dlg.setReaderLineSpacing(m_readerLineSpacing);
-    dlg.setReaderFontSize(m_readerFontSize);
-    dlg.setReaderMargin(m_readerMargin);
-    dlg.setDefaultVolume(m_defaultVolume);
-    dlg.setDefaultPlayMode(m_defaultPlayMode);
-    dlg.setShowLyrics(m_showLyrics);
+    dlg.setTheme(m_cfg.currentTheme);
+    dlg.setFontSize(m_cfg.fontSize);
+    dlg.setCloseBehavior(m_cfg.closeBehavior);
+    dlg.setStartupRestore(m_cfg.startupRestore);
+    dlg.setAutoSave(m_cfg.autoSave);
+    dlg.setAutoSaveInterval(m_cfg.autoSaveInterval);
+    dlg.setThumbnailSize(m_cfg.thumbnailSize);
+    dlg.setUiScale(m_cfg.uiScale);
+    dlg.setLanguage(m_cfg.language);
+    dlg.setHardwareAcceleration(m_cfg.hardwareAcceleration);
+    dlg.setSingleInstance(m_cfg.singleInstance);
+    dlg.setAutostart(m_cfg.autostart);
+    dlg.setAcrylicEnabled(m_cfg.acrylicEnabled);
+    dlg.setAcrylicOpacity(m_cfg.acrylicOpacity);
+    dlg.setMenuBarTransparent(m_cfg.menuBarTransparent);
+    dlg.setMenuBarAutoHide(m_cfg.menuBarAutoHide);
+    dlg.setNavToolbarTransparent(m_cfg.navToolbarTransparent);
+    dlg.setLibraryStatusBarTransparent(m_cfg.libraryStatusBarTransparent);
+    dlg.setLibraryGridTransparent(m_cfg.libraryGridTransparent);
+    dlg.setContentBrowserTransparent(m_cfg.contentBrowserTransparent);
+    dlg.setMusicPanelsTransparent(m_cfg.musicPanelsTransparent);
+    dlg.setNotePanelsTransparent(m_cfg.notePanelsTransparent);
+    dlg.setReaderPanelsTransparent(m_cfg.readerPanelsTransparent);
+    dlg.setMaterialDir(m_cfg.materialDir);
+    dlg.setBooksDir(m_cfg.booksDir);
+    dlg.setMusicDir(m_cfg.musicDir);
+    dlg.setNoteBgColor(m_cfg.noteBgColor);
+    dlg.setReaderBgColor(m_cfg.readerBgColor);
+    dlg.setReaderTextColor(m_cfg.readerTextColor);
+    dlg.setBgImagePath(m_cfg.bgImagePath);
+    dlg.setReaderShelfBgPath(m_cfg.readerShelfBgPath);
+    dlg.setReaderBgPath(m_cfg.readerBgPath);
+    dlg.setCanvasBgPath(m_cfg.canvasBgPath);
+    dlg.setMinimapOpacity(m_cfg.minimapOpacity);
+    dlg.setZoomBarOpacity(m_cfg.zoomBarOpacity);
+    dlg.setMinimapEnabled(m_cfg.minimapVisible);
+    dlg.setMinimapSize(m_cfg.minimapSize);
+    dlg.setMinimapThrottle(m_cfg.minimapThrottle);
+    dlg.setNoteBgPath(m_cfg.noteBgPath);
+    dlg.setLibraryBgPath(m_cfg.libraryBgPath);
+    dlg.setMusicBgPath(m_cfg.musicBgPath);
+    dlg.setEditorFont(m_cfg.noteDefaultFont);
+    dlg.setEditorFontSize(m_cfg.noteDefaultFontSize);
+    dlg.setShortcutPlayPause(m_cfg.scPlayPause);
+    dlg.setShortcutPrev(m_cfg.scPrev);
+    dlg.setShortcutNext(m_cfg.scNext);
+    dlg.setShortcutVolumeUp(m_cfg.scVolUp);
+    dlg.setShortcutVolumeDown(m_cfg.scVolDown);
+    dlg.setTimerShutdownEnabled(m_cfg.timerShutdownEnabled);
+    dlg.setTimerShutdownHours(m_cfg.timerShutdownHours);
+    dlg.setTimerShutdownMinutes(m_cfg.timerShutdownMinutes);
+    dlg.setShutdownPCEnabled(m_cfg.shutdownPCEnabled);
+    dlg.setStartupPage(m_cfg.startupPage);
+    dlg.setDefaultSort(m_cfg.defaultSort);
+    dlg.setShowFileExtension(m_cfg.showFileExt);
+    dlg.setDoubleClickBehavior(m_cfg.doubleClickBehavior);
+    dlg.setReaderTheme(m_cfg.readerTheme);
+    dlg.setReaderFont(m_cfg.readerFont);
+    dlg.setReaderLineSpacing(m_cfg.readerLineSpacing);
+    dlg.setReaderFontSize(m_cfg.readerFontSize);
+    dlg.setReaderMargin(m_cfg.readerMargin);
+    dlg.setDefaultVolume(m_cfg.defaultVolume);
+    dlg.setDefaultPlayMode(m_cfg.defaultPlayMode);
+    dlg.setShowLyrics(m_cfg.showLyrics);
 
     if (dlg.exec() == QDialog::Accepted) {
-        m_currentTheme = dlg.theme();
-        m_fontSize = dlg.fontSize();
-        m_closeBehavior = dlg.closeBehavior();
-        m_startupRestore = dlg.startupRestore();
-        m_autoSave = dlg.autoSave();
-        m_autoSaveInterval = dlg.autoSaveInterval();
-        m_thumbnailSize = dlg.thumbnailSize();
-        m_noteBgColor = dlg.noteBgColor();
-        m_readerBgColor = dlg.readerBgColor();
-        m_readerTextColor = dlg.readerTextColor();
-        m_bgImagePath = dlg.bgImagePath();
-        m_readerShelfBgPath = dlg.readerShelfBgPath();
-        m_readerBgPath = dlg.readerBgPath();
-        m_canvasBgPath = dlg.canvasBgPath();
-        m_minimapOpacity = dlg.minimapOpacity();
-        m_zoomBarOpacity = dlg.zoomBarOpacity();
-        m_minimapVisible = dlg.minimapEnabled();
-        m_minimapSize = dlg.minimapSize();
-        m_minimapThrottle = dlg.minimapThrottle();
-        m_noteBgPath = dlg.noteBgPath();
-        m_libraryBgPath = dlg.libraryBgPath();
-        m_musicBgPath = dlg.musicBgPath();
-        m_noteDefaultFont = dlg.editorFont();
-        m_noteDefaultFontSize = dlg.editorFontSize();
+        m_cfg.currentTheme = dlg.theme();
+        m_cfg.fontSize = dlg.fontSize();
+        m_cfg.closeBehavior = dlg.closeBehavior();
+        m_cfg.startupRestore = dlg.startupRestore();
+        m_cfg.autoSave = dlg.autoSave();
+        m_cfg.autoSaveInterval = dlg.autoSaveInterval();
+        m_cfg.thumbnailSize = dlg.thumbnailSize();
+        m_cfg.noteBgColor = dlg.noteBgColor();
+        m_cfg.readerBgColor = dlg.readerBgColor();
+        m_cfg.readerTextColor = dlg.readerTextColor();
+        m_cfg.bgImagePath = dlg.bgImagePath();
+        m_cfg.readerShelfBgPath = dlg.readerShelfBgPath();
+        m_cfg.readerBgPath = dlg.readerBgPath();
+        m_cfg.canvasBgPath = dlg.canvasBgPath();
+        m_cfg.minimapOpacity = dlg.minimapOpacity();
+        m_cfg.zoomBarOpacity = dlg.zoomBarOpacity();
+        m_cfg.minimapVisible = dlg.minimapEnabled();
+        m_cfg.minimapSize = dlg.minimapSize();
+        m_cfg.minimapThrottle = dlg.minimapThrottle();
+        m_cfg.noteBgPath = dlg.noteBgPath();
+        m_cfg.libraryBgPath = dlg.libraryBgPath();
+        m_cfg.musicBgPath = dlg.musicBgPath();
+        m_cfg.noteDefaultFont = dlg.editorFont();
+        m_cfg.noteDefaultFontSize = dlg.editorFontSize();
 
         // Immediate-apply settings
-        applyTheme(m_currentTheme);
-        applyFontSize(m_fontSize);
-        applyThumbnailSize(m_thumbnailSize);
-        applyNoteBgColor(m_noteBgColor);
-        applyReaderColors(m_readerBgColor, m_readerTextColor);
-        applyBgImage(m_bgImagePath);
-        if (m_readerWidget) m_readerWidget->setShelfBackground(m_readerShelfBgPath);
-        if (m_readerWidget) m_readerWidget->setBackgroundImage(m_readerBgPath);
-        if (m_canvasView) m_canvasView->setBackgroundImage(m_canvasBgPath);
+        applyTheme(m_cfg.currentTheme);
+        applyFontSize(m_cfg.fontSize);
+        applyThumbnailSize(m_cfg.thumbnailSize);
+        applyNoteBgColor(m_cfg.noteBgColor);
+        applyReaderColors(m_cfg.readerBgColor, m_cfg.readerTextColor);
+        applyBgImage(m_cfg.bgImagePath);
+        if (m_readerWidget) m_readerWidget->setShelfBackground(m_cfg.readerShelfBgPath);
+        if (m_readerWidget) m_readerWidget->setBackgroundImage(m_cfg.readerBgPath);
+        if (m_canvasView) m_canvasView->setBackgroundImage(m_cfg.canvasBgPath);
         if (m_canvasView && m_canvasView->minimap())
-            m_canvasView->minimap()->setPanelOpacity(m_minimapOpacity / 100.0);
+            m_canvasView->minimap()->setPanelOpacity(m_cfg.minimapOpacity / 100.0);
         if (m_canvasView)
-            m_canvasView->setZoomBarOpacity(m_zoomBarOpacity / 100.0);
+            m_canvasView->setZoomBarOpacity(m_cfg.zoomBarOpacity / 100.0);
         if (m_canvasView) {
-            m_canvasView->setMinimapVisible(m_minimapVisible);
-            const qreal scale = (m_minimapSize == "small") ? 0.8 : (m_minimapSize == "large") ? 1.3 : 1.0;
+            m_canvasView->setMinimapVisible(m_cfg.minimapVisible);
+            const qreal scale = (m_cfg.minimapSize == "small") ? 0.8 : (m_cfg.minimapSize == "large") ? 1.3 : 1.0;
             m_canvasView->setMinimapScale(scale);
-            m_canvasView->setMinimapThrottleEnabled(m_minimapThrottle);
+            m_canvasView->setMinimapThrottleEnabled(m_cfg.minimapThrottle);
         }
-        if (m_noteWidget) m_noteWidget->setBackgroundImage(m_noteBgPath);
-        if (m_materialWidget) m_materialWidget->setBackgroundImage(m_libraryBgPath);
-        if (m_musicWidget) m_musicWidget->setBackgroundImage(m_musicBgPath);
-        applyEditorSettings(m_noteDefaultFont, m_noteDefaultFontSize);
+        if (m_noteWidget) m_noteWidget->setBackgroundImage(m_cfg.noteBgPath);
+        if (m_materialWidget) m_materialWidget->setBackgroundImage(m_cfg.libraryBgPath);
+        if (m_musicWidget) m_musicWidget->setBackgroundImage(m_cfg.musicBgPath);
+        applyEditorSettings(m_cfg.noteDefaultFont, m_cfg.noteDefaultFontSize);
 
         // Music shortcuts
-        m_scPlayPause = dlg.shortcutPlayPause();
-        m_scPrev = dlg.shortcutPrev();
-        m_scNext = dlg.shortcutNext();
-        m_scVolUp = dlg.shortcutVolumeUp();
-        m_scVolDown = dlg.shortcutVolumeDown();
+        m_cfg.scPlayPause = dlg.shortcutPlayPause();
+        m_cfg.scPrev = dlg.shortcutPrev();
+        m_cfg.scNext = dlg.shortcutNext();
+        m_cfg.scVolUp = dlg.shortcutVolumeUp();
+        m_cfg.scVolDown = dlg.shortcutVolumeDown();
         applyMusicShortcuts();
 
         // Timer shutdown
-        m_timerShutdownEnabled = dlg.timerShutdownEnabled();
-        m_timerShutdownHours = dlg.timerShutdownHours();
-        m_timerShutdownMinutes = dlg.timerShutdownMinutes();
-        m_shutdownPCEnabled = dlg.shutdownPCEnabled();
+        m_cfg.timerShutdownEnabled = dlg.timerShutdownEnabled();
+        m_cfg.timerShutdownHours = dlg.timerShutdownHours();
+        m_cfg.timerShutdownMinutes = dlg.timerShutdownMinutes();
+        m_cfg.shutdownPCEnabled = dlg.shutdownPCEnabled();
         applyTimerShutdown();
 
         // New settings
-        m_startupPage = dlg.startupPage();
-        m_defaultSort = dlg.defaultSort();
-        m_showFileExt = dlg.showFileExtension();
-        m_doubleClickBehavior = dlg.doubleClickBehavior();
-        m_readerTheme = dlg.readerTheme();
-        m_readerFont = dlg.readerFont();
-        m_readerLineSpacing = dlg.readerLineSpacing();
-        m_readerFontSize = dlg.readerFontSize();
-        m_readerMargin = dlg.readerMargin();
+        m_cfg.startupPage = dlg.startupPage();
+        m_cfg.defaultSort = dlg.defaultSort();
+        m_cfg.showFileExt = dlg.showFileExtension();
+        m_cfg.doubleClickBehavior = dlg.doubleClickBehavior();
+        m_cfg.readerTheme = dlg.readerTheme();
+        m_cfg.readerFont = dlg.readerFont();
+        m_cfg.readerLineSpacing = dlg.readerLineSpacing();
+        m_cfg.readerFontSize = dlg.readerFontSize();
+        m_cfg.readerMargin = dlg.readerMargin();
         if (m_readerWidget) {
-            m_readerWidget->applyReaderSettings(m_readerTheme, m_readerFont,
-                                               m_readerFontSize, m_readerLineSpacing, m_readerMargin);
+            m_readerWidget->applyReaderSettings(m_cfg.readerTheme, m_cfg.readerFont,
+                                               m_cfg.readerFontSize, m_cfg.readerLineSpacing, m_cfg.readerMargin);
         }
-        m_defaultVolume = dlg.defaultVolume();
-        m_defaultPlayMode = dlg.defaultPlayMode();
-        m_showLyrics = dlg.showLyrics();
+        m_cfg.defaultVolume = dlg.defaultVolume();
+        m_cfg.defaultPlayMode = dlg.defaultPlayMode();
+        m_cfg.showLyrics = dlg.showLyrics();
 
         // Apply music settings immediately
         if (m_musicWidget) {
-            m_musicWidget->setVolume(m_defaultVolume);
-            m_musicWidget->setInitialPlayMode(m_defaultPlayMode);
+            m_musicWidget->setVolume(m_cfg.defaultVolume);
+            m_musicWidget->setInitialPlayMode(m_cfg.defaultPlayMode);
         }
         setupAutoSaveTimer();
 
         // Restart-required settings (just save, prompt user)
-        bool needRestart = (m_uiScale != dlg.uiScale())
-            || (m_language != dlg.language())
-            || (m_hardwareAcceleration != dlg.hardwareAcceleration())
-            || (m_materialDir != dlg.materialDir())
-            || (m_booksDir != dlg.booksDir())
-            || (m_musicDir != dlg.musicDir());
+        bool needRestart = (m_cfg.uiScale != dlg.uiScale())
+            || (m_cfg.language != dlg.language())
+            || (m_cfg.hardwareAcceleration != dlg.hardwareAcceleration())
+            || (m_cfg.materialDir != dlg.materialDir())
+            || (m_cfg.booksDir != dlg.booksDir())
+            || (m_cfg.musicDir != dlg.musicDir());
 
-        m_uiScale = dlg.uiScale();
-        m_language = dlg.language();
-        m_hardwareAcceleration = dlg.hardwareAcceleration();
-        m_singleInstance = dlg.singleInstance();
-        m_autostart = dlg.autostart();
-        applyAutostart(m_autostart);
-        m_acrylicEnabled = dlg.acrylicEnabled();
-        m_acrylicOpacity = dlg.acrylicOpacity();
+        m_cfg.uiScale = dlg.uiScale();
+        m_cfg.language = dlg.language();
+        m_cfg.hardwareAcceleration = dlg.hardwareAcceleration();
+        m_cfg.singleInstance = dlg.singleInstance();
+        m_cfg.autostart = dlg.autostart();
+        applyAutostart(m_cfg.autostart);
+        m_cfg.acrylicEnabled = dlg.acrylicEnabled();
+        m_cfg.acrylicOpacity = dlg.acrylicOpacity();
         applyAcrylic();
-        m_menuBarTransparent = dlg.menuBarTransparent();
-        m_menuBarAutoHide = dlg.menuBarAutoHide();
-        m_navToolbarTransparent = dlg.navToolbarTransparent();
-        m_libraryStatusBarTransparent = dlg.libraryStatusBarTransparent();
-        m_libraryGridTransparent = dlg.libraryGridTransparent();
-        m_contentBrowserTransparent = dlg.contentBrowserTransparent();
-        m_musicPanelsTransparent = dlg.musicPanelsTransparent();
-        m_notePanelsTransparent = dlg.notePanelsTransparent();
-        m_readerPanelsTransparent = dlg.readerPanelsTransparent();
+        m_cfg.menuBarTransparent = dlg.menuBarTransparent();
+        m_cfg.menuBarAutoHide = dlg.menuBarAutoHide();
+        m_cfg.navToolbarTransparent = dlg.navToolbarTransparent();
+        m_cfg.libraryStatusBarTransparent = dlg.libraryStatusBarTransparent();
+        m_cfg.libraryGridTransparent = dlg.libraryGridTransparent();
+        m_cfg.contentBrowserTransparent = dlg.contentBrowserTransparent();
+        m_cfg.musicPanelsTransparent = dlg.musicPanelsTransparent();
+        m_cfg.notePanelsTransparent = dlg.notePanelsTransparent();
+        m_cfg.readerPanelsTransparent = dlg.readerPanelsTransparent();
         applyTransparencySettings();
         applyMenuBarMode();
-        m_materialDir = dlg.materialDir();
-        m_booksDir = dlg.booksDir();
-        m_musicDir = dlg.musicDir();
+        m_cfg.materialDir = dlg.materialDir();
+        m_cfg.booksDir = dlg.booksDir();
+        m_cfg.musicDir = dlg.musicDir();
 
         // Thumbnail cache cleared from settings → also drop in-memory caches and rebuild views
         if (dlg.cacheCleared()) {
@@ -2335,10 +2335,10 @@ void MainWindow::applyTheme(const QString &theme)
 {
     // Theme transition overlay (safe method: fade overlay instead of screenshot)
     QWidget *overlay = nullptr;
-    if (centralWidget() && isVisible() && m_currentTheme != theme) {
+    if (centralWidget() && isVisible() && m_cfg.currentTheme != theme) {
         overlay = new QWidget(centralWidget());
         overlay->setGeometry(centralWidget()->rect());
-        overlay->setStyleSheet(m_currentTheme == "dark"
+        overlay->setStyleSheet(m_cfg.currentTheme == "dark"
             ? "background: rgba(22,32,45,0.9);"
             : "background: rgba(240,242,245,0.9);");
         overlay->setWindowOpacity(0.0);
@@ -2352,7 +2352,7 @@ void MainWindow::applyTheme(const QString &theme)
         fadeIn->start();
     }
 
-    m_currentTheme = theme;
+    m_cfg.currentTheme = theme;
     if (theme == "light") {
         setStyleSheet(R"(
             QMainWindow { background-color: #f0f2f5; }
@@ -2494,10 +2494,10 @@ void MainWindow::applyTheme(const QString &theme)
     }
 
     // Apply custom background image if set
-    if (!m_bgImagePath.isEmpty() && QFile::exists(m_bgImagePath)) {
+    if (!m_cfg.bgImagePath.isEmpty() && QFile::exists(m_cfg.bgImagePath)) {
         setStyleSheet(styleSheet() + QString(R"(
             QMainWindow { background-image: url(%1); background-repeat: no-repeat; background-position: center; background-attachment: fixed; }
-        )").arg(QDir::toNativeSeparators(m_bgImagePath).replace("\\", "/")));
+        )").arg(QDir::toNativeSeparators(m_cfg.bgImagePath).replace("\\", "/")));
     }
 
     // Fade out transition overlay after theme applied
@@ -2518,7 +2518,7 @@ void MainWindow::applyTheme(const QString &theme)
 
 void MainWindow::applyFontSize(int size)
 {
-    m_fontSize = size;
+    m_cfg.fontSize = size;
     QFont f = font();
     f.setPointSize(size);
     QApplication::setFont(f);
@@ -2526,154 +2526,15 @@ void MainWindow::applyFontSize(int size)
 
 void MainWindow::loadSettings()
 {
-    QSettings settings("PureRefCanvas", "里与由");
-    m_currentTheme = settings.value("theme", "dark").toString();
-    m_fontSize = settings.value("fontSize", 13).toInt();
-    m_closeBehavior = settings.value("closeBehavior", "tray").toString();
-    m_startupRestore = settings.value("startupRestore", true).toBool();
-    m_autoSave = settings.value("autoSave", true).toBool();
-    m_autoSaveInterval = settings.value("autoSaveInterval", 5).toInt();
-    m_thumbnailSize = settings.value("thumbnailSize", "medium").toString();
-    m_lastPage = settings.value("lastPage", 0).toInt();
-    m_uiScale = settings.value("uiScale", 100).toInt();
-    m_language = settings.value("language", "zh").toString();
-    m_hardwareAcceleration = settings.value("hardwareAcceleration", true).toBool();
-    m_singleInstance = settings.value("singleInstance", false).toBool();
-    m_autostart = settings.value("autostart", false).toBool();
-    m_acrylicEnabled = settings.value("acrylicEnabled", false).toBool();
-    m_acrylicOpacity = settings.value("acrylicOpacity", 73).toInt();
-    m_menuBarTransparent = settings.value("menuBarTransparent", true).toBool();
-    m_menuBarAutoHide = settings.value("menuBarAutoHide", true).toBool();
-    m_navToolbarTransparent = settings.value("navToolbarTransparent", true).toBool();
-    m_libraryStatusBarTransparent = settings.value("libraryStatusBarTransparent", true).toBool();
-    m_libraryGridTransparent = settings.value("libraryGridTransparent", true).toBool();
-    m_contentBrowserTransparent = settings.value("contentBrowserTransparent", true).toBool();
-    m_musicPanelsTransparent = settings.value("musicPanelsTransparent", true).toBool();
-    m_notePanelsTransparent = settings.value("notePanelsTransparent", true).toBool();
-    m_readerPanelsTransparent = settings.value("readerPanelsTransparent", true).toBool();
-    m_materialDir = settings.value("materialDir", "").toString();
-    m_booksDir = settings.value("booksDir", "").toString();
-    m_musicDir = settings.value("musicDir", "").toString();
-    m_noteBgColor = settings.value("noteBgColor", QColor(255,255,255)).value<QColor>();
-    m_readerBgColor = settings.value("readerBgColor", QColor(255,250,240)).value<QColor>();
-    m_readerTextColor = settings.value("readerTextColor", QColor(60,50,40)).value<QColor>();
-    m_bgImagePath = settings.value("bgImagePath", "").toString();
-    m_readerShelfBgPath = settings.value("readerShelfBgPath", "").toString();
-    m_readerBgPath = settings.value("readerBgPath", "").toString();
-    m_canvasBgPath = settings.value("canvasBgPath", "").toString();
-    m_minimapOpacity = settings.value("minimapOpacity", 70).toInt();
-    m_zoomBarOpacity = settings.value("zoomBarOpacity", 85).toInt();
-    m_minimapVisible = settings.value("minimapVisible", true).toBool();
-    m_minimapSize = settings.value("minimapSize", "medium").toString();
-    m_minimapThrottle = settings.value("minimapThrottle", true).toBool();
-    m_noteBgPath = settings.value("noteBgPath", "").toString();
-    m_libraryBgPath = settings.value("libraryBgPath", "").toString();
-    m_musicBgPath = settings.value("musicBgPath", "").toString();
-    m_noteDefaultFont = settings.value("noteDefaultFont", "Microsoft YaHei").toString();
-    m_noteDefaultFontSize = settings.value("noteDefaultFontSize", 14).toInt();
-
-    // Music shortcuts
-    m_scPlayPause = settings.value("shortcut/playPause", "Ctrl+P").toString();
-    m_scPrev = settings.value("shortcut/prev", "Ctrl+Left").toString();
-    m_scNext = settings.value("shortcut/next", "Ctrl+Right").toString();
-    m_scVolUp = settings.value("shortcut/volUp", "Ctrl+Up").toString();
-    m_scVolDown = settings.value("shortcut/volDown", "Ctrl+Down").toString();
-
-    // Timer shutdown
-    m_timerShutdownEnabled = settings.value("timerShutdown/enabled", false).toBool();
-    m_timerShutdownHours = settings.value("timerShutdown/hours", 0).toInt();
-    m_timerShutdownMinutes = settings.value("timerShutdown/minutes", 0).toInt();
-    m_shutdownPCEnabled = settings.value("timerShutdown/shutdownPC", false).toBool();
-
-    // New settings
-    m_startupPage = settings.value("startupPage", "last").toString();
-    m_defaultSort = settings.value("library/defaultSort", "name").toString();
-    m_showFileExt = settings.value("library/showFileExt", true).toBool();
-    m_doubleClickBehavior = settings.value("library/doubleClickBehavior", "preview").toString();
-    m_readerTheme = settings.value("reader/theme", "light").toString();
-    m_readerFont = settings.value("reader/font", "系统默认").toString();
-    m_readerLineSpacing = settings.value("reader/lineSpacing", 1.5).toDouble();
-    m_readerFontSize = settings.value("reader/fontSize", 16).toInt();
-    m_readerMargin = settings.value("reader/margin", "medium").toString();
-    m_defaultVolume = settings.value("music/defaultVolume", 70).toInt();
-    m_defaultPlayMode = settings.value("music/defaultPlayMode", "sequential").toString();
-    m_showLyrics = settings.value("music/showLyrics", false).toBool();
+    // All key/default wiring lives in AppSettings::load; here we just hand it
+    // m_lastPage (UI state, not a preference).
+    m_cfg.load(m_lastPage);
 }
 
 void MainWindow::saveSettings()
 {
-    QSettings settings("PureRefCanvas", "里与由");
-    settings.setValue("theme", m_currentTheme);
-    settings.setValue("fontSize", m_fontSize);
-    settings.setValue("closeBehavior", m_closeBehavior);
-    settings.setValue("startupRestore", m_startupRestore);
-    settings.setValue("autoSave", m_autoSave);
-    settings.setValue("autoSaveInterval", m_autoSaveInterval);
-    settings.setValue("thumbnailSize", m_thumbnailSize);
-    settings.setValue("lastPage", m_stack ? m_stack->currentIndex() : 0);
-    settings.setValue("uiScale", m_uiScale);
-    settings.setValue("language", m_language);
-    settings.setValue("hardwareAcceleration", m_hardwareAcceleration);
-    settings.setValue("singleInstance", m_singleInstance);
-    settings.setValue("autostart", m_autostart);
-    settings.setValue("acrylicEnabled", m_acrylicEnabled);
-    settings.setValue("acrylicOpacity", m_acrylicOpacity);
-    settings.setValue("menuBarTransparent", m_menuBarTransparent);
-    settings.setValue("menuBarAutoHide", m_menuBarAutoHide);
-    settings.setValue("navToolbarTransparent", m_navToolbarTransparent);
-    settings.setValue("libraryStatusBarTransparent", m_libraryStatusBarTransparent);
-    settings.setValue("libraryGridTransparent", m_libraryGridTransparent);
-    settings.setValue("contentBrowserTransparent", m_contentBrowserTransparent);
-    settings.setValue("musicPanelsTransparent", m_musicPanelsTransparent);
-    settings.setValue("notePanelsTransparent", m_notePanelsTransparent);
-    settings.setValue("readerPanelsTransparent", m_readerPanelsTransparent);
-    settings.setValue("materialDir", m_materialDir);
-    settings.setValue("booksDir", m_booksDir);
-    settings.setValue("musicDir", m_musicDir);
-    settings.setValue("noteBgColor", m_noteBgColor);
-    settings.setValue("readerBgColor", m_readerBgColor);
-    settings.setValue("readerTextColor", m_readerTextColor);
-    settings.setValue("bgImagePath", m_bgImagePath);
-    settings.setValue("readerShelfBgPath", m_readerShelfBgPath);
-    settings.setValue("readerBgPath", m_readerBgPath);
-    settings.setValue("canvasBgPath", m_canvasBgPath);
-    settings.setValue("minimapOpacity", m_minimapOpacity);
-    settings.setValue("zoomBarOpacity", m_zoomBarOpacity);
-    settings.setValue("minimapVisible", m_minimapVisible);
-    settings.setValue("minimapSize", m_minimapSize);
-    settings.setValue("minimapThrottle", m_minimapThrottle);
-    settings.setValue("noteBgPath", m_noteBgPath);
-    settings.setValue("libraryBgPath", m_libraryBgPath);
-    settings.setValue("musicBgPath", m_musicBgPath);
-    settings.setValue("noteDefaultFont", m_noteDefaultFont);
-    settings.setValue("noteDefaultFontSize", m_noteDefaultFontSize);
-
-    // Music shortcuts
-    settings.setValue("shortcut/playPause", m_scPlayPause);
-    settings.setValue("shortcut/prev", m_scPrev);
-    settings.setValue("shortcut/next", m_scNext);
-    settings.setValue("shortcut/volUp", m_scVolUp);
-    settings.setValue("shortcut/volDown", m_scVolDown);
-
-    // Timer shutdown
-    settings.setValue("timerShutdown/enabled", m_timerShutdownEnabled);
-    settings.setValue("timerShutdown/hours", m_timerShutdownHours);
-    settings.setValue("timerShutdown/minutes", m_timerShutdownMinutes);
-    settings.setValue("timerShutdown/shutdownPC", m_shutdownPCEnabled);
-
-    // New settings
-    settings.setValue("startupPage", m_startupPage);
-    settings.setValue("library/defaultSort", m_defaultSort);
-    settings.setValue("library/showFileExt", m_showFileExt);
-    settings.setValue("library/doubleClickBehavior", m_doubleClickBehavior);
-    settings.setValue("reader/theme", m_readerTheme);
-    settings.setValue("reader/font", m_readerFont);
-    settings.setValue("reader/lineSpacing", m_readerLineSpacing);
-    settings.setValue("reader/fontSize", m_readerFontSize);
-    settings.setValue("reader/margin", m_readerMargin);
-    settings.setValue("music/defaultVolume", m_defaultVolume);
-    settings.setValue("music/defaultPlayMode", m_defaultPlayMode);
-    settings.setValue("music/showLyrics", m_showLyrics);
+    const int page = m_stack ? m_stack->currentIndex() : 0;
+    m_cfg.save(page);
 }
 
 void MainWindow::applyThumbnailSize(const QString &size)
@@ -2696,7 +2557,7 @@ void MainWindow::applyReaderColors(const QColor &bg, const QColor &text)
 
 void MainWindow::applyBgImage(const QString &path)
 {
-    m_bgImagePath = path;
+    m_cfg.bgImagePath = path;
 
     bool hasImage = !path.isEmpty() && QFile::exists(path);
 
@@ -2721,7 +2582,7 @@ void MainWindow::applyBgImage(const QString &path)
         // (e.g. an undecodable reader-shelf image), so a hardcoded dark color
         // would leak through in light mode.
         m_stack->setStyleSheet(QString("background: %1; border: none;")
-                                   .arg(m_currentTheme == "light" ? "#f0f2f5" : "#1b2838"));
+                                   .arg(m_cfg.currentTheme == "light" ? "#f0f2f5" : "#1b2838"));
         for (int i = 0; i < m_stack->count(); ++i) {
             QWidget *page = m_stack->widget(i);
             if (page) page->setStyleSheet("");
@@ -2732,7 +2593,7 @@ void MainWindow::applyBgImage(const QString &path)
         }
     }
 
-    applyTheme(m_currentTheme);
+    applyTheme(m_cfg.currentTheme);
 }
 
 void MainWindow::applyAcrylic()
@@ -2742,18 +2603,18 @@ void MainWindow::applyAcrylic()
     if (!hwnd) return;
     enableRoundedCorners(hwnd);
     // Convert opacity percentage (30-100) to alpha byte (0-255)
-    BYTE alpha = (BYTE)(m_acrylicOpacity * 255 / 100);
+    BYTE alpha = (BYTE)(m_cfg.acrylicOpacity * 255 / 100);
     // Color format: 0xAABBGGRR, default dark blue #1B2838
     DWORD gradientColor = ((DWORD)alpha << 24) | 0x0038281B;
-    enableAcrylicBlur(hwnd, m_acrylicEnabled, gradientColor);
+    enableAcrylicBlur(hwnd, m_cfg.acrylicEnabled, gradientColor);
 #endif
 }
 
 void MainWindow::applyTransparencySettings()
 {
     // Menu bar (respect current theme colors)
-    const bool light = (m_currentTheme == "light");
-    const QString menuBg = m_menuBarTransparent ? "transparent" : (light ? "#ffffff" : "#16202d");
+    const bool light = (m_cfg.currentTheme == "light");
+    const QString menuBg = m_cfg.menuBarTransparent ? "transparent" : (light ? "#ffffff" : "#16202d");
     const QString menuColor = light ? "#333333" : "#c7d5e0";
     const QString menuBorder = light ? "border-bottom: 1px solid #e0e0e0;" : "border: none;";
     menuBar()->setStyleSheet(QString(
@@ -2762,7 +2623,7 @@ void MainWindow::applyTransparencySettings()
 
     // Navigation toolbar
     if (m_navToolBar) {
-        if (m_navToolbarTransparent) {
+        if (m_cfg.navToolbarTransparent) {
             m_navToolBar->setStyleSheet(
                 "QToolBar { background: transparent; border: none; padding: 0px; spacing: 0px; }"
                 " QToolBar::separator { width: 0; }");
@@ -2777,33 +2638,33 @@ void MainWindow::applyTransparencySettings()
 
     // Library status bar (N 项)
     if (m_materialWidget)
-        m_materialWidget->setStatusBarTransparent(m_libraryStatusBarTransparent);
+        m_materialWidget->setStatusBarTransparent(m_cfg.libraryStatusBarTransparent);
 
     // Library asset grid
     if (m_materialWidget)
-        m_materialWidget->setGridTransparent(m_libraryGridTransparent);
+        m_materialWidget->setGridTransparent(m_cfg.libraryGridTransparent);
 
     // Global content browser panel
     if (m_contentBrowser)
-        m_contentBrowser->setTransparent(m_contentBrowserTransparent);
+        m_contentBrowser->setTransparent(m_cfg.contentBrowserTransparent);
 
     // Music player panels
     if (m_musicWidget)
-        m_musicWidget->setPanelsTransparent(m_musicPanelsTransparent);
+        m_musicWidget->setPanelsTransparent(m_cfg.musicPanelsTransparent);
 
     // Note page panels
     if (m_noteWidget)
-        m_noteWidget->setPanelsTransparent(m_notePanelsTransparent);
+        m_noteWidget->setPanelsTransparent(m_cfg.notePanelsTransparent);
 
     // Reader page panels
     if (m_readerWidget)
-        m_readerWidget->setPanelsTransparent(m_readerPanelsTransparent);
+        m_readerWidget->setPanelsTransparent(m_cfg.readerPanelsTransparent);
 }
 
 void MainWindow::applyMenuBarMode()
 {
     // 半隐藏：隐藏原生菜单栏，用导航栏上的 ☰ 按钮承载菜单；否则显示原生菜单栏。
-    if (m_menuBarAutoHide) {
+    if (m_cfg.menuBarAutoHide) {
         if (menuBar()) menuBar()->hide();
         if (m_menuHamburger) m_menuHamburger->show();
     } else {
@@ -2830,8 +2691,8 @@ void MainWindow::applyAutostart(bool enabled)
 
 void MainWindow::applyEditorSettings(const QString &font, int fontSize)
 {
-    m_noteDefaultFont = font;
-    m_noteDefaultFontSize = fontSize;
+    m_cfg.noteDefaultFont = font;
+    m_cfg.noteDefaultFontSize = fontSize;
     if (!m_noteWidget) return;
     QTextEdit *editor = m_noteWidget->editor();
     if (!editor) return;
@@ -2863,11 +2724,11 @@ void MainWindow::applyMusicShortcuts()
         m_musicShortcuts.append(sc);
     };
 
-    addSc(m_scPlayPause, &MusicPlayerWidget::togglePlay);
-    addSc(m_scPrev, &MusicPlayerWidget::playPrev);
-    addSc(m_scNext, &MusicPlayerWidget::playNext);
-    addSc(m_scVolUp, &MusicPlayerWidget::volumeUp);
-    addSc(m_scVolDown, &MusicPlayerWidget::volumeDown);
+    addSc(m_cfg.scPlayPause, &MusicPlayerWidget::togglePlay);
+    addSc(m_cfg.scPrev, &MusicPlayerWidget::playPrev);
+    addSc(m_cfg.scNext, &MusicPlayerWidget::playNext);
+    addSc(m_cfg.scVolUp, &MusicPlayerWidget::volumeUp);
+    addSc(m_cfg.scVolDown, &MusicPlayerWidget::volumeDown);
 }
 
 void MainWindow::openGlobalSearch()
@@ -2914,9 +2775,9 @@ void MainWindow::applyTimerShutdown()
         m_shutdownTimer = nullptr;
     }
 
-    if (!m_timerShutdownEnabled) return;
+    if (!m_cfg.timerShutdownEnabled) return;
 
-    qint64 totalMs = (m_timerShutdownHours * 3600LL + m_timerShutdownMinutes * 60LL) * 1000LL;
+    qint64 totalMs = (m_cfg.timerShutdownHours * 3600LL + m_cfg.timerShutdownMinutes * 60LL) * 1000LL;
     if (totalMs <= 0) return;
 
     m_shutdownRemainingMs = totalMs;
@@ -2932,7 +2793,7 @@ void MainWindow::onShutdownTick()
     if (m_shutdownRemainingMs <= 0) {
         m_shutdownTimer->stop();
         saveSettings();
-        if (m_shutdownPCEnabled) {
+        if (m_cfg.shutdownPCEnabled) {
             QProcess::startDetached("shutdown", {"/s", "/t", "0"});
         }
         qApp->quit();
@@ -3047,8 +2908,8 @@ void MainWindow::setupAutoSaveTimer()
         m_autoSaveTimer = new QTimer(this);
         connect(m_autoSaveTimer, &QTimer::timeout, this, &MainWindow::doAutoSave);
     }
-    if (m_autoSave && m_autoSaveInterval > 0) {
-        m_autoSaveTimer->start(m_autoSaveInterval * 60 * 1000);
+    if (m_cfg.autoSave && m_cfg.autoSaveInterval > 0) {
+        m_autoSaveTimer->start(m_cfg.autoSaveInterval * 60 * 1000);
     } else {
         m_autoSaveTimer->stop();
     }

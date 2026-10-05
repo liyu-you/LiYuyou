@@ -22,6 +22,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Network OpenGL OpenGLWid
 qt_add_executable(PureRefCanvas
     main.cpp
     mainwindow.h mainwindow.cpp
+    appsettings.h appsettings.cpp
     canvasview.h canvasview.cpp
     canvasscene.h canvasscene.cpp
     imageitem.h imageitem.cpp
