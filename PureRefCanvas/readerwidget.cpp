@@ -27,6 +27,7 @@
 #include <QAbstractTextDocumentLayout>
 #include <QScrollBar>
 #include <QDir>
+#include <QDirIterator>
 #include <QPalette>
 #include <QApplication>
 #include <QClipboard>
@@ -1809,10 +1810,38 @@ void ReaderWidget::showToc()
 
 void ReaderWidget::importBook()
 {
-    QStringList files = QFileDialog::getOpenFileNames(this, "导入书籍", QString(), "文本文件 (*.txt);;所有文件 (*.*)");
+    QStringList files = QFileDialog::getOpenFileNames(this, "导入书籍", QString(), "文本文件 (*.txt *.md);;所有文件 (*.*)");
     for (const QString &f : files) {
         m_library->importBook(f);
     }
+}
+
+void ReaderWidget::scanBookFolder()
+{
+    // Pick a folder (default: the library's books dir), then recursively import
+    // every .txt / .md inside. Skips books already in the library.
+    QString startDir = QFileDialog::getExistingDirectory(this, "选择书籍文件夹",
+        m_library ? m_library->rootPath() : QString());
+    if (startDir.isEmpty()) return;
+
+    QDirIterator it(startDir, {"*.txt", "*.md", "*.TXT", "*.MD"},
+                    QDir::Files, QDirIterator::Subdirectories);
+    int added = 0, skipped = 0;
+    while (it.hasNext()) {
+        const QString f = it.next();
+        // Skip files already in the library (by filePath match)
+        bool known = false;
+        if (m_library) {
+            for (const BookInfo &b : m_library->books()) {
+                if (QFileInfo(b.filePath) == QFileInfo(f)) { known = true; break; }
+            }
+        }
+        if (known) { skipped++; continue; }
+        if (m_library && !m_library->importBook(f).isEmpty()) added++;
+    }
+    QMessageBox::information(this, "扫描完成",
+        QString("新增 %1 本，跳过 %2 本（已在书库）").arg(added).arg(skipped));
+    refreshShelf();
 }
 
 void ReaderWidget::onShelfItemMenu(const QPoint &pos)
@@ -1831,6 +1860,7 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
         });
     } else {
         menu.addAction("导入书籍", this, &ReaderWidget::importBook);
+        menu.addAction("扫描文件夹（批量导入）", this, &ReaderWidget::scanBookFolder);
     }
     menu.exec(m_shelfGrid->mapToGlobal(pos));
 }

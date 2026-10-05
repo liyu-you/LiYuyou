@@ -66,6 +66,7 @@ private slots:
     void onSliderPressed();
     void onSliderReleased();
     void importBook();
+    void scanBookFolder();
     void onShelfItemMenu(const QPoint &pos);
 
     // Annotations (highlights + notes)
