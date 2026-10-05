@@ -259,21 +259,48 @@ void NoteWidget::setupUI()
     containerLayout->setContentsMargins(40, 16, 40, 16);
     containerLayout->addWidget(m_editor, 1);
 
-    // VNote-style outline pane (right side of editor).
+    // VNote-style right pane: Outline (top) + Backlinks (bottom).
+    auto *rightPane = new QWidget;
+    rightPane->setMaximumWidth(240);
+    rightPane->setStyleSheet("background: #ffffff; border-left: 1px solid #e8eaed;");
+    auto *rightLayout = new QVBoxLayout(rightPane);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(0);
+
+    auto *outlineLabel = new QLabel("大纲");
+    outlineLabel->setStyleSheet("color: #5f6368; font-size: 11px; padding: 10px 12px 4px; font-weight: 600;");
+    rightLayout->addWidget(outlineLabel);
+
     m_outlineList = new QListWidget;
     m_outlineList->setObjectName("noteOutline");
-    m_outlineList->setMaximumWidth(220);
     m_outlineList->setStyleSheet(
-        "QListWidget { background: rgba(255,255,255,0.9); border:none; border-left:1px solid #eee; font-size:12px; }"
-        "QListWidget::item { padding:4px 8px; color:#555; }"
-        "QListWidget::item:selected { background:#EAF7F0; color:#2FA66A; }");
+        "QListWidget { background: transparent; border: none; font-size: 12px; }"
+        "QListWidget::item { padding: 4px 12px; color: #444746; }"
+        "QListWidget::item:hover { background: #f1f3f4; }"
+        "QListWidget::item:selected { background: #e8f0fe; color: #1a73e8; }");
     connect(m_outlineList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
         const int block = item->data(Qt::UserRole).toInt();
         QTextCursor cur(m_editor->document()->findBlockByNumber(block));
         m_editor->setTextCursor(cur);
         m_editor->setFocus();
     });
-    containerLayout->addWidget(m_outlineList);
+    rightLayout->addWidget(m_outlineList, 1);
+
+    auto *backlinksLabel = new QLabel("反向链接");
+    backlinksLabel->setStyleSheet("color: #5f6368; font-size: 11px; padding: 10px 12px 4px; font-weight: 600; border-top: 1px solid #e8eaed;");
+    rightLayout->addWidget(backlinksLabel);
+
+    m_backlinksList = new QListWidget;
+    m_backlinksList->setStyleSheet(
+        "QListWidget { background: transparent; border: none; font-size: 12px; }"
+        "QListWidget::item { padding: 4px 12px; color: #1a73e8; }"
+        "QListWidget::item:hover { background: #e8f0fe; }");
+    connect(m_backlinksList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        openOrCreateByTitle(item->data(Qt::UserRole).toString());
+    });
+    rightLayout->addWidget(m_backlinksList, 1);
+
+    containerLayout->addWidget(rightPane);
     editorLayout->addWidget(editorContainer, 1);
 
     // Status bar
@@ -820,6 +847,7 @@ void NoteWidget::openNote(const QString &noteId)
     deactivateFormatPainter();
     if (m_findBar && m_findBar->isVisible()) closeFindBar();
     refreshOutline();
+    refreshBacklinks();
     m_stack->setCurrentIndex(1);
     updateStatusBar();
 }
@@ -1275,6 +1303,10 @@ void NoteWidget::onTextChanged()
     emit modificationChanged(true);
     updateStatusBar();
     refreshOutline();
+    refreshBacklinks();
+    // Wiki-link autocomplete: fire after every keystroke; the function itself
+    // checks whether the text before cursor matches [[<prefix>.
+    if (!m_editor->textCursor().hasSelection()) showWikiCompleter();
 }
 
 void NoteWidget::refreshOutline()
@@ -1295,6 +1327,39 @@ void NoteWidget::refreshOutline()
             }
         }
         block = block.next();
+    }
+}
+
+void NoteWidget::refreshBacklinks()
+{
+    if (!m_backlinksList) return;
+    m_backlinksList->clear();
+    if (m_currentNoteId.isEmpty()) return;
+
+    // Find the title of the current note (that's what other notes [[link]] to).
+    QString currentTitle;
+    for (const auto &n : m_notes) {
+        if (n.id == m_currentNoteId) { currentTitle = n.title; break; }
+    }
+    if (currentTitle.isEmpty()) return;
+
+    // Scan every note's plain text for [[currentTitle]].
+    QRegularExpression re(QStringLiteral("\\[\\[%1\\]\\]").arg(QRegularExpression::escape(currentTitle)));
+    for (const auto &n : m_notes) {
+        if (n.id == m_currentNoteId) continue;
+        // Content is HTML; strip tags to plain text for matching.
+        QString plain = n.content;
+        plain.remove(QRegularExpression("<[^>]+>"));
+        if (re.match(plain).hasMatch()) {
+            auto *item = new QListWidgetItem(n.title, m_backlinksList);
+            item->setData(Qt::UserRole, n.title);
+            item->setToolTip("点击打开此笔记");
+        }
+    }
+    if (m_backlinksList->count() == 0) {
+        auto *item = new QListWidgetItem("（暂无）", m_backlinksList);
+        item->setForeground(QColor(0x9A, 0xA0, 0xA6));
+        item->setFlags(Qt::NoItemFlags);
     }
 }
 
@@ -2229,7 +2294,92 @@ bool NoteWidget::handleEditorKeyPress(QKeyEvent *event)
             return true;
         }
     }
+
+    // Wiki-link popup navigation: ↑/↓/Enter/Escape
+    if (m_wikiPopup && m_wikiPopup->isVisible()) {
+        if (key == Qt::Key_Escape) { hideWikiCompleter(); return true; }
+        if (key == Qt::Key_Down) {
+            int r = m_wikiPopup->currentRow() + 1;
+            if (r >= m_wikiPopup->count()) r = 0;
+            m_wikiPopup->setCurrentRow(r); return true;
+        }
+        if (key == Qt::Key_Up) {
+            int r = m_wikiPopup->currentRow() - 1;
+            if (r < 0) r = m_wikiPopup->count() - 1;
+            m_wikiPopup->setCurrentRow(r); return true;
+        }
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+            auto *it = m_wikiPopup->currentItem();
+            if (it) emit m_wikiPopup->itemActivated(it);
+            return true;
+        }
+    }
     return false;
+}
+
+// ========== Wiki-link autocomplete: type [[ → popup note list ==========
+
+void NoteWidget::showWikiCompleter()
+{
+    if (!m_editor) return;
+    // Find text immediately before the cursor; we want the last "[" or "[[<prefix>" fragment.
+    QTextCursor cur = m_editor->textCursor();
+    const int pos = cur.position();
+    QTextCursor scan(cur);
+    scan.setPosition(qMax(0, pos - 64));
+    const QString before = m_editor->document()->toPlainText().mid(scan.position(), pos - scan.position());
+
+    // Match [[<prefix> (no closing ]] yet)
+    QRegularExpression re(QStringLiteral("\\[\\[([^\\[\\]]*)$"));
+    auto m = re.match(before);
+    if (!m.hasMatch()) { hideWikiCompleter(); return; }
+    m_wikiPrefix = m.captured(1);
+
+    if (!m_wikiPopup) {
+        m_wikiPopup = new QListWidget(m_editor);
+        m_wikiPopup->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint);
+        m_wikiPopup->setStyleSheet(
+            "QListWidget { background: #ffffff; border: 1px solid #dadce0; border-radius: 8px; "
+            "padding: 6px; outline: none; font-size: 13px; }"
+            "QListWidget::item { padding: 6px 12px; border-radius: 4px; color: #202124; }"
+            "QListWidget::item:hover, QListWidget::item:selected { background: #e8f0fe; color: #1a73e8; }");
+        m_wikiPopup->setMaximumHeight(240);
+        connect(m_wikiPopup, &QListWidget::itemActivated, this, [this](QListWidgetItem *it){
+            // Replace "[[<prefix>" with "[[title]]"
+            const QString title = it->data(Qt::UserRole).toString();
+            QTextCursor c = m_editor->textCursor();
+            c.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor, 2 + m_wikiPrefix.length());
+            c.insertText("[[" + title + "]]");
+            m_editor->setTextCursor(c);
+            hideWikiCompleter();
+        });
+    }
+
+    m_wikiPopup->clear();
+    QStringList titles;
+    for (const auto &n : m_notes) titles << n.title;
+    titles.sort(Qt::CaseInsensitive);
+    for (const QString &t : titles) {
+        if (!m_wikiPrefix.isEmpty() && !t.contains(m_wikiPrefix, Qt::CaseInsensitive)) continue;
+        auto *it = new QListWidgetItem(t, m_wikiPopup);
+        it->setData(Qt::UserRole, t);
+    }
+    if (m_wikiPopup->count() == 0) {
+        auto *it = new QListWidgetItem(QString("+ 创建新笔记 \"%1\"").arg(m_wikiPrefix), m_wikiPopup);
+        it->setData(Qt::UserRole, m_wikiPrefix);
+    }
+    m_wikiPopup->setCurrentRow(0);
+
+    // Position popup under the cursor
+    QPoint gp = m_editor->viewport()->mapToGlobal(m_editor->cursorRect().bottomRight());
+    m_wikiPopup->resize(280, qMin(240, m_wikiPopup->count() * 32 + 16));
+    m_wikiPopup->move(gp.x(), gp.y() + 4);
+    m_wikiPopup->show();
+}
+
+void NoteWidget::hideWikiCompleter()
+{
+    if (m_wikiPopup) m_wikiPopup->hide();
 }
 
 // ========== Data persistence ==========

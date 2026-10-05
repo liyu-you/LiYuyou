@@ -201,6 +201,9 @@ private:
     void refreshFolderList();
     void updateStatusBar();
     void refreshOutline();  // VNote: extract headings from current note
+    void refreshBacklinks(); // list notes whose [[...]] points to current note
+    void showWikiCompleter(); // popup [[...]] autocomplete near cursor
+    void hideWikiCompleter();
     QString generateId() const;
     QString htmlToPreview(const QString &html, int maxLen = 120) const;
     QString noteToMarkdown(const NoteData &note) const;
@@ -250,6 +253,9 @@ private:
     QToolBar *m_toolbar2;       // 工具栏第 2 行：段落/插入
     QTextEdit *m_editor;
     QListWidget *m_outlineList = nullptr;  // VNote-style outline
+    QListWidget *m_backlinksList = nullptr; // notes that link to current note
+    QListWidget *m_wikiPopup = nullptr;    // [[...]] autocompleter popup
+    QString m_wikiPrefix;                   // partial text after [[ being typed
     QLabel *m_statusLabel;
 
     // Data
