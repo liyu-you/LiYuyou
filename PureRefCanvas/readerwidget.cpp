@@ -690,7 +690,7 @@ void ReaderWidget::setupReaderPage()
 
     m_prevBtn = new QPushButton("‹ 上一章");
     m_nextBtn = new QPushButton("下一章 ›");
-    QString navStyle = "QPushButton { background: transparent; border: 1px solid rgba(0,0,0,0.15); border-radius: 4px; padding: 4px 10px; font-size: 12px; } QPushButton:hover { background: rgba(0,0,0,0.06); }";
+    QString navStyle = "QPushButton { background: transparent; border: none; padding: 4px 10px; font-size: 12px; } QPushButton:hover { background: rgba(255,255,255,0.18); border-radius: 4px; }";
     m_prevBtn->setStyleSheet(navStyle);
     m_nextBtn->setStyleSheet(navStyle);
     connect(m_prevBtn, &QPushButton::clicked, this, &ReaderWidget::prevChapter);
@@ -2347,7 +2347,15 @@ void ReaderWidget::applyTheme()
     m_chapterLabel->setStyleSheet(QString("font-size: 13px; color: %1; padding: 0 40px;").arg(barText));
     if (hasBg && m_panelsTransparent) {
         m_topBar->setStyleSheet(QString("background: transparent; color: %1;").arg(barText));
-        m_bottomBar->setStyleSheet(QString("background: transparent; color: %1;").arg(barText));
+        // Force every child QPushButton in the bottom bar to be transparent as
+        // well: individual button stylesheets sometimes don't fully suppress
+        // the Windows native button background, leaving white pills floating
+        // on top of the custom page background.
+        m_bottomBar->setStyleSheet(QString(
+            "QWidget { background: transparent; color: %1; }"
+            "QPushButton { background: transparent; border: none; color: %1; }"
+            "QPushButton:hover { background: rgba(255,255,255,0.18); border-radius: 4px; }"
+            "QPushButton:pressed { background: rgba(255,255,255,0.28); }").arg(barText));
     } else {
         m_topBar->setStyleSheet(QString("background: %1; color: %2;").arg(barBg).arg(barText));
         m_bottomBar->setStyleSheet(QString("background: %1; color: %2;").arg(barBg).arg(barText));
