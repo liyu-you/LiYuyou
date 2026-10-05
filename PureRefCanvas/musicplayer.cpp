@@ -955,39 +955,44 @@ void MusicPlayerWidget::setupMusicShelfPage()
     });
     cl->addWidget(m_songCardList, 1);
 
-    // Bottom two cards
+    // Bottom two cards — matches reader shelf's bottom cards (132px tall,
+    // 36px round icon, title + two stat lines + pill badge).
     QHBoxLayout *bottom = new QHBoxLayout; bottom->setSpacing(16);
-    QWidget *card1 = new QWidget; card1->setFixedHeight(120);
+    QWidget *card1 = new QWidget; card1->setFixedHeight(132);
     card1->setStyleSheet("background:#FFFFFF; border:1px solid #E5E7EB; border-radius:16px;");
     QHBoxLayout *c1l = new QHBoxLayout(card1); c1l->setContentsMargins(20,18,20,18); c1l->setSpacing(16);
     QLabel *c1i = new QLabel("♥"); c1i->setFixedSize(36,36); c1i->setAlignment(Qt::AlignCenter);
     c1i->setStyleSheet("background:#FDE7EF; color:#C2185B; border-radius:18px; font-size:16px;");
     c1l->addWidget(c1i,0,Qt::AlignTop);
-    QVBoxLayout *c1t = new QVBoxLayout; c1t->setSpacing(6);
+    QVBoxLayout *c1t = new QVBoxLayout; c1t->setContentsMargins(0,0,0,0); c1t->setSpacing(6);
     QLabel *c1h = new QLabel("我的喜欢"); c1h->setStyleSheet("font-size:14px; font-weight:500; color:#111827;");
-    m_favCardCount = new QLabel("还没有喜欢的歌曲");
+    m_favCardCount = new QLabel("共 0 首喜欢的歌曲");
     m_favCardCount->setStyleSheet("font-size:12px; color:#6B7280;");
+    QLabel *c1sub = new QLabel("点击红心收藏歌曲");
+    c1sub->setStyleSheet("font-size:12px; color:#6B7280;");
     QLabel *c1b = new QLabel("♡ 点赞收藏");
     c1b->setAlignment(Qt::AlignCenter); c1b->setFixedSize(86,24);
     c1b->setStyleSheet("background:#FDE7EF; color:#C2185B; border-radius:12px; font-size:12px; font-weight:500;");
-    c1t->addWidget(c1h); c1t->addWidget(m_favCardCount); c1t->addWidget(c1b,0,Qt::AlignLeft);
+    c1t->addWidget(c1h); c1t->addWidget(m_favCardCount); c1t->addWidget(c1sub); c1t->addWidget(c1b,0,Qt::AlignLeft);
     c1l->addLayout(c1t,1);
     bottom->addWidget(card1,1);
 
-    QWidget *card2 = new QWidget; card2->setFixedHeight(120);
+    QWidget *card2 = new QWidget; card2->setFixedHeight(132);
     card2->setStyleSheet("background:#FFFFFF; border:1px solid #E5E7EB; border-radius:16px;");
     QHBoxLayout *c2l = new QHBoxLayout(card2); c2l->setContentsMargins(20,18,20,18); c2l->setSpacing(16);
     QLabel *c2i = new QLabel("♫"); c2i->setFixedSize(36,36); c2i->setAlignment(Qt::AlignCenter);
     c2i->setStyleSheet("background:#E7EEFD; color:#2F5FB0; border-radius:18px; font-size:16px;");
     c2l->addWidget(c2i,0,Qt::AlignTop);
-    QVBoxLayout *c2t = new QVBoxLayout; c2t->setSpacing(6);
+    QVBoxLayout *c2t = new QVBoxLayout; c2t->setContentsMargins(0,0,0,0); c2t->setSpacing(6);
     QLabel *c2h = new QLabel("最近播放"); c2h->setStyleSheet("font-size:14px; font-weight:500; color:#111827;");
     m_recentSongLabel = new QLabel("暂无播放记录");
     m_recentSongLabel->setStyleSheet("font-size:12px; color:#111827; font-weight:500;");
+    QLabel *c2sub = new QLabel("播放过的歌曲会显示在这里");
+    c2sub->setStyleSheet("font-size:12px; color:#6B7280;");
     QLabel *c2b = new QLabel("▶ 继续播放");
     c2b->setAlignment(Qt::AlignCenter); c2b->setFixedSize(86,24);
     c2b->setStyleSheet("background:#E7EEFD; color:#2F5FB0; border-radius:12px; font-size:12px; font-weight:500;");
-    c2t->addWidget(c2h); c2t->addWidget(m_recentSongLabel); c2t->addWidget(c2b,0,Qt::AlignLeft);
+    c2t->addWidget(c2h); c2t->addWidget(m_recentSongLabel); c2t->addWidget(c2sub); c2t->addWidget(c2b,0,Qt::AlignLeft);
     c2l->addLayout(c2t,1);
     bottom->addWidget(card2,1);
     cl->addLayout(bottom);
