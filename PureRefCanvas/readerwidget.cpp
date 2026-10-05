@@ -1024,6 +1024,7 @@ void ReaderWidget::backToShelf()
     if (!m_currentBookId.isEmpty()) {
         int pos = topCharPos();
         m_library->updateProgress(m_currentBookId, pos);  // also persists time counters
+        m_chapterCache.remove(m_currentBookId);           // chapter title may have advanced
     }
     m_currentBookId.clear();
     m_bookText.clear();
@@ -2157,10 +2158,20 @@ void ReaderWidget::refreshShelf()
         item->setData(kShelfCoverImageRole, QFile::exists(coverImgPath) ? coverImgPath : QString());
 
         // Current chapter from loaded text (only if reading has started).
+        // Cached per bookId — loadBookText reads the whole book file, which was
+        // making refreshShelf() block on N full-file reads every time.
         QString chapter;
         if (book.progress > 0 && book.totalChars > 0) {
-            const QString text = m_library->loadBookText(book.id);
-            chapter = m_library->findChapterTitle(text, book.progress);
+            auto it = m_chapterCache.constFind(book.id);
+            if (it != m_chapterCache.constEnd()) {
+                chapter = it.value();
+            } else {
+                const QString text = m_library->loadBookText(book.id);
+                chapter = m_library->findChapterTitle(text, book.progress);
+                m_chapterCache.insert(book.id, chapter);
+            }
+        } else {
+            m_chapterCache.insert(book.id, QString());
         }
         item->setData(kShelfChapterRole, chapter);
 
@@ -2186,7 +2197,17 @@ void ReaderWidget::refreshShelf()
         }
         item->setData(kShelfLastReadRole, lastReadStr);
 
-        item->setIcon(QIcon(generateCover(book)));
+        // Cover icon: cached. generateCover() renders a gradient pixmap each call,
+        // which was wasting CPU on every refresh.
+        QIcon coverIcon;
+        auto cit = m_coverCache.constFind(book.id);
+        if (cit != m_coverCache.constEnd()) {
+            coverIcon = cit.value();
+        } else {
+            coverIcon = QIcon(generateCover(book));
+            m_coverCache.insert(book.id, coverIcon);
+        }
+        item->setIcon(coverIcon);
         item->setSizeHint(QSize(360, 156));
 
         const int pct = book.totalChars > 0 ? qBound(0, book.progress * 100 / book.totalChars, 100) : 0;

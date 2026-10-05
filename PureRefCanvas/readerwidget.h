@@ -168,6 +168,10 @@ private:
     QLabel *m_timerTodayLabel = nullptr;
     QLabel *m_timerTotalLabel = nullptr;
     QString m_lastReadBookId;
+    // Shelf caches: avoid re-reading every book's full text + regenerating covers
+    // on every refreshShelf() call. Invalidate on library save / book open.
+    QHash<QString, QString> m_chapterCache;   // bookId -> chapter title
+    QHash<QString, QIcon> m_coverCache;       // bookId -> cover icon
 
     // Reader
     QWidget *m_readerPage = nullptr;
