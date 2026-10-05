@@ -202,8 +202,16 @@ AccountDialog::AccountDialog(UserAuth *auth, QWidget *parent)
     // User ID on cover
     m_coverIdLabel = new QLabel("ID: " + user.userId, bgBtn);
     m_coverIdLabel->setObjectName("coverId");
-    m_coverIdLabel->setGeometry(108, 74, 200, 16);
+    m_coverIdLabel->setGeometry(108, 74, 240, 16);
     m_coverIdLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+    // Bio on cover (if set)
+    if (!user.bio.isEmpty()) {
+        QLabel *bioCover = new QLabel(user.bio, bgBtn);
+        bioCover->setObjectName("coverId");
+        bioCover->setGeometry(108, 92, 280, 16);
+        bioCover->setAttribute(Qt::WA_TransparentForMouseEvents);
+    }
 
     mainLayout->addWidget(bgBtn);
 
@@ -221,6 +229,15 @@ AccountDialog::AccountDialog(UserAuth *auth, QWidget *parent)
     m_nicknameEdit = new QLineEdit(displayName);
     m_nicknameEdit->setPlaceholderText("显示的昵称");
     formLayout->addWidget(m_nicknameEdit);
+
+    // Bio / signature (max 30 chars)
+    QLabel *bioLabel = new QLabel("个性签名（最多30字）");
+    bioLabel->setObjectName("fieldLabel");
+    formLayout->addWidget(bioLabel);
+    m_bioEdit = new QLineEdit(user.bio);
+    m_bioEdit->setPlaceholderText("写一句介绍自己的话");
+    m_bioEdit->setMaxLength(30);
+    formLayout->addWidget(m_bioEdit);
 
     // Username
     QLabel *userLabel = new QLabel("用户名（登录账号）");
@@ -524,6 +541,14 @@ void AccountDialog::onSave()
     // Update nickname if changed
     if (m_nicknameEdit->text().trimmed() != user.nickname) {
         if (!m_auth->updateNickname(user.username, m_nicknameEdit->text().trimmed(), &error)) {
+            showWarning(this, "保存失败", error);
+            return;
+        }
+    }
+
+    // Update bio (signature) if changed
+    if (m_bioEdit->text().trimmed() != user.bio) {
+        if (!m_auth->updateBio(user.username, m_bioEdit->text().trimmed(), &error)) {
             showWarning(this, "保存失败", error);
             return;
         }

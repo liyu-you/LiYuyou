@@ -471,6 +471,22 @@ bool UserAuth::updateNickname(const QString &username, const QString &newNicknam
     return false;
 }
 
+bool UserAuth::updateBio(const QString &username, const QString &newBio, QString *error)
+{
+    QString bio = newBio.trimmed().left(30);
+    for (UserInfo &u : m_users) {
+        if (u.username == username) {
+            u.bio = bio;
+            if (m_currentUser.username == username) {
+                m_currentUser.bio = bio;
+            }
+            return commit(error);
+        }
+    }
+    if (error) *error = "用户不存在";
+    return false;
+}
+
 bool UserAuth::updateBackground(const QString &username, const QString &bgPath, QString *error)
 {
     for (UserInfo &u : m_users) {
@@ -691,6 +707,7 @@ bool UserAuth::load()
         u.avatarPath = obj["avatarPath"].toString();
         u.backgroundPath = obj["backgroundPath"].toString();
         u.accountCoverPath = obj["accountCoverPath"].toString();
+        u.bio = obj["bio"].toString();
         // 迁移：旧用户没有userId，自动生成
         if (u.userId.isEmpty()) {
             QString newId;
@@ -737,6 +754,7 @@ bool UserAuth::save()
         obj["avatarPath"] = u.avatarPath;
         obj["backgroundPath"] = u.backgroundPath;
         obj["accountCoverPath"] = u.accountCoverPath;
+        obj["bio"] = u.bio;
         arr.append(obj);
     }
     QJsonDocument doc(arr);

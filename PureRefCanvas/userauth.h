@@ -27,6 +27,7 @@ struct UserInfo {
     QString avatarPath;
     QString backgroundPath;   // 启动页背景（splash）
     QString accountCoverPath; // 账户对话框封面（独立于启动页）
+    QString bio;              // 个性签名（最多 30 字）
     QDateTime createdAt;
     QDateTime lastLogin;
     QDateTime lastIdChangeTime;
@@ -62,6 +63,7 @@ public:
     bool updateAvatar(const QString &username, const QString &avatarPath, QString *error = nullptr);
     bool updateUsername(const QString &oldUsername, const QString &newUsername, QString *error = nullptr);
     bool updateNickname(const QString &username, const QString &newNickname, QString *error = nullptr);
+    bool updateBio(const QString &username, const QString &newBio, QString *error = nullptr);
     bool updateBackground(const QString &username, const QString &bgPath, QString *error = nullptr);
     bool updateAccountCover(const QString &username, const QString &coverPath, QString *error = nullptr);
     bool clearAccountCover(const QString &username, QString *error = nullptr);

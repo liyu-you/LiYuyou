@@ -45,6 +45,7 @@ private:
     QPushButton *m_resetCoverBtn = nullptr;
     QMovie *m_coverMovie = nullptr;
     QLineEdit *m_nicknameEdit;
+    QLineEdit *m_bioEdit;
     QLineEdit *m_userIdEdit;
     QLineEdit *m_usernameEdit;
     QLineEdit *m_emailEdit;
