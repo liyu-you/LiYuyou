@@ -68,6 +68,9 @@
 #include "musicplayer.h"
 #include "settingsdialog.h"
 #include <QSettings>
+#include <QScreen>
+#include <QGuiApplication>
+#include <QClipboard>
 
 // ========== Windows Acrylic Blur (毛玻璃效果) ==========
 #ifdef Q_OS_WIN
@@ -665,6 +668,20 @@ connect(scPanelSc, &QShortcut::activated, this, &MainWindow::openShortcutPanel);
 QShortcut *sidebarSc = new QShortcut(QKeySequence("Ctrl+8"), this);
 sidebarSc->setContext(Qt::ApplicationShortcut);
 connect(sidebarSc, &QShortcut::activated, this, &MainWindow::toggleSidebar);
+
+// ===== Global screenshot shortcut: Ctrl+Shift+A =====
+// Grab the full screen, drop it on the clipboard, jump to the library tab,
+// and importFromClipboard() saves it into the material library automatically.
+QShortcut *shotSc = new QShortcut(QKeySequence("Ctrl+Shift+A"), this);
+shotSc->setContext(Qt::ApplicationShortcut);
+connect(shotSc, &QShortcut::activated, this, [this]() {
+    QScreen *scr = QGuiApplication::primaryScreen();
+    if (!scr) return;
+    QPixmap pm = scr->grabWindow(0);
+    QGuiApplication::clipboard()->setPixmap(pm);
+    switchToPage(2); // library tab
+    if (m_materialWidget) m_materialWidget->importFromClipboard();
+});
 
     applyTheme(m_currentTheme);
     applyFontSize(m_fontSize);
