@@ -2332,6 +2332,7 @@ void MainWindow::applyTheme(const QString &theme)
         setStyleSheet(R"(
             QMainWindow { background-color: #f0f2f5; }
             QWidget { background-color: #f0f2f5; color: #1a1a1a; }
+            QToolTip { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 6px; padding: 8px 12px; font-size: 12px; }
             QMenuBar { background-color: #ffffff; color: #333; border: none; border-bottom: 1px solid #e0e0e0; padding: 2px; font-size: 13px; }
             QMenuBar::item { background: transparent; padding: 6px 14px; border-radius: 3px; }
             QMenuBar::item:selected { background-color: #e8f0fe; color: #1a73e8; }
@@ -2401,6 +2402,7 @@ void MainWindow::applyTheme(const QString &theme)
         setStyleSheet(R"(
             QMainWindow { background-color: #1b2838; }
             QWidget { background-color: #1b2838; color: #c7d5e0; }
+            QToolTip { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 6px; padding: 8px 12px; font-size: 12px; }
             QMenuBar { background-color: transparent; color: #c7d5e0; border: none; padding: 2px; font-size: 13px; }
             QMenuBar::item { background: transparent; padding: 6px 14px; border-radius: 3px; }
             QMenuBar::item:selected { background-color: #2a475e; color: #ffffff; }
