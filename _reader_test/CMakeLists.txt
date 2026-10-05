@@ -56,6 +56,16 @@ qt_add_executable(readerwidget_test
 target_include_directories(readerwidget_test PRIVATE ${SRC})
 target_link_libraries(readerwidget_test PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)
 
+# Wrap-width probe: open a book in a narrow window, widen it, compare wrap.
+qt_add_executable(wrapprobe
+    wrapprobe.cpp
+    ${SRC}/booklibrary.h ${SRC}/booklibrary.cpp
+    ${SRC}/readerwidget.h ${SRC}/readerwidget.cpp
+    ${SRC}/resources.qrc
+)
+target_include_directories(wrapprobe PRIVATE ${SRC})
+target_link_libraries(wrapprobe PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent dwmapi crypt32)
+
 # Screenshot probe: render the current reader shelf page for visual diffing.
 qt_add_executable(shelf_shot
     shelf_shot.cpp

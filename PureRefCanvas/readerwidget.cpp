@@ -951,10 +951,12 @@ void ReaderWidget::openBook(QListWidgetItem *item)
     applyTheme();
     m_readFlushCount = 0;
     m_readClock->start();
-    // The document is width-independent; once the page is shown, just re-apply
-    // the saved position (no document rebuild needed).
+    // The document is width-independent; once the page is shown, re-pin the
+    // wrap width to the real viewport, then re-apply the saved position.
     QTimer::singleShot(0, this, [this]() {
-        if (!m_currentBookId.isEmpty()) restorePosition(m_pendingRestorePos);
+        if (m_currentBookId.isEmpty()) return;
+        syncDocWidth();
+        restorePosition(m_pendingRestorePos);
     });
 }
 
@@ -966,7 +968,9 @@ void ReaderWidget::openBookById(const QString &id)
     m_readFlushCount = 0;
     m_readClock->start();
     QTimer::singleShot(0, this, [this]() {
-        if (!m_currentBookId.isEmpty()) restorePosition(m_pendingRestorePos);
+        if (m_currentBookId.isEmpty()) return;
+        syncDocWidth();
+        restorePosition(m_pendingRestorePos);
     });
 }
 
@@ -2381,6 +2385,17 @@ void ReaderWidget::resizeEvent(QResizeEvent *event)
         m_lastTopPos = topCharPos();
         m_relayoutTimer->start();
     }
+}
+
+void ReaderWidget::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    // The reading view may have been laid out while this widget was hidden
+    // (stale geometry), so its document can keep a wrap width pinned to a
+    // size that no longer matches the viewport. Re-sync once the layout has
+    // settled at the real size — otherwise text stays wrapped in a narrow
+    // column on one side of the page.
+    QTimer::singleShot(0, this, [this]() { syncDocWidth(); });
 }
 
 void ReaderWidget::keyPressEvent(QKeyEvent *event)
