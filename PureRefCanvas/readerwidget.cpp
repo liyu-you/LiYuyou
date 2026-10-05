@@ -837,12 +837,14 @@ QString ReaderWidget::barTextColor() const
 QString ReaderWidget::ctrlButtonStyle() const
 {
     const QString barText = barTextColor();
-    const QColor c(barText);
+    // Flat, background-less buttons: no fill, no border. They float directly
+    // on top of the (possibly custom) page background; hover gives a faint
+    // glow so the cursor still has feedback.
     return QString(
-        "QPushButton { background: rgba(%1,%2,%3,0.12); border: 1px solid rgba(%1,%2,%3,0.35);"
-        " border-radius: 13px; padding: 3px 10px; font-size: 12px; color: %4; }"
-        "QPushButton:hover { background: rgba(%1,%2,%3,0.20); border-color: %4; }")
-        .arg(c.red()).arg(c.green()).arg(c.blue()).arg(barText);
+        "QPushButton { background: transparent; border: none;"
+        " padding: 4px 10px; font-size: 12px; color: %1; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.18); border-radius: 4px; }")
+        .arg(barText);
 }
 
 // Feather icon copied from the user's design, tinted to the theme bar color so it
