@@ -110,6 +110,7 @@ private:
     void applyAcrylic();
     void applyTransparencySettings();
     void applyMenuBarMode();   // 普通菜单栏 <-> ☰ 半隐藏按钮
+    void applyAutostart(bool enabled);  // write/remove Windows Run registry key
     void applyEditorSettings(const QString &font, int fontSize);
     void refreshCanvasItemList();
     void showAccountDialog();
@@ -176,6 +177,7 @@ private:
     QString m_language = "zh";
     bool m_hardwareAcceleration = true;
     bool m_singleInstance = false;
+    bool m_autostart = false;
     bool m_acrylicEnabled = true;
     int m_acrylicOpacity = 73;
     bool m_menuBarTransparent = true;

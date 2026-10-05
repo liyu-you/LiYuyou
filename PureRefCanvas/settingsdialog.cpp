@@ -865,6 +865,11 @@ void SettingsDialog::setupUI()
     advancedLayout->addWidget(makeRow("单实例模式", "开启后只能运行一个程序窗口（重启生效）", m_singleInstanceCheck));
     advancedLayout->addWidget(makeSeparator());
 
+    m_autostartCheck = new QCheckBox;
+    m_autostartCheck->setChecked(false);
+    advancedLayout->addWidget(makeRow("开机自启动", "Windows 登录后自动运行里与由", m_autostartCheck));
+    advancedLayout->addWidget(makeSeparator());
+
     addSection(advancedLayout, "数据目录");
 
     auto makeDirRow = [this, &txtMain, &txtSub](const QString &label, const QString &desc, QLineEdit *&edit) -> QWidget* {
@@ -1379,6 +1384,16 @@ bool SettingsDialog::singleInstance() const
 void SettingsDialog::setSingleInstance(bool enabled)
 {
     if (m_singleInstanceCheck) m_singleInstanceCheck->setChecked(enabled);
+}
+
+bool SettingsDialog::autostart() const
+{
+    return m_autostartCheck ? m_autostartCheck->isChecked() : false;
+}
+
+void SettingsDialog::setAutostart(bool enabled)
+{
+    if (m_autostartCheck) m_autostartCheck->setChecked(enabled);
 }
 
 // ========== Music shortcut getters ==========

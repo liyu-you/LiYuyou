@@ -2110,6 +2110,7 @@ void MainWindow::openSettings()
     dlg.setLanguage(m_language);
     dlg.setHardwareAcceleration(m_hardwareAcceleration);
     dlg.setSingleInstance(m_singleInstance);
+    dlg.setAutostart(m_autostart);
     dlg.setAcrylicEnabled(m_acrylicEnabled);
     dlg.setAcrylicOpacity(m_acrylicOpacity);
     dlg.setMenuBarTransparent(m_menuBarTransparent);
@@ -2266,6 +2267,8 @@ void MainWindow::openSettings()
         m_language = dlg.language();
         m_hardwareAcceleration = dlg.hardwareAcceleration();
         m_singleInstance = dlg.singleInstance();
+        m_autostart = dlg.autostart();
+        applyAutostart(m_autostart);
         m_acrylicEnabled = dlg.acrylicEnabled();
         m_acrylicOpacity = dlg.acrylicOpacity();
         applyAcrylic();
@@ -2514,6 +2517,7 @@ void MainWindow::loadSettings()
     m_language = settings.value("language", "zh").toString();
     m_hardwareAcceleration = settings.value("hardwareAcceleration", true).toBool();
     m_singleInstance = settings.value("singleInstance", false).toBool();
+    m_autostart = settings.value("autostart", false).toBool();
     m_acrylicEnabled = settings.value("acrylicEnabled", false).toBool();
     m_acrylicOpacity = settings.value("acrylicOpacity", 73).toInt();
     m_menuBarTransparent = settings.value("menuBarTransparent", true).toBool();
@@ -2589,6 +2593,7 @@ void MainWindow::saveSettings()
     settings.setValue("language", m_language);
     settings.setValue("hardwareAcceleration", m_hardwareAcceleration);
     settings.setValue("singleInstance", m_singleInstance);
+    settings.setValue("autostart", m_autostart);
     settings.setValue("acrylicEnabled", m_acrylicEnabled);
     settings.setValue("acrylicOpacity", m_acrylicOpacity);
     settings.setValue("menuBarTransparent", m_menuBarTransparent);
@@ -2783,6 +2788,22 @@ void MainWindow::applyMenuBarMode()
         if (menuBar()) menuBar()->show();
         if (m_menuHamburger) m_menuHamburger->hide();
     }
+}
+
+void MainWindow::applyAutostart(bool enabled)
+{
+#ifdef Q_OS_WIN
+    // Write/remove HKCU\Software\Microsoft\Windows\CurrentVersion\Run\里与由
+    QSettings reg("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                  QSettings::NativeFormat);
+    if (enabled) {
+        QString exePath = QCoreApplication::applicationFilePath();
+        if (!exePath.startsWith('"')) exePath = "\"" + exePath + "\"";
+        reg.setValue("里与由", exePath);
+    } else {
+        reg.remove("里与由");
+    }
+#endif
 }
 
 void MainWindow::applyEditorSettings(const QString &font, int fontSize)

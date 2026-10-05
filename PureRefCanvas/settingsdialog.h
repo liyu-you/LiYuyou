@@ -158,6 +158,8 @@ public:
     void setMusicDir(const QString &dir);
     bool singleInstance() const;
     void setSingleInstance(bool enabled);
+    bool autostart() const;
+    void setAutostart(bool enabled);
 
     // Timer shutdown
     bool timerShutdownEnabled() const;
@@ -294,6 +296,7 @@ private:
     QLineEdit *m_booksDirEdit;
     QLineEdit *m_musicDirEdit;
     QCheckBox *m_singleInstanceCheck;
+    QCheckBox *m_autostartCheck;  // launch at Windows login
 
     // Music shortcuts
     QKeySequenceEdit *m_scPlayPause;
