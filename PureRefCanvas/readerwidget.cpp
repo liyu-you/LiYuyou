@@ -1860,7 +1860,7 @@ void ReaderWidget::showSelectionMenu(const QPoint &globalPos)
         relayoutPage();
     });
 
-    menu.addAction("✍  划线并写笔记", this, [this, s, e, excerpt]() {
+    menu.addAction("划线并写笔记", this, [this, s, e, excerpt]() {
         bool ok = false;
         QString note = QInputDialog::getMultiLineText(
             this, "写笔记",
