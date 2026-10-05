@@ -913,11 +913,35 @@ void ReaderWidget::loadBook(const QString &id)
     m_chapters = m_library->extractChapters(m_bookText);
     m_bookTitleLabel->setText(book.title);
 
-    // Build the paragraph index: trim each line, remember its source position.
+    // Build the paragraph index with hard-wrap reflow: web txt books break
+    // every ~25-40 chars, so consecutive non-blank lines are joined into one
+    // paragraph until a heading, a blank line, a full-width indent, or a
+    // decorative separator starts a new one. Per-line tables keep the
+    // source<->doc position mapping exact for annotations/bookmarks/progress.
     m_paras.clear();
     QSet<int> headingStarts;
     for (const ChapterInfo &ch : m_chapters)
         headingStarts.insert(ch.startPos);
+
+    QVector<int> curSrc, curLen;
+    int curBegin = -1;
+    bool curHeading = false;
+    auto flushPara = [&]() {
+        if (curBegin < 0) return;
+        Para p;
+        p.src = curBegin;
+        p.len = curSrc.last() + curLen.last() - curBegin;
+        p.heading = curHeading;
+        if (curSrc.size() > 1) {
+            p.lineSrc = curSrc;
+            p.lineLen = curLen;
+        }
+        m_paras << p;
+        curSrc.clear();
+        curLen.clear();
+        curBegin = -1;
+        curHeading = false;
+    };
 
     int ls = 0;
     const int len = m_bookText.length();
@@ -928,14 +952,27 @@ void ReaderWidget::loadBook(const QString &id)
         while (a < le && m_bookText[a].isSpace()) a++;
         while (bnd >= a && m_bookText[bnd].isSpace()) bnd--;
         if (bnd >= a) {
-            Para p;
-            p.src = a;
-            p.len = bnd - a + 1;
-            p.heading = headingStarts.contains(ls);
-            m_paras << p;
+            const QStringView line(m_bookText.mid(a, bnd - a + 1));
+            static const QRegularExpression separatorRe(
+                QStringLiteral("^[\\-—_=·*\\s]+$"));
+            const bool heading = headingStarts.contains(ls);
+            const bool separator = separatorRe.match(line).hasMatch();
+            const bool indented = line.startsWith(QChar(0x3000));
+            if (heading || separator || indented || curBegin < 0) {
+                flushPara();
+                curBegin = a;
+                curHeading = heading;
+            }
+            curSrc << a;
+            curLen << bnd - a + 1;
+            if (heading || separator)
+                flushPara();
+        } else {
+            flushPara(); // blank line ends the paragraph
         }
         ls = le + 1;
     }
+    flushPara();
 
     buildWholeDocument();
     // Position is restored once the reader page is actually shown (viewport
@@ -1032,7 +1069,14 @@ void ReaderWidget::buildDocument(QTextDocument *doc, int begin, int end) const
             all.append(QChar(0x3000)); // 首行缩进两个全角空格
             all.append(QChar(0x3000));
         }
-        all.append(bookView.mid(p.src, p.len));
+        if (p.lineSrc.isEmpty()) {
+            all.append(bookView.mid(p.src, p.len));
+        } else {
+            // Reflowed paragraph: join the hard-wrapped lines (no separator —
+            // CJK text flows across the original line breaks).
+            for (int k = 0; k < p.lineSrc.size(); ++k)
+                all.append(bookView.mid(p.lineSrc[k], p.lineLen[k]));
+        }
         all.append(QLatin1Char('\n'));
     }
     doc->setPlainText(all);
@@ -1213,8 +1257,25 @@ int ReaderWidget::docFromSource(int srcPos) const
     }
     int blockEnd = m_paraSrcStart[idx] + m_blockSrcLen[idx];
     srcPos = qBound(m_paraSrcStart[idx], srcPos, blockEnd);
-    return m_docBlockStart.value(idx, 0) + m_blockPrefix.value(idx, 0)
-           + (srcPos - m_paraSrcStart[idx]);
+    const int base = m_docBlockStart.value(idx, 0) + m_blockPrefix.value(idx, 0);
+    const Para &p = m_paras[idx];
+    if (p.lineSrc.isEmpty())
+        return base + (srcPos - m_paraSrcStart[idx]);
+
+    // Reflowed paragraph: walk the joined lines; a source position falling in
+    // a removed line-break gap clamps to the end of the preceding line.
+    const int rel = srcPos - p.src;
+    int docOff = 0;
+    for (int k = 0; k < p.lineSrc.size(); ++k) {
+        const int sOff = p.lineSrc[k] - p.src;
+        const int lLen = p.lineLen[k];
+        if (rel < sOff)
+            return base + docOff;
+        if (srcPos < p.lineSrc[k] + lLen)
+            return base + docOff + (srcPos - p.lineSrc[k]);
+        docOff += lLen;
+    }
+    return base + docOff;
 }
 
 int ReaderWidget::sourceFromDoc(int docPos) const
@@ -1222,11 +1283,28 @@ int ReaderWidget::sourceFromDoc(int docPos) const
     if (m_docBlockStart.isEmpty()) return 0;
     for (int i = 0; i < m_docBlockStart.size(); ++i) {
         const int start = m_docBlockStart[i];
-        const int shownLen = m_blockPrefix[i] + m_blockSrcLen[i];
+        const Para &p = m_paras.value(i);
+        // Actual rendered content length: joined lines (no gaps) for
+        // reflowed paragraphs, the source span otherwise.
+        int contentLen = p.len;
+        if (!p.lineSrc.isEmpty()) {
+            contentLen = 0;
+            for (int l : p.lineLen) contentLen += l;
+        }
+        const int shownLen = m_blockPrefix.value(i, 0) + contentLen;
         if (docPos < start + shownLen) {
-            int rel = docPos - start - m_blockPrefix[i];
-            rel = qBound(0, rel, m_blockSrcLen[i]);
-            return m_paraSrcStart[i] + rel;
+            int rel = docPos - start - m_blockPrefix.value(i, 0);
+            rel = qBound(0, rel, contentLen);
+            if (p.lineSrc.isEmpty())
+                return m_paraSrcStart[i] + rel;
+            int docOff = 0;
+            for (int k = 0; k < p.lineSrc.size(); ++k) {
+                const int lLen = p.lineLen[k];
+                if (rel < docOff + lLen)
+                    return p.lineSrc[k] + (rel - docOff);
+                docOff += lLen;
+            }
+            return p.lineSrc.last() + p.lineLen.last();
         }
     }
     const int last = m_docBlockStart.size() - 1;

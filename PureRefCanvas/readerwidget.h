@@ -90,7 +90,15 @@ protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
 private:
-    struct Para { int src = 0; int len = 0; bool heading = false; };
+    struct Para {
+        int src = 0;    // first line's source start
+        int len = 0;    // source span (first line start .. last line end, gaps included)
+        bool heading = false;
+        // Reflow of hard-wrapped txt: per-line tables for merged paragraphs
+        // (empty for single-line paragraphs, where doc content == source 1:1).
+        QVector<int> lineSrc;   // absolute source start of each joined line
+        QVector<int> lineLen;   // stripped length of each joined line
+    };
 
     void setupUI();
     void setupShelfPage();

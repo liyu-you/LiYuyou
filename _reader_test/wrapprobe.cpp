@@ -43,11 +43,18 @@ int main(int argc, char **argv)
     QDir(root).removeRecursively();
     QDir().mkpath(root);
 
-    // A long enough book to be realistic.
-    QString text;
-    const QString para = QStringLiteral("甄士隱夢幻識通靈賈雨村風塵懷閨秀，此開卷第一回也。作者自云曾歷過一番夢幻之後，故將真事隱去，而借通靈之說撰此石頭記一書也。故曰甄士隱云云。但書中所記何事何人，自又云而今風塵碌碌一事無成，忽念及當日所有之女子，一一細考較去，覺其行止見識皆出於我之上。");
-    for (int i = 0; i < 60; ++i) text += para + "\n";
-    text = QStringLiteral("第一回　甄士隱夢幻識通靈　賈雨村風塵懷閨秀\n") + text;
+    // A realistic web-txt book: hard-wrapped ~28-char lines, paragraphs start
+    // with two full-width spaces, blank line between paragraphs (the layout
+    // that produced the "text only fills 40% of the width" report).
+    QString text = QStringLiteral("第一回　甄士隱夢幻識通靈　賈雨村風塵懷閨秀\n");
+    text += QStringLiteral("----------------------------------------------\n");
+    const QString paraText = QStringLiteral("甄士隱夢幻識通靈賈雨村風塵懷閨秀，此開卷第一回也。作者自云曾歷過一番夢幻之後，故將真事隱去，而借通靈之說撰此石頭記一書也。故曰甄士隱云云。但書中所記何事何人，自又云而今風塵碌碌一事無成，忽念及當日所有之女子，一一細考較去，覺其行止見識皆出於我之上。何我堂堂鬚眉，誠不若彼裙釵哉？");
+    for (int i = 0; i < 40; ++i) {
+        text += QStringLiteral("\u3000\u3000");
+        for (int k = 0; k < paraText.length(); k += 28)
+            text += paraText.mid(k, 28) + QLatin1Char('\n');
+        text += QLatin1Char('\n');
+    }
     const QString bookPath = root + "/_wrap_book.txt";
     QFile f(bookPath);
     f.open(QIODevice::WriteOnly);
