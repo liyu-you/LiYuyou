@@ -1063,10 +1063,10 @@ void MainWindow::setupNavigation()
     // User popup menu
     QMenu *userMenu = new QMenu(this);
     userMenu->setStyleSheet(R"(
-        QMenu { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; padding: 6px; }
-        QMenu::item { color: #1F2933; padding: 8px 20px; border-radius: 5px; font-size: 13px; }
-        QMenu::item:hover { background: #F3F4F6; color: #2FA66A; }
-        QMenu::separator { height: 1px; background: #E5E7EB; margin: 4px 8px; }
+        QMenu { background: #ffffff; border: 1px solid #dadce0; border-radius: 8px; padding: 6px; }
+        QMenu::item { color: #202124; padding: 8px 24px; border-radius: 4px; font-size: 13px; }
+        QMenu::item:selected { background: #e8f0fe; color: #1a73e8; }
+        QMenu::separator { height: 1px; background: #e0e0e0; margin: 4px 8px; }
     )");
     QAction *accountAct = userMenu->addAction("账号信息");
     QAction *settingsAct = userMenu->addAction("偏好设置");
@@ -2339,8 +2339,8 @@ void MainWindow::applyTheme(const QString &theme)
             QMenuBar { background-color: #ffffff; color: #333; border: none; border-bottom: 1px solid #e0e0e0; padding: 2px; font-size: 13px; }
             QMenuBar::item { background: transparent; padding: 6px 14px; border-radius: 3px; }
             QMenuBar::item:selected { background-color: #e8f0fe; color: #1a73e8; }
-            QMenu { background-color: #ffffff; color: #333; border: 1px solid #e0e0e0; padding: 4px; font-size: 13px; }
-            QMenu::item { padding: 6px 28px; border-radius: 3px; }
+            QMenu { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 8px; padding: 6px; font-size: 13px; }
+            QMenu::item { padding: 8px 28px 8px 16px; border-radius: 4px; }
             QMenu::item:selected { background-color: #e8f0fe; color: #1a73e8; }
             QMenu::separator { height: 1px; background-color: #e0e0e0; margin: 4px 8px; }
             QToolBar { background-color: #ffffff; border: none; border-bottom: 1px solid #e0e0e0; padding: 4px 8px; spacing: 4px; }
