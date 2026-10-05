@@ -224,7 +224,8 @@ void NoteWidget::setupUI()
             padding: 32px 72px;
             font-size: 14px;
             font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
-            selection-background-color: #cfe8ff;
+            selection-background-color: #1a73e8;
+            selection-color: #ffffff;
         }
         QScrollBar:vertical { background: transparent; width: 10px; margin: 4px; }
         QScrollBar::handle:vertical { background: rgba(42,71,94,0.5); border-radius: 5px; min-height: 30px; }
@@ -2359,7 +2360,8 @@ void NoteWidget::setBgColor(const QColor &c)
             padding: 24px 60px;
             font-size: 14px;
             font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
-            selection-background-color: #cfe8ff;
+            selection-background-color: #1a73e8;
+            selection-color: #ffffff;
         }
     )").arg(c.name()));
 }
