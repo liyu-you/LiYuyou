@@ -847,6 +847,30 @@ void NoteWidget::newNote()
     m_titleEdit->setFocus();
 }
 
+void NoteWidget::newNoteWithExcerpt(const QString &title, const QString &excerpt, const QString &source)
+{
+    saveCurrentNote();
+    NoteData note;
+    note.id = generateId();
+    note.title = title;
+    // Build a styled blockquote note: indented quote + source footer.
+    note.content = QStringLiteral(
+        "<blockquote style=\"margin: 12px 0; padding: 12px 16px; "
+        "border-left: 3px solid #1a73e8; background: #f1f3f4; "
+        "color: #202124; border-radius: 0 8px 8px 0;\">"
+        "%1"
+        "</blockquote>"
+        "<p style=\"color:#5f6368; font-size:12px;\">—— %2</p>"
+        "<p><br></p>"
+    ).arg(excerpt.toHtmlEscaped().replace("\n", "<br>"), source.toHtmlEscaped());
+    note.createdAt = QDateTime::currentDateTime();
+    note.updatedAt = QDateTime::currentDateTime();
+    note.folder = "";
+    m_notes.prepend(note);
+    saveNotes();
+    openNote(note.id);
+}
+
 void NoteWidget::journalToday()
 {
     // Logseq-style daily journal: title "日记 YYYY-MM-DD".

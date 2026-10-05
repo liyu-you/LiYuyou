@@ -85,6 +85,10 @@ public slots:
     void openFindBar(bool withReplace = false);  // Word-style Ctrl+F / Ctrl+H
     void openOrCreateByTitle(const QString &title);  // [[wiki-link]] resolver
     void toggleSidebar();  // 折叠/展开左侧内容浏览器（Ctrl+8）
+    // Create a new note pre-filled with an excerpt from another workspace
+    // (e.g. a reader selection). title is the note title, excerpt is the
+    // plain text quote, source is a footer line like "——《书》· 章节".
+    void newNoteWithExcerpt(const QString &title, const QString &excerpt, const QString &source);
 
 private slots:
     void onTextChanged();

@@ -1032,6 +1032,14 @@ void MainWindow::setupPages()
         m_readerLineSpacing = spacing;
         saveSettings();
     });
+    // Cross-workspace: reader right-click "存为笔记" -> jump to notes and create
+    // a new note pre-filled with the excerpt + book/chapter source.
+    connect(m_readerWidget, &ReaderWidget::saveExcerptRequested, this,
+            [this](const QString &title, const QString &excerpt, const QString &source) {
+        if (!m_noteWidget) return;
+        switchToPage(1);
+        m_noteWidget->newNoteWithExcerpt(title, excerpt, source);
+    });
     m_stack->addWidget(m_readerWidget);
     qApp->processEvents();
 

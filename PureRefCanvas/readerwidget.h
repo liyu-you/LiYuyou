@@ -42,6 +42,8 @@ signals:
     void customColorsChanged(const QColor &bg, const QColor &text);
     void fontFamilyChanged(const QString &displayName);   // e.g. "宋体" / "微软雅黑"
     void lineSpacingChanged(qreal spacing);
+    // Cross-workspace: user right-clicked "存为笔记" on a selection.
+    void saveExcerptRequested(const QString &title, const QString &excerpt, const QString &source);
 
 private slots:
     void refreshShelf();

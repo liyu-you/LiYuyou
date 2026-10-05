@@ -1880,6 +1880,16 @@ void ReaderWidget::showSelectionMenu(const QPoint &globalPos)
     });
 
     menu.addSeparator();
+    menu.addAction("存为笔记", this, [this, s, e, excerpt]() {
+        const BookInfo book = m_library->bookById(m_currentBookId);
+        const QString chapter = m_library->findChapterTitle(m_bookText, s);
+        const QString title = QStringLiteral("摘录《%1》").arg(book.title);
+        const QString source = chapter.isEmpty()
+            ? QStringLiteral("%1").arg(book.title)
+            : QStringLiteral("%1 · %2").arg(book.title, chapter);
+        emit saveExcerptRequested(title, excerpt, source);
+        clearTextSelection();
+    });
     menu.addAction("复制原文", this, [this, s, e]() {
         QApplication::clipboard()->setText(m_bookText.mid(s, e - s));
         clearTextSelection();
