@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "autosavecontroller.h"
 #include "themeapplier.h"
+#include "shutdowncontroller.h"
 #include "updatechecker.h"
 #include "canvasscene.h"
 #include "canvasview.h"
@@ -793,6 +794,19 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
         w.contentBrowser   = m_contentBrowser;
         m_theme = new ThemeApplier(m_cfg, w);
         m_theme->applyAll();
+    }
+
+    // Timer shutdown countdown: delegate to a controller that owns the
+    // per-second tick and the final quit sequence.
+    {
+        ShutdownController::Hooks h;
+        h.saveSettings = [this] { saveSettings(); };
+        h.quit         = [this] { qApp->quit(); };
+        m_shutdown = new ShutdownController(std::move(h), this);
+        m_shutdown->apply(m_cfg.timerShutdownEnabled,
+                          m_cfg.timerShutdownHours,
+                          m_cfg.timerShutdownMinutes,
+                          m_cfg.shutdownPCEnabled);
     }
 
     // Auto-save: delegate to a dedicated controller. We hand it callbacks that
@@ -2241,7 +2255,11 @@ void MainWindow::openSettings()
         m_cfg.timerShutdownHours = dlg.timerShutdownHours();
         m_cfg.timerShutdownMinutes = dlg.timerShutdownMinutes();
         m_cfg.shutdownPCEnabled = dlg.shutdownPCEnabled();
-        applyTimerShutdown();
+        if (m_shutdown)
+            m_shutdown->apply(m_cfg.timerShutdownEnabled,
+                              m_cfg.timerShutdownHours,
+                              m_cfg.timerShutdownMinutes,
+                              m_cfg.shutdownPCEnabled);
 
         // New settings
         m_cfg.startupPage = dlg.startupPage();
@@ -2415,39 +2433,6 @@ void MainWindow::openShortcutPanel()
 }
 
 #include "mainwindow.moc"
-
-void MainWindow::applyTimerShutdown()
-{
-    if (m_shutdownTimer) {
-        m_shutdownTimer->stop();
-        delete m_shutdownTimer;
-        m_shutdownTimer = nullptr;
-    }
-
-    if (!m_cfg.timerShutdownEnabled) return;
-
-    qint64 totalMs = (m_cfg.timerShutdownHours * 3600LL + m_cfg.timerShutdownMinutes * 60LL) * 1000LL;
-    if (totalMs <= 0) return;
-
-    m_shutdownRemainingMs = totalMs;
-    m_shutdownTimer = new QTimer(this);
-    m_shutdownTimer->setInterval(1000);
-    connect(m_shutdownTimer, &QTimer::timeout, this, &MainWindow::onShutdownTick);
-    m_shutdownTimer->start();
-}
-
-void MainWindow::onShutdownTick()
-{
-    m_shutdownRemainingMs -= 1000;
-    if (m_shutdownRemainingMs <= 0) {
-        m_shutdownTimer->stop();
-        saveSettings();
-        if (m_cfg.shutdownPCEnabled) {
-            QProcess::startDetached("shutdown", {"/s", "/t", "0"});
-        }
-        qApp->quit();
-    }
-}
 
 void MainWindow::refreshCanvasItemList()
 {

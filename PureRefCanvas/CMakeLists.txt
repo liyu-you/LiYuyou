@@ -25,6 +25,7 @@ qt_add_executable(PureRefCanvas
     appsettings.h appsettings.cpp
     autosavecontroller.h autosavecontroller.cpp
     themeapplier.h themeapplier.cpp
+    shutdowncontroller.h shutdowncontroller.cpp
     canvasview.h canvasview.cpp
     canvasscene.h canvasscene.cpp
     imageitem.h imageitem.cpp

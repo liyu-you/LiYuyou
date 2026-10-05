@@ -25,6 +25,7 @@ class ContentBrowserPanel;
 class UserAuth;
 class AutoSaveController;
 class ThemeApplier;
+class ShutdownController;
 #include "userauth.h"
 
 class MainWindow : public QMainWindow
@@ -148,11 +149,9 @@ private:
 
     QList<QShortcut*> m_musicShortcuts;
 
-    // Timer shutdown runtime state
-    QTimer *m_shutdownTimer = nullptr;
-    qint64 m_shutdownRemainingMs = 0;
-    void applyTimerShutdown();
-    void onShutdownTick();
+    // Timer shutdown is delegated to a dedicated controller.
+    ShutdownController *m_shutdown = nullptr;
+
     QListWidget *m_canvasItemList = nullptr;
     MaterialLibrary *m_sharedLibrary = nullptr;
     ContentBrowserPanel *m_contentBrowser = nullptr;
