@@ -46,6 +46,7 @@
 #include <QMap>
 #include <QScrollArea>
 #include <QMouseEvent>
+#include <QKeyEvent>
 #include <QDrag>
 #include <QMimeData>
 #include <QToolButton>
@@ -486,6 +487,9 @@ void MaterialWidget::setupUI()
     m_splitter->setStretchFactor(1, 1);
     browserLayout->addWidget(m_splitter, 1);
 
+    // Route all key events (Ctrl+V paste, etc.) through our event filter.
+    m_browserPage->installEventFilter(this);
+
     m_stack->addWidget(m_browserPage);
 
     // ===== Preview Page =====
@@ -681,6 +685,17 @@ void MaterialWidget::refreshAssetGrid()
         items = filtered;
     }
 
+    // Rating filter: index 0 = all, 1 = >=1, ..., 4 = >=4, 5 = ==5
+    if (m_ratingFilter && m_ratingFilter->currentIndex() > 0) {
+        QList<MaterialItem> filtered;
+        const int idx = m_ratingFilter->currentIndex();
+        for (const MaterialItem &mat : items) {
+            if (idx == 5) { if (mat.rating == 5) filtered.append(mat); }
+            else          { if (mat.rating >= idx) filtered.append(mat); }
+        }
+        items = filtered;
+    }
+
     const int cardWidth = m_masonry->columnWidth();
     const int imgWidth = cardWidth - kCardBorder * 2;
 
@@ -789,6 +804,22 @@ void MaterialWidget::refreshAssetGrid()
         }
         imgLabel->setFixedSize(imgWidth, imgHeight);
         cardLayout->addWidget(imgLabel);
+
+        // Rating row (only shown when rated): ★★★☆☆ — Eagle-style corner badge.
+        // We lay it out as a thin row directly under the thumbnail so we don't
+        // have to fight absolute positioning inside the masonry card.
+        if (mat.rating > 0) {
+            QLabel *starLabel = new QLabel;
+            starLabel->setObjectName("cardStars");
+            starLabel->setFixedHeight(12);
+            QString stars;
+            for (int s = 1; s <= 5; ++s) stars += (s <= mat.rating ? QChar(0x2605) : QChar(0x2606));
+            starLabel->setText(stars);
+            starLabel->setStyleSheet(
+                "color: #f2c94c; font-size: 10px; background: transparent;");
+            starLabel->setAlignment(Qt::AlignCenter);
+            cardLayout->addWidget(starLabel);
+        }
 
         // Filename label (hidden by default, shown on hover via eventFilter)
         QLabel *nameLabel = new QLabel(mat.baseName());
@@ -1174,11 +1205,25 @@ void MaterialWidget::onGridContextMenu(const QPoint &pos)
             if (!path.isEmpty()) emit addToCanvasRequested(path);
         });
         menu.addAction("预览", this, [this, card]() { onAssetDoubleClicked(card); });
-        menu.addAction("重命名", this, &MaterialWidget::renameSelected);
         menu.addSeparator();
+
+        // Rating submenu (Eagle-style: 0..5 stars, applies to selection)
+        QMenu *ratingMenu = menu.addMenu("★ 评分");
+        ratingMenu->setStyleSheet(menu.styleSheet());
+        for (int s = 0; s <= 5; ++s) {
+            QString label = (s == 0) ? "清除评分" : QString("★").repeated(s) + QString("☆").repeated(5 - s);
+            ratingMenu->addAction(label, this, [this, s]() { applyRatingToSelected(s); });
+        }
+
+        menu.addAction("🏷 编辑标签…", this, &MaterialWidget::editTagsSelected);
+        menu.addAction("📝 编辑备注…", this, &MaterialWidget::editNoteSelected);
+        menu.addAction("🔗 来源信息…", this, &MaterialWidget::showSourceInfoForSelected);
+        menu.addSeparator();
+        menu.addAction("重命名", this, &MaterialWidget::renameSelected);
         menu.addAction("删除", this, &MaterialWidget::deleteSelected);
     } else {
         menu.addAction("导入文件", this, &MaterialWidget::importFiles);
+        menu.addAction("粘贴剪贴板图片 (Ctrl+V)", this, &MaterialWidget::importFromClipboard);
         menu.addAction("新建文件夹", this, &MaterialWidget::createFolder);
         if (!m_currentPath.isEmpty()) {
             menu.addAction("返回上级", this, &MaterialWidget::navigateUp);
@@ -1275,6 +1320,126 @@ void MaterialWidget::onSearchChanged(const QString &)
 
 void MaterialWidget::onBreadcrumbClicked(const QString &)
 {
+}
+
+// ===== Clipboard paste import (Eagle feature #3 / #4) =====
+void MaterialWidget::importFromClipboard()
+{
+    const QClipboard *clip = QApplication::clipboard();
+    const QMimeData *mime = clip ? clip->mimeData() : nullptr;
+    if (!mime) return;
+
+    // Prefer an actual image on the clipboard.
+    if (mime->hasImage()) {
+        QImage img = qvariant_cast<QImage>(mime->imageData());
+        if (!img.isNull()) {
+            QString newId = m_library->importFromImage(img, m_currentPath);
+            if (!newId.isEmpty()) {
+                refreshAssetGrid();
+                m_statusLabel->setText(QString("已从剪贴板粘贴 (%1×%2)").arg(img.width()).arg(img.height()));
+            } else {
+                QMessageBox::warning(this, "粘贴失败", "保存剪贴板图片到素材库时出错。");
+            }
+            return;
+        }
+    }
+    // Fallback: dropped/printed image files on the clipboard (file list)
+    if (mime->hasUrls()) {
+        QStringList files;
+        for (const QUrl &u : mime->urls())
+            if (u.isLocalFile()) files << u.toLocalFile();
+        if (!files.isEmpty()) {
+            m_library->importFiles(files, m_currentPath);
+            return;
+        }
+    }
+    QMessageBox::information(this, "剪贴板", "剪贴板里没有可导入的图片或文件。");
+}
+
+void MaterialWidget::keyPressEvent(QKeyEvent *event)
+{
+    // Only intercept paste when the user isn't typing into the search box.
+    if ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_V &&
+        (!m_searchEdit || !m_searchEdit->hasFocus())) {
+        importFromClipboard();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
+// ===== Metadata editing (tags / rating / note / source) =====
+void MaterialWidget::applyRatingToSelected(int stars)
+{
+    const QStringList ids = selectedIds();
+    if (ids.isEmpty()) return;
+    for (const QString &id : ids) m_library->setRating(id, stars);
+    refreshAssetGrid();
+    m_statusLabel->setText(
+        stars == 0 ? QString("已清除 %1 项的评分").arg(ids.size())
+                  : QString("已把 %1 项设为 %2 星").arg(ids.size()).arg(stars));
+}
+
+void MaterialWidget::editTagsSelected()
+{
+    const QStringList ids = selectedIds();
+    if (ids.isEmpty()) return;
+    // When multiple items are selected, start from the union of their tags.
+    QSet<QString> merged;
+    for (const QString &id : ids) {
+        MaterialItem it = m_library->itemById(id);
+        for (const QString &t : it.tags) merged.insert(t);
+    }
+    bool ok;
+    QString text = QInputDialog::getText(this,
+        ids.size() == 1 ? "编辑标签" : QString("批量编辑标签（%1 项）").arg(ids.size()),
+        "标签（用逗号分隔）：", QLineEdit::Normal,
+        QStringList(merged.values()).join(", "), &ok);
+    if (!ok) return;
+    QStringList tags;
+    for (const QString &tok : text.split(',', Qt::SkipEmptyParts)) {
+        QString s = tok.trimmed();
+        if (!s.isEmpty() && !tags.contains(s)) tags << s;
+    }
+    for (const QString &id : ids) m_library->setTags(id, tags);
+    refreshAssetGrid();
+}
+
+void MaterialWidget::editNoteSelected()
+{
+    const QStringList ids = selectedIds();
+    if (ids.size() != 1) {
+        QMessageBox::information(this, "编辑备注", "请先单选一项素材再编辑备注。");
+        return;
+    }
+    MaterialItem it = m_library->itemById(ids.first());
+    bool ok;
+    QString text = QInputDialog::getMultiLineText(this, "编辑备注", "备注：", it.note, &ok);
+    if (!ok) return;
+    m_library->setNote(ids.first(), text);
+    refreshAssetGrid();
+}
+
+void MaterialWidget::showSourceInfoForSelected()
+{
+    const QStringList ids = selectedIds();
+    if (ids.size() != 1) return;
+    MaterialItem it = m_library->itemById(ids.first());
+    QString info = QString(
+        "<table cellpadding='4'>"
+        "<tr><td><b>文件：</b></td><td>%1</td></tr>"
+        "<tr><td><b>标签：</b></td><td>%2</td></tr>"
+        "<tr><td><b>评分：</b></td><td>%3</td></tr>"
+        "<tr><td><b>来源 URL：</b></td><td>%4</td></tr>"
+        "<tr><td><b>来源页面：</b></td><td>%5</td></tr>"
+        "<tr><td><b>导入时间：</b></td><td>%6</td></tr>"
+        "</table>")
+        .arg(it.fileName.toHtmlEscaped(),
+             it.tags.join(", ").toHtmlEscaped().isEmpty() ? QString("<i>无</i>") : it.tags.join(", ").toHtmlEscaped(),
+             it.rating > 0 ? QString("★").repeated(it.rating) : QString("<i>未评分</i>"),
+             it.sourceUrl.isEmpty() ? QString("<i>本地导入</i>") : it.sourceUrl.toHtmlEscaped(),
+             it.sourceReferrer.isEmpty() ? QString("<i>—</i>") : it.sourceReferrer.toHtmlEscaped(),
+             it.importedAt.toString("yyyy-MM-dd HH:mm"));
+    QMessageBox::information(this, "来源信息", info);
 }
 
 QStringList MaterialWidget::selectedIds() const
@@ -1435,6 +1600,14 @@ void MaterialWidget::createColorFilterBar()
     connect(m_formatFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MaterialWidget::refreshAssetGrid);
     lay->addWidget(m_formatFilter);
 
+    // Rating filter: 全部 / ≥1★ / ≥2★ / ... / ≥5★
+    m_ratingFilter = new QComboBox;
+    m_ratingFilter->addItems({"星级: 全部", "★≥1", "★≥2", "★≥3", "★≥4", "★=5"});
+    m_ratingFilter->setFixedHeight(22);
+    m_ratingFilter->setStyleSheet(m_sizeFilter->styleSheet());
+    connect(m_ratingFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MaterialWidget::refreshAssetGrid);
+    lay->addWidget(m_ratingFilter);
+
     // View mode toggle (Masonry / Grid / List)
     m_viewModeBtn = new QToolButton;
     m_viewModeBtn->setText("▦ 瀑布流");
@@ -1589,6 +1762,16 @@ void MaterialWidget::setGridTransparent(bool transparent)
 
 bool MaterialWidget::eventFilter(QObject *obj, QEvent *event)
 {
+    // Global Ctrl+V: paste clipboard image into the library. We intercept at
+    // the event-filter level because focus may sit on a child widget (card,
+    // scroll area) that doesn't forward key events to this widget.
+    if (event->type() == QEvent::KeyPress && obj != m_searchEdit) {
+        QKeyEvent *ke = static_cast<QKeyEvent*>(event);
+        if ((ke->modifiers() & Qt::ControlModifier) && ke->key() == Qt::Key_V) {
+            importFromClipboard();
+            return true;
+        }
+    }
     // List-view rows: double-click to preview
     if (obj->isWidgetType() && static_cast<QWidget*>(obj)->property("isListRow").toBool()) {
         if (event->type() == QEvent::MouseButtonDblClick) {

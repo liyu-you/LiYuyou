@@ -117,9 +117,11 @@ private:
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 public slots:
     void importFiles();
+    void importFromClipboard();   // Ctrl+V: paste clipboard image into library
 
 private slots:
     void refreshAll();
@@ -137,6 +139,12 @@ private slots:
     void renameSelected();
     void navigateUp();
     void navigateBack();
+
+    // Eagle-style metadata editing on current selection
+    void editTagsSelected();
+    void editNoteSelected();
+    void applyRatingToSelected(int stars);
+    void showSourceInfoForSelected();
     void previewAsset(const QString &filePath, AssetType type);
     void closePreview();
     void previewZoomIn();
@@ -210,6 +218,7 @@ private:
     // Additional filters
     QComboBox *m_sizeFilter = nullptr;   // 全部/小/中/大
     QComboBox *m_formatFilter = nullptr; // 全部/图片/视频/文本
+    QComboBox *m_ratingFilter = nullptr; // 全部/≥1/≥2/.../≥5
     // View mode
     enum class ViewMode { Masonry, Grid, List };
     ViewMode m_viewMode = ViewMode::Masonry;

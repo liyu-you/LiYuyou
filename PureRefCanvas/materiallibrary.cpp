@@ -167,6 +167,9 @@ bool MaterialLibrary::load()
         item.type = (AssetType)obj["type"].toInt(0);
         item.tags = obj["tags"].toVariant().toStringList();
         item.note = obj["note"].toString();
+        item.rating = obj["rating"].toInt(0);
+        item.sourceUrl = obj["sourceUrl"].toString();
+        item.sourceReferrer = obj["sourceReferrer"].toString();
         item.width = obj["width"].toInt();
         item.height = obj["height"].toInt();
         item.fileSize = obj["fileSize"].toVariant().toLongLong();
@@ -189,6 +192,9 @@ bool MaterialLibrary::save()
         obj["type"] = (int)item.type;
         obj["tags"] = QJsonArray::fromStringList(item.tags);
         obj["note"] = item.note;
+        obj["rating"] = item.rating;
+        obj["sourceUrl"] = item.sourceUrl;
+        obj["sourceReferrer"] = item.sourceReferrer;
         obj["width"] = item.width;
         obj["height"] = item.height;
         obj["fileSize"] = (double)item.fileSize;
@@ -211,16 +217,116 @@ QList<MaterialItem> MaterialLibrary::itemsInFolder(const QString &folderPath) co
     return result;
 }
 
-QList<MaterialItem> MaterialLibrary::searchItems(const QString &text) const
+// Eagle-style structured search. Tokens are AND-ed. Recognised prefixes:
+//   tag:<word>        must carry tag <word> (case-insensitive)
+//   rating:N          rating == N
+//   rating:>=N / >N / <=N / <N   rating comparison
+//   ext:<ext>         file extension (without dot, case-insensitive)
+//   name:<word>       base name contains <word>
+//   note:<word>       note contains <word>
+// A bare token matches against fileName, filePath, tags, note and sourceUrl.
+QList<MaterialItem> MaterialLibrary::searchItems(const QString &rawText) const
 {
+    QString text = rawText.trimmed();
     if (text.isEmpty()) return m_items;
-    QString t = text.toLower();
+
+    // Tokenise on whitespace but preserve quoted phrases ("two words").
+    QStringList tokens;
+    {
+        QString cur;
+        bool inQuote = false;
+        for (const QChar ch : text) {
+            if (ch == '"') { inQuote = !inQuote; continue; }
+            if (ch.isSpace() && !inQuote) {
+                if (!cur.isEmpty()) { tokens << cur; cur.clear(); }
+            } else {
+                cur += ch;
+            }
+        }
+        if (!cur.isEmpty()) tokens << cur;
+    }
+
+    // Precompile token predicates.
+    struct Pred {
+        enum Kind { Tag, Rating, Ext, Name, Note, Free } kind;
+        QString value;          // for Tag/Ext/Name/Note/Free
+        int ratingOp = 0;       // 0=eq, 1=>=, 2=>, 3=<=, 4=<
+        int ratingVal = 0;
+    };
+    QList<Pred> preds;
+    for (const QString &tok : tokens) {
+        QString lower = tok.toLower();
+        Pred p;
+        if (lower.startsWith("tag:")) {
+            p.kind = Pred::Tag; p.value = tok.mid(4).toLower();
+        } else if (lower.startsWith("rating:")) {
+            p.kind = Pred::Rating;
+            QString body = tok.mid(7);
+            if (body.startsWith(">=")) { p.ratingOp = 1; p.ratingVal = body.mid(2).toInt(); }
+            else if (body.startsWith(">"))  { p.ratingOp = 2; p.ratingVal = body.mid(1).toInt(); }
+            else if (body.startsWith("<=")){ p.ratingOp = 3; p.ratingVal = body.mid(2).toInt(); }
+            else if (body.startsWith("<")) { p.ratingOp = 4; p.ratingVal = body.mid(1).toInt(); }
+            else                            { p.ratingOp = 0; p.ratingVal = body.toInt(); }
+        } else if (lower.startsWith("ext:")) {
+            p.kind = Pred::Ext; p.value = tok.mid(4).toLower();
+        } else if (lower.startsWith("name:")) {
+            p.kind = Pred::Name; p.value = tok.mid(5).toLower();
+        } else if (lower.startsWith("note:")) {
+            p.kind = Pred::Note; p.value = tok.mid(5).toLower();
+        } else {
+            p.kind = Pred::Free; p.value = lower;
+        }
+        preds << p;
+    }
+
     QList<MaterialItem> result;
     for (const MaterialItem &item : m_items) {
-        if (item.fileName.toLower().contains(t) ||
-            item.filePath.toLower().contains(t) ||
-            item.note.toLower().contains(t))
-            result.append(item);
+        bool ok = true;
+        for (const Pred &p : preds) {
+            switch (p.kind) {
+            case Pred::Tag: {
+                bool hit = false;
+                for (const QString &t : item.tags)
+                    if (t.toLower().contains(p.value)) { hit = true; break; }
+                if (!hit) ok = false;
+                break;
+            }
+            case Pred::Rating: {
+                const int r = item.rating;
+                switch (p.ratingOp) {
+                    case 0: ok = (r == p.ratingVal); break;
+                    case 1: ok = (r >= p.ratingVal); break;
+                    case 2: ok = (r >  p.ratingVal); break;
+                    case 3: ok = (r <= p.ratingVal); break;
+                    case 4: ok = (r <  p.ratingVal); break;
+                }
+                break;
+            }
+            case Pred::Ext:
+                ok = QFileInfo(item.fileName).suffix().toLower() == p.value;
+                break;
+            case Pred::Name:
+                ok = item.baseName().toLower().contains(p.value);
+                break;
+            case Pred::Note:
+                ok = item.note.toLower().contains(p.value);
+                break;
+            case Pred::Free: {
+                bool hit = item.fileName.toLower().contains(p.value)
+                        || item.filePath.toLower().contains(p.value)
+                        || item.note.toLower().contains(p.value)
+                        || item.sourceUrl.toLower().contains(p.value);
+                if (!hit) {
+                    for (const QString &t : item.tags)
+                        if (t.toLower().contains(p.value)) { hit = true; break; }
+                }
+                if (!hit) ok = false;
+                break;
+            }
+            }
+            if (!ok) break;
+        }
+        if (ok) result.append(item);
     }
     return result;
 }
@@ -306,7 +412,8 @@ QString MaterialLibrary::uniqueFilePath(const QString &folder, const QString &fi
     }
 }
 
-bool MaterialLibrary::importFiles(const QStringList &filePaths, const QString &targetFolder)
+bool MaterialLibrary::importFiles(const QStringList &filePaths, const QString &targetFolder,
+                                  const QString &sourceUrl, const QString &referrer)
 {
     bool any = false;
     for (const QString &srcPath : filePaths) {
@@ -324,6 +431,8 @@ bool MaterialLibrary::importFiles(const QStringList &filePaths, const QString &t
         item.type = detectType(fi.fileName());
         item.fileSize = fi.size();
         item.importedAt = QDateTime::currentDateTime();
+        item.sourceUrl = sourceUrl;
+        item.sourceReferrer = referrer;
         if (item.type == AssetImage) {
             QImage img(srcPath);
             if (!img.isNull()) {
@@ -336,6 +445,34 @@ bool MaterialLibrary::importFiles(const QStringList &filePaths, const QString &t
     }
     if (any) save();
     return any;
+}
+
+QString MaterialLibrary::importFromImage(const QImage &image, const QString &targetFolder,
+                                         const QString &sourceUrl, const QString &referrer)
+{
+    if (image.isNull()) return QString();
+    // Build a unique filename: "pasted_yyyyMMdd_hhmmss.png"
+    const QString stamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
+    const QString baseName = QString("pasted_%1").arg(stamp);
+    QString relPath = uniqueFilePath(targetFolder, baseName + ".png");
+    QString destPath = assetsPath() + "/" + relPath;
+    QDir().mkpath(QFileInfo(destPath).absolutePath());
+    if (!image.save(destPath, "PNG")) return QString();
+
+    MaterialItem item;
+    item.id = generateId();
+    item.fileName = QFileInfo(destPath).fileName();
+    item.filePath = relPath;
+    item.type = AssetImage;
+    item.fileSize = QFileInfo(destPath).size();
+    item.importedAt = QDateTime::currentDateTime();
+    item.sourceUrl = sourceUrl;
+    item.sourceReferrer = referrer;
+    item.width = image.width();
+    item.height = image.height();
+    m_items.append(item);
+    save();
+    return item.id;
 }
 
 bool MaterialLibrary::deleteItems(const QStringList &ids)
@@ -449,4 +586,95 @@ MaterialItem MaterialLibrary::itemById(const QString &id) const
     for (const MaterialItem &item : m_items)
         if (item.id == id) return item;
     return MaterialItem();
+}
+
+// ---- Metadata mutators ----
+// All of these write-through to library.json and emit libraryChanged.
+bool MaterialLibrary::setRating(const QString &id, int rating)
+{
+    auto it = std::find_if(m_items.begin(), m_items.end(),
+        [&](const MaterialItem &i) { return i.id == id; });
+    if (it == m_items.end()) return false;
+    it->rating = qBound(0, rating, 5);
+    save();
+    return true;
+}
+
+bool MaterialLibrary::setTags(const QString &id, const QStringList &tags)
+{
+    auto it = std::find_if(m_items.begin(), m_items.end(),
+        [&](const MaterialItem &i) { return i.id == id; });
+    if (it == m_items.end()) return false;
+    it->tags = tags;
+    // Keep tags tidy: trim, drop empties, dedupe, case-preserved order.
+    QStringList cleaned;
+    for (const QString &t : tags) {
+        QString s = t.trimmed();
+        if (s.isEmpty() || cleaned.contains(s, Qt::CaseInsensitive)) continue;
+        cleaned << s;
+    }
+    it->tags = cleaned;
+    save();
+    return true;
+}
+
+bool MaterialLibrary::addTag(const QString &id, const QString &tag)
+{
+    auto it = std::find_if(m_items.begin(), m_items.end(),
+        [&](const MaterialItem &i) { return i.id == id; });
+    if (it == m_items.end()) return false;
+    QString s = tag.trimmed();
+    if (s.isEmpty()) return false;
+    for (const QString &t : it->tags)
+        if (t.compare(s, Qt::CaseInsensitive) == 0) return true; // already present
+    it->tags << s;
+    save();
+    return true;
+}
+
+bool MaterialLibrary::removeTag(const QString &id, const QString &tag)
+{
+    auto it = std::find_if(m_items.begin(), m_items.end(),
+        [&](const MaterialItem &i) { return i.id == id; });
+    if (it == m_items.end()) return false;
+    QString s = tag.trimmed();
+    it->tags.erase(std::remove_if(it->tags.begin(), it->tags.end(),
+        [&](const QString &t) { return t.compare(s, Qt::CaseInsensitive) == 0; }),
+        it->tags.end());
+    save();
+    return true;
+}
+
+bool MaterialLibrary::setNote(const QString &id, const QString &note)
+{
+    auto it = std::find_if(m_items.begin(), m_items.end(),
+        [&](const MaterialItem &i) { return i.id == id; });
+    if (it == m_items.end()) return false;
+    it->note = note;
+    save();
+    return true;
+}
+
+bool MaterialLibrary::setSource(const QString &id, const QString &sourceUrl, const QString &referrer)
+{
+    auto it = std::find_if(m_items.begin(), m_items.end(),
+        [&](const MaterialItem &i) { return i.id == id; });
+    if (it == m_items.end()) return false;
+    it->sourceUrl = sourceUrl;
+    it->sourceReferrer = referrer;
+    save();
+    return true;
+}
+
+QStringList MaterialLibrary::allTags() const
+{
+    QSet<QString> seen;
+    for (const MaterialItem &item : m_items)
+        for (const QString &t : item.tags) {
+            QString s = t.trimmed();
+            if (!s.isEmpty()) seen.insert(s);
+        }
+    QStringList list = seen.values();
+    list.sort(Qt::CaseInsensitive);
+    return list;
 }

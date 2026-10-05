@@ -10,6 +10,7 @@
 
 class QFileSystemWatcher;
 class QTimer;
+class QImage;
 
 enum AssetType { AssetImage, AssetVideo, AssetText, AssetOther };
 
@@ -20,6 +21,9 @@ struct MaterialItem {
     AssetType type = AssetImage;
     QStringList tags;
     QString note;
+    int rating = 0;            // 0..5 stars, 0 = unrated
+    QString sourceUrl;         // origin URL when collected from web / browser extension
+    QString sourceReferrer;    // page URL where the image was found
     int width = 0;
     int height = 0;
     qint64 fileSize = 0;
@@ -48,7 +52,12 @@ public:
     QStringList subFolders(const QString &folderPath) const;
     QStringList allFolderPaths() const;
 
-    bool importFiles(const QStringList &filePaths, const QString &targetFolder = QString());
+    bool importFiles(const QStringList &filePaths, const QString &targetFolder = QString(),
+                     const QString &sourceUrl = QString(), const QString &referrer = QString());
+    // Save an in-memory QImage (clipboard paste / screenshot) into the library as PNG.
+    // Returns the new item id, or empty on failure.
+    QString importFromImage(const QImage &image, const QString &targetFolder = QString(),
+                            const QString &sourceUrl = QString(), const QString &referrer = QString());
     bool deleteItems(const QStringList &ids);
     bool renameItem(const QString &id, const QString &newName);
     bool renameFolder(const QString &oldPath, const QString &newName);
@@ -59,6 +68,16 @@ public:
 
     MaterialItem itemById(const QString &id) const;
     static AssetType detectType(const QString &fileName);
+
+    // --- Metadata mutators (Eagle-style: tags / rating / note / provenance) ---
+    bool setRating(const QString &id, int rating);           // clamped to [0,5]
+    bool setTags(const QString &id, const QStringList &tags); // replaces whole list
+    bool addTag(const QString &id, const QString &tag);       // dedup, no-op if present
+    bool removeTag(const QString &id, const QString &tag);
+    bool setNote(const QString &id, const QString &note);
+    bool setSource(const QString &id, const QString &sourceUrl, const QString &referrer);
+    // Aggregate: every distinct tag used across the whole library, sorted.
+    QStringList allTags() const;
 
 signals:
     void libraryChanged();
