@@ -427,9 +427,17 @@ int main(int argc, char *argv[])
     // Show main window and close loading
     loading.setStatus("正在准备界面...");
     app.processEvents();
-    w.show();
-    app.processEvents();
+
+    // Finish the loading animation BEFORE showing the main window. Otherwise
+    // the half-rendered main window leaks through behind the frameless loading
+    // splash (which is only stays-on-top, not a true modal).
     loading.finishLoading();
+    app.processEvents();
+    QTimer::singleShot(150, &app, [&w]() {
+        w.show();
+        w.raise();
+        w.activateWindow();
+    });
 
     // Re-assert QToolTip style AFTER MainWindow's setStyleSheet has run.
     // QToolTip is a top-level popup that inherits palette from QWidget, and
