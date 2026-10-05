@@ -2,6 +2,7 @@
 #include "autosavecontroller.h"
 #include "themeapplier.h"
 #include "shutdowncontroller.h"
+#include "traycontroller.h"
 #include "updatechecker.h"
 #include "canvasscene.h"
 #include "canvasview.h"
@@ -643,7 +644,21 @@ MainWindow::MainWindow(QWidget *parent)
     qApp->processEvents();
     createMenus();
     qApp->processEvents();
-    createTrayIcon();
+    {
+        TrayController::Hooks h;
+        h.windowIcon   = [this] { return windowIcon(); };
+        h.showWindow   = [this] { showNormal(); raise(); activateWindow(); };
+        h.hideWindow   = [this] { hide(); };
+        h.toggleWindow  = [this] {
+            if (isVisible()) hide();
+            else { showNormal(); raise(); activateWindow(); }
+        };
+        h.openSettings = [this] { openSettings(); };
+        h.showAccount  = [this] { showAccountDialog(); };
+        h.quit         = [] { qApp->quit(); };
+        m_trayCtl = new TrayController(std::move(h), this);
+        m_trayCtl->setup();
+    }
     qApp->processEvents();
 
     // Global search shortcut (Ctrl+K)
@@ -1963,133 +1978,6 @@ void MainWindow::createStatusBar()
     statusBar()->addPermanentWidget(m_selectionLabel);
 }
 
-void MainWindow::createTrayIcon()
-{
-    if (!QSystemTrayIcon::isSystemTrayAvailable()) {
-        qWarning("系统托盘不可用");
-        return;
-    }
-
-    m_tray = new QSystemTrayIcon(this);
-
-    // Load icon: try app icon, fallback to standard icon
-    QIcon icon = windowIcon();
-    if (icon.isNull()) {
-        icon = style()->standardIcon(QStyle::SP_ComputerIcon);
-    }
-    if (icon.isNull()) {
-        QPixmap pm(32, 32);
-        pm.fill(QColor(102, 192, 244));
-        icon = QIcon(pm);
-    }
-    m_tray->setIcon(icon);
-    m_tray->setToolTip("里与由 工作区");
-
-    QMenu *trayMenu = new QMenu(this);
-    trayMenu->setStyleSheet(R"(
-        QMenu {
-            background: #16202d;
-            color: #c7d5e0;
-            border: 1px solid #2a475e;
-            border-radius: 8px;
-            padding: 6px;
-            font-size: 13px;
-        }
-        QMenu::item {
-            padding: 8px 28px 8px 12px;
-            border-radius: 5px;
-            margin: 1px 2px;
-        }
-        QMenu::item:selected {
-            background: #2a475e;
-            color: #66c0f4;
-        }
-        QMenu::separator {
-            height: 1px;
-            background: #2a475e;
-            margin: 5px 10px;
-        }
-        QMenu::icon {
-            padding-left: 8px;
-        }
-    )");
-
-    // Header label
-    QWidgetAction *headerAction = new QWidgetAction(trayMenu);
-    QWidget *headerWidget = new QWidget;
-    headerWidget->setFixedHeight(36);
-    QHBoxLayout *headerLayout = new QHBoxLayout(headerWidget);
-    headerLayout->setContentsMargins(12, 4, 12, 4);
-    QLabel *headerIcon = new QLabel;
-    headerIcon->setFixedSize(20, 20);
-    QPixmap headerPm = icon.pixmap(20, 20);
-    if (!headerPm.isNull()) headerIcon->setPixmap(headerPm);
-    headerLayout->addWidget(headerIcon);
-    QLabel *headerLabel = new QLabel("里与由 工作区");
-    headerLabel->setStyleSheet("color: #66c0f4; font-size: 13px; font-weight: 600;");
-    headerLayout->addWidget(headerLabel);
-    headerLayout->addStretch();
-    headerAction->setDefaultWidget(headerWidget);
-    trayMenu->addAction(headerAction);
-    trayMenu->addSeparator();
-
-    QAction *showAct = trayMenu->addAction("📂  显示主窗口");
-    showAct->setShortcut(QKeySequence("Ctrl+Shift+W"));
-    connect(showAct, &QAction::triggered, this, [this]() {
-        showNormal();
-        raise();
-        activateWindow();
-    });
-
-    QAction *hideAct = trayMenu->addAction("📥  隐藏到托盘");
-    hideAct->setShortcut(QKeySequence("Ctrl+Shift+H"));
-    connect(hideAct, &QAction::triggered, this, [this]() {
-        hide();
-    });
-
-    trayMenu->addSeparator();
-
-    QAction *settingsAct = trayMenu->addAction("⚙  偏好设置...");
-    settingsAct->setShortcut(QKeySequence("Ctrl+,"));
-    connect(settingsAct, &QAction::triggered, this, [this]() {
-        showNormal(); raise(); activateWindow();
-        QTimer::singleShot(100, this, &MainWindow::openSettings);
-    });
-
-    QAction *accountAct = trayMenu->addAction("👤  账户信息");
-    connect(accountAct, &QAction::triggered, this, [this]() {
-        showNormal(); raise(); activateWindow();
-        showAccountDialog();
-    });
-
-    trayMenu->addSeparator();
-
-    QAction *quitAct = trayMenu->addAction("🚪  退出");
-    quitAct->setShortcut(QKeySequence("Ctrl+Q"));
-    connect(quitAct, &QAction::triggered, this, [this]() {
-        m_trayInitialized = false;
-        QApplication::quit();
-    });
-
-    m_tray->setContextMenu(trayMenu);
-
-    connect(m_tray, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
-        if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick) {
-            if (isVisible()) {
-                hide();
-            } else {
-                showNormal();
-                raise();
-                activateWindow();
-            }
-        }
-    });
-
-    m_tray->show();
-    m_trayInitialized = true;
-    qDebug("托盘图标已创建");
-}
-
 // ========== Close ==========
 
 bool MainWindow::maybeSave()
@@ -2100,9 +1988,7 @@ bool MainWindow::maybeSave()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     saveSettings();
-    if (m_cfg.closeBehavior == "tray" && m_trayInitialized && QSystemTrayIcon::isSystemTrayAvailable()) {
-        hide();
-        m_tray->showMessage("里与由 工作区", "程序已最小化到托盘，点击托盘图标恢复。", QSystemTrayIcon::Information, 3000);
+    if (m_trayCtl && m_trayCtl->handleCloseRequest(m_cfg.closeBehavior)) {
         event->ignore();
         return;
     }

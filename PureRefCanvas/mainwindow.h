@@ -26,6 +26,7 @@ class UserAuth;
 class AutoSaveController;
 class ThemeApplier;
 class ShutdownController;
+class TrayController;
 #include "userauth.h"
 
 class MainWindow : public QMainWindow
@@ -92,7 +93,6 @@ private:
     void createActions();
     void createMenus();
     void createStatusBar();
-    void createTrayIcon();
     void setupNavigation();
     void setupPages();
 
@@ -166,9 +166,8 @@ private:
     AutoSaveController *m_autosave = nullptr;
     ThemeApplier *m_theme = nullptr;
 
-    // System tray
-    QSystemTrayIcon *m_tray = nullptr;
-    bool m_trayInitialized = false;
+    // System tray is delegated to a dedicated controller.
+    TrayController *m_trayCtl = nullptr;
 
     // Actions stored for menu/toolbar
     QList<QAction*> m_actions;
