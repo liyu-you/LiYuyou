@@ -420,9 +420,11 @@ int main(int argc, char *argv[])
     loading.setStatus("正在加载工作区...");
     app.processEvents();
     MainWindow w;
+    w.hide();  // force-hidden during construction — nothing should show the window yet
     w.setCurrentUser(auth.currentUser());
     w.setUserAuth(&auth);
     app.processEvents();
+    qDebug() << "[BOOT] after MainWindow ctor, isVisible=" << w.isVisible();
 
     // Show main window and close loading
     loading.setStatus("正在准备界面...");
@@ -431,10 +433,15 @@ int main(int argc, char *argv[])
     // Finish the loading animation BEFORE showing the main window. Otherwise
     // the half-rendered main window leaks through behind the frameless loading
     // splash (which is only stays-on-top, not a true modal).
+    qDebug() << "[BOOT] before finishLoading, w.isVisible =" << w.isVisible();
     loading.finishLoading();
+    qDebug() << "[BOOT] after finishLoading, w.isVisible =" << w.isVisible();
     app.processEvents();
+    qDebug() << "[BOOT] after processEvents, w.isVisible =" << w.isVisible();
     QTimer::singleShot(150, &app, [&w]() {
+        qDebug() << "[BOOT] timer firing, w.isVisible =" << w.isVisible();
         w.show();
+        qDebug() << "[BOOT] after w.show(), w.isVisible =" << w.isVisible();
         w.raise();
         w.activateWindow();
     });

@@ -866,11 +866,16 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
         switchToPage(m_lastPage);
     }
 
+    qDebug() << "[BOOT] MainWindow ctor mid, isVisible=" << isVisible() << "winId=" << winId();
+
     // Enable acrylic blur (毛玻璃效果) — Windows 10/11
 #ifdef Q_OS_WIN
     winId(); // force HWND creation
+    qDebug() << "[BOOT] after winId(), isVisible=" << isVisible();
     if (m_theme) m_theme->applyAcrylic();
 #endif
+
+    qDebug() << "[BOOT] MainWindow ctor done, isVisible=" << isVisible();
 
     // Auto-check for updates on startup (delayed to avoid impacting launch)
     QSettings settings("PureRefCanvas", "里与由");
