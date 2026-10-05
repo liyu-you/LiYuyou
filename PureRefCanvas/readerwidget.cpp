@@ -44,6 +44,8 @@
 #include <QStyleOptionViewItem>
 #include <QAbstractItemView>
 #include <QtMath>
+#include <QStandardPaths>
+#include <QImageReader>
 
 // Custom text-format property id: carries an annotation id on highlighted text.
 static const int kAnnProp = 640000001;
@@ -2285,7 +2287,38 @@ void ReaderWidget::applyTheme()
 
     const bool hasBg = !m_bgPath.isEmpty() && QFile::exists(m_bgPath);
     if (hasBg) {
-        const QString imgUrl = QDir::toNativeSeparators(m_bgPath).replace("\\", "/");
+        // border-image in a stylesheet re-decodes the source file on every
+        // repaint. On a multi-MB 4K photo that freezes the reader for seconds
+        // per scroll tick. Pre-scale to a reasonable size once and cache the
+        // result; the stylesheet then references the small cache file.
+        static const QString cachePath =
+            QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+            + "/reader_bg_cache.jpg";
+        QImageReader reader(m_bgPath);
+        const QSize srcSz = reader.size();
+        const bool needsScale = srcSz.width() > 2560 || srcSz.height() > 1600;
+        const QFileInfo srcInfo(m_bgPath);
+        const QFileInfo cacheInfo(cachePath);
+        const bool cacheStale = !cacheInfo.exists()
+            || cacheInfo.lastModified() < srcInfo.lastModified();
+
+        QString imgRef = m_bgPath;
+        if (needsScale && cacheStale) {
+            reader.setScaledSize(srcSz.scaled(1920, 1200, Qt::KeepAspectRatio));
+            QImage img = reader.read();
+            if (!img.isNull()) {
+                QDir().mkpath(QFileInfo(cachePath).absolutePath());
+                img.save(cachePath, "JPG", 82);
+                imgRef = cachePath;
+            }
+        } else if (!needsScale && cacheStale) {
+            // Small enough: just point the stylesheet at the original.
+            imgRef = m_bgPath;
+        } else if (cacheInfo.exists()) {
+            imgRef = cachePath;
+        }
+
+        const QString imgUrl = QDir::toNativeSeparators(imgRef).replace("\\", "/");
         m_readerPage->setStyleSheet(QString(
             "background: transparent; border-image: url(%1) 0 0 0 0 stretch stretch;").arg(imgUrl));
     } else {
