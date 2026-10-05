@@ -1,4 +1,5 @@
 #include "musicplayer.h"
+#include "lyricspanel.h"
 #include "miniplayer.h"
 #include "fullscreenplayer.h"
 #include "songmetadata.h"
@@ -118,7 +119,9 @@ MusicPlayerWidget::MusicPlayerWidget(const QString &libraryRoot, QWidget *parent
     });
 
     connect(m_player, &QMediaPlayer::positionChanged, this, &MusicPlayerWidget::onPositionChanged);
-    connect(m_player, &QMediaPlayer::positionChanged, this, &MusicPlayerWidget::updateLyrics);
+    connect(m_player, &QMediaPlayer::positionChanged, this, [this](qint64 pos) {
+        if (m_lyricsPanel) m_lyricsPanel->update(pos);
+    });
     connect(m_player, &QMediaPlayer::durationChanged, this, &MusicPlayerWidget::onDurationChanged);
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &MusicPlayerWidget::onMediaStatusChanged);
     connect(m_player, &QMediaPlayer::playbackStateChanged, this, &MusicPlayerWidget::onPlaybackStateChanged);
@@ -279,7 +282,13 @@ void MusicPlayerWidget::setupUI()
     setupSongTable();
     setupDiscoveryPage();
     setupMusicShelfPage();
-    setupLyricsPanel();
+
+    // Lyrics panel
+    m_lyricsPanel = new LyricsPanel;
+    m_lyricsPanel->setVisible(false);
+    connect(m_lyricsPanel, &LyricsPanel::lyricClicked, this, [this](qint64 pos) {
+        if (m_player) m_player->setPosition(pos);
+    });
 
     m_contentStack = new QStackedWidget;
     m_contentStack->addWidget(m_musicShelfPage); // index 0 — light card shelf (default)
@@ -1923,7 +1932,7 @@ void MusicPlayerWidget::playSongAt(int index)
     QString lrcPath = song.path;
     int dot = lrcPath.lastIndexOf('.');
     if (dot > 0) lrcPath = lrcPath.left(dot) + ".lrc";
-    QTimer::singleShot(100, this, [this, lrcPath]() { parseLrc(lrcPath); });
+    QTimer::singleShot(100, this, [this, lrcPath]() { m_lyricsPanel->parseLrc(lrcPath); });
 }
 
 // ==================== Online playback (NetEase Cloud) ====================
@@ -1936,7 +1945,7 @@ void MusicPlayerWidget::playOnlineSong(const SongInfo &song)
     m_titleLabel->setText(song.title);
     m_artistLabel->setText(song.artist + " · 加载中…");
     updateCoverArt(song);
-    clearLyrics();
+    m_lyricsPanel->clear();
 
     // Resolve the real stream URL through NetEase's public redirect endpoint
     resolveStreamUrl(QString("https://music.163.com/song/media/outer/url?id=%1.mp3").arg(song.neteaseId), 0);
@@ -2009,13 +2018,13 @@ void MusicPlayerWidget::fetchOnlineLyrics(qint64 neteaseId)
         if (m_currentIndex < 0 || m_currentIndex >= songs.size()) return;
         const SongInfo &cur = songs[m_currentIndex];
         if (cur.neteaseId != neteaseId) return;
-        if (reply->error() != QNetworkReply::NoError) { parseLrcText(QString()); return; }
+        if (reply->error() != QNetworkReply::NoError) { m_lyricsPanel->parseLrcText(QString()); return; }
         const QByteArray data = reply->readAll();
         QJsonParseError pe;
         QJsonDocument doc = QJsonDocument::fromJson(data, &pe);
-        if (pe.error != QJsonParseError::NoError || !doc.isObject()) { parseLrcText(QString()); return; }
+        if (pe.error != QJsonParseError::NoError || !doc.isObject()) { m_lyricsPanel->parseLrcText(QString()); return; }
         const QString lyric = doc.object().value("lrc").toObject().value("lyric").toString();
-        parseLrcText(lyric);
+        m_lyricsPanel->parseLrcText(lyric);
     });
 }
 
@@ -2394,142 +2403,11 @@ void MusicPlayerWidget::toggleQueuePanel()
 
 // ========== Lyrics ==========
 
-void MusicPlayerWidget::setupLyricsPanel()
-{
-    m_lyricsPanel = new QWidget;
-    m_lyricsPanel->setFixedWidth(300);
-    m_lyricsPanel->setStyleSheet("background: #212225; border-left: 1px solid #17181b;");
-
-    QVBoxLayout *layout = new QVBoxLayout(m_lyricsPanel);
-    layout->setContentsMargins(12, 16, 12, 16);
-    layout->setSpacing(8);
-
-    QLabel *title = new QLabel("歌词");
-    title->setStyleSheet("color: #c20c0c; font-size: 14px; font-weight: bold; padding-bottom: 8px;");
-    layout->addWidget(title);
-
-    m_lyricsList = new QListWidget;
-    m_lyricsList->setStyleSheet(R"(
-        QListWidget { background: transparent; border: none; outline: none; }
-        QListWidget::item { color: #6f6f72; padding: 8px 4px; font-size: 13px; text-align: center; border: none; }
-        QListWidget::item:selected { background: transparent; color: #c20c0c; font-weight: bold; }
-    )");
-    m_lyricsList->setSpacing(2);
-    m_lyricsList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    m_lyricsList->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_lyricsList->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    connect(m_lyricsList, &QListWidget::itemClicked, this, &MusicPlayerWidget::onLyricsItemClicked);
-    layout->addWidget(m_lyricsList, 1);
-}
-
-void MusicPlayerWidget::onLyricsItemClicked(QListWidgetItem *item)
-{
-    if (!item) return;
-    const int row = m_lyricsList->row(item);
-    // Find the timestamp for the clicked lyric row and seek there
-    for (const auto &t : m_lyricsTiming) {
-        if (t.second == row) {
-            m_player->setPosition(t.first);
-            m_currentLyricIndex = row;
-            return;
-        }
-    }
-    // Row without a timestamp (e.g. "暂无歌词" / "♪"): nothing to seek
-}
-
 void MusicPlayerWidget::toggleLyrics()
 {
     m_lyricsVisible = !m_lyricsVisible;
     m_lyricsPanel->setVisible(m_lyricsVisible);
     m_lyricsBtn->setChecked(m_lyricsVisible);
-}
-void MusicPlayerWidget::parseLrc(const QString &lrcPath)
-{
-    QFile file(lrcPath);
-    QString content;
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        in.setEncoding(QStringConverter::Utf8);
-        content = in.readAll();
-        file.close();
-    }
-    parseLrcText(content);
-}
-
-void MusicPlayerWidget::parseLrcText(const QString &content)
-{
-    clearLyrics();
-
-    QRegularExpression timeRe("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})\\]");
-    const QStringList lines = content.split('\n');
-    for (const QString &rawLine : lines) {
-        const QString line = rawLine.trimmed();
-        if (line.isEmpty()) continue;
-
-        // Extract all timestamps on this line
-        QList<qint64> times;
-        QRegularExpressionMatchIterator it = timeRe.globalMatch(line);
-        while (it.hasNext()) {
-            QRegularExpressionMatch m = it.next();
-            int min = m.captured(1).toInt();
-            int sec = m.captured(2).toInt();
-            int ms = m.captured(3).toInt();
-            if (m.captured(3).length() == 2) ms *= 10;
-            times.append((min * 60 + sec) * 1000 + ms);
-        }
-
-        // Remove all timestamps to get lyric text
-        QString text = line;
-        text.remove(timeRe);
-        text = text.trimmed();
-        if (text.isEmpty() && times.isEmpty()) continue;
-
-        for (qint64 t : times) {
-            int row = m_lyricsList->count();
-            QListWidgetItem *item = new QListWidgetItem(text.isEmpty() ? "♪" : text, m_lyricsList);
-            item->setTextAlignment(Qt::AlignCenter);
-            m_lyricsTiming.append(qMakePair(t, row));
-        }
-    }
-
-    if (m_lyricsList->count() == 0) {
-        QListWidgetItem *item = new QListWidgetItem("暂无歌词", m_lyricsList);
-        item->setTextAlignment(Qt::AlignCenter);
-    }
-}
-
-void MusicPlayerWidget::updateLyrics(qint64 pos)
-{
-    if (m_lyricsTiming.isEmpty()) { m_currentLyricIndex = -1; return; }
-
-    int idx = m_currentLyricIndex;
-    if (idx >= 0 && idx < m_lyricsTiming.size() && m_lyricsTiming[idx].first <= pos) {
-        // Position advanced: walk forward from the cached index (O(1) per tick)
-        while (idx + 1 < m_lyricsTiming.size() && m_lyricsTiming[idx + 1].first <= pos)
-            ++idx;
-    } else {
-        // First call or backward seek: rescan (same as before)
-        idx = -1;
-        for (int i = m_lyricsTiming.size() - 1; i >= 0; --i) {
-            if (m_lyricsTiming[i].first <= pos) { idx = i; break; }
-        }
-    }
-    m_currentLyricIndex = idx;
-
-    if (idx >= 0) {
-        int row = m_lyricsTiming[idx].second;
-        if (row >= 0 && row < m_lyricsList->count()) {
-            m_lyricsList->setCurrentRow(row);
-            m_lyricsList->scrollToItem(m_lyricsList->item(row), QAbstractItemView::PositionAtCenter);
-        }
-    }
-}
-
-void MusicPlayerWidget::clearLyrics()
-{
-    m_lyricsList->clear();
-    m_lyricsTiming.clear();
-    m_currentLyricIndex = -1;
 }
 
 void MusicPlayerWidget::toggleMiniPlayer()
@@ -2980,15 +2858,8 @@ void MusicPlayerWidget::openFullScreenPlayer()
     }
     m_fullScreenPlayer->setPlaying(m_player->playbackState() == QMediaPlayer::PlayingState);
     m_fullScreenPlayer->updateProgress(m_player->position(), m_player->duration());
-    // Extract lyrics from list
-    QVector<QPair<qint64, QString>> lyricsData;
-    if (m_lyricsList) {
-        for (int i = 0; i < m_lyricsList->count(); ++i) {
-            qint64 time = 0;
-            for (const auto &t : m_lyricsTiming) if (t.second == i) { time = t.first; break; }
-            lyricsData.append(qMakePair(time, m_lyricsList->item(i)->text()));
-        }
-    }
+    // Extract lyrics from panel
+    QVector<QPair<qint64, QString>> lyricsData = m_lyricsPanel->lyricsData();
     m_fullScreenPlayer->setLyrics(lyricsData);
     m_fullScreenPlayer->setPlayMode(m_playMode);
     // Fully cover the main window (frame geometry includes the title bar,

@@ -30,6 +30,8 @@ class MaEngine;
 
 #include "songinfo.h"
 
+class LyricsPanel;
+
 class MusicPlayerWidget : public QWidget
 {
     Q_OBJECT
@@ -87,8 +89,6 @@ private slots:
     void toggleQueuePanel();
     void refreshQueuePanel();
     void toggleLyrics();
-    void updateLyrics(qint64 pos);
-    void onLyricsItemClicked(QListWidgetItem *item);
     void toggleMiniPlayer();
 
 private:
@@ -99,7 +99,6 @@ private:
     void setupNowPlayingCard();
     void setupSongTable();
     void setupPlayerBar();
-    void setupLyricsPanel();
     // Light card-style music workspace (mirrors the reader shelf, own code)
     void setupMusicShelfPage();
     void refreshMusicShelf();
@@ -118,9 +117,6 @@ private:
     void setupMusicWatcher();
     void onMusicDirChanged(const QString &path);
     void scanMusicFolder();
-    void parseLrc(const QString &lrcPath);
-    void parseLrcText(const QString &content);
-    void clearLyrics();
     void showTechInfo();
     void playOnlineSong(const SongInfo &song);
     void resolveStreamUrl(const QString &url, int hops);
@@ -225,11 +221,8 @@ private:
     LyricsToggleButton *m_lyricsBtn;
 
     // Lyrics
-    QWidget *m_lyricsPanel = nullptr;
-    QListWidget *m_lyricsList = nullptr;
-    QList<QPair<qint64, int>> m_lyricsTiming; // time -> row index
+    LyricsPanel *m_lyricsPanel = nullptr;
     bool m_lyricsVisible = false;
-    int m_currentLyricIndex = -1; // cached index into m_lyricsTiming
 
     // Panel transparency (透出背景图)
     QString m_bgPath;
