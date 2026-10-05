@@ -1550,7 +1550,9 @@ void MaterialWidget::createColorFilterBar()
 {
     m_colorBar = new QWidget;
     m_colorBar->setFixedHeight(30);
-    m_colorBar->setStyleSheet("background: rgba(18,28,40,0.6);");
+    // Transparent: let the library background image show straight through.
+    // The dropdowns / buttons below keep their own dark chips.
+    m_colorBar->setStyleSheet("background: transparent;");
     QHBoxLayout *lay = new QHBoxLayout(m_colorBar);
     lay->setContentsMargins(8, 3, 8, 3);
     lay->setSpacing(6);
