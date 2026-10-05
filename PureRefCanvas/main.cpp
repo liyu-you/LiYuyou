@@ -311,6 +311,19 @@ int main(int argc, char *argv[])
     app.setOrganizationName("PureRefCanvas");
     app.setWindowIcon(QIcon(":/app.ico"));
 
+    // Global Google Material tooltip style (QToolTip is a top-level widget,
+    // widget-level stylesheets can't reach it — must be set on QApplication).
+    app.setStyleSheet(R"(
+        QToolTip {
+            background-color: #ffffff;
+            color: #202124;
+            border: 1px solid #dadce0;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+    )");
+
     // Single instance check
     bool singleInstance = settings.value("singleInstance", false).toBool();
     if (singleInstance) {
