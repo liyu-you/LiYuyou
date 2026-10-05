@@ -237,6 +237,51 @@ private slots:
             return;
         }
 
+        // "?question" mode — local RAG: find paragraphs in all notes that mention
+        // the query keywords. Split question into keywords, score notes by hits,
+        // show up to 8 matching excerpts.
+        if (trimmed.startsWith("?")) {
+            const QString question = trimmed.mid(1).trimmed();
+            const QStringList keywords = question.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+            if (keywords.isEmpty()) return;
+            if (m_mainWindow->m_noteWidget) {
+                struct Hit { QString noteId; QString noteTitle; QString snippet; int score; };
+                QList<Hit> hits;
+                for (const NoteData &note : m_mainWindow->m_noteWidget->allNotes()) {
+                    const QString plain = note.content;
+                    int score = 0;
+                    for (const QString &kw : keywords)
+                        score += plain.count(kw.toLower());
+                    if (score == 0) continue;
+                    // Extract first matching sentence as snippet
+                    int idx = -1;
+                    for (const QString &kw : keywords) {
+                        int i = plain.toLower().indexOf(kw.toLower());
+                        if (i >= 0 && (idx < 0 || i < idx)) idx = i;
+                    }
+                    QString snippet = plain.mid(qMax(0, idx - 40), 200).trimmed();
+                    hits.append({note.id, note.title, snippet, score});
+                }
+                std::sort(hits.begin(), hits.end(), [](const Hit &a, const Hit &b) { return a.score > b.score; });
+                for (int i = 0; i < qMin(8, hits.size()); ++i) {
+                    const Hit &h = hits.at(i);
+                    QListWidgetItem *item = new QListWidgetItem(
+                        QString("💡  [%1] %2").arg(h.noteTitle, h.snippet.left(80) + "…"));
+                    item->setData(Qt::UserRole, "note");
+                    item->setData(Qt::UserRole + 1, h.noteId);
+                    item->setToolTip(h.snippet);
+                    m_resultList->addItem(item);
+                }
+                if (hits.isEmpty()) {
+                    QListWidgetItem *e = new QListWidgetItem("  知识库中没有相关段落");
+                    e->setForeground(QColor("#9aa0a6"));
+                    e->setFlags(Qt::NoItemFlags);
+                    m_resultList->addItem(e);
+                }
+            }
+            return;
+        }
+
         // Search notes
         if (m_mainWindow->m_noteWidget) {
             for (const NoteData &note : m_mainWindow->m_noteWidget->allNotes()) {
