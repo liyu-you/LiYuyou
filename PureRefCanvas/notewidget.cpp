@@ -69,15 +69,16 @@
 #include <algorithm>
 
 namespace {
-// Shared dark style for the two toolbar rows (Steam-like palette).
+// Google Material-style light toolbar.
 const char kToolbarSS[] =
-    "QToolBar { background: #1b2838; border-bottom: 1px solid #2a475e; spacing: 1px; padding: 3px 6px; }"
-    "QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 5px; font-size: 13px; }"
-    "QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; }"
-    "QToolButton:checked { background: #2a475e; color: #66c0f4; }"
-    "QComboBox { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 4px; padding: 2px 8px; font-size: 12px; min-width: 60px; }"
-    "QComboBox:hover { border-color: #66c0f4; }"
-    "QComboBox QAbstractItemView { background: #16202d; color: #c7d5e0; selection-background-color: #2a475e; selection-color: #66c0f4; outline: none; }";
+    "QToolBar { background: #ffffff; border-bottom: 1px solid #e0e0e0; spacing: 2px; padding: 4px 8px; }"
+    "QToolButton { background: transparent; color: #444746; border: none; border-radius: 4px; padding: 5px 8px; font-size: 13px; }"
+    "QToolButton:hover { background: #f1f3f4; color: #202124; }"
+    "QToolButton:checked { background: #e8f0fe; color: #1a73e8; }"
+    "QComboBox { background: #f1f3f4; color: #444746; border: 1px solid transparent; border-radius: 4px; padding: 4px 8px; font-size: 12px; min-width: 60px; }"
+    "QComboBox:hover { background: #e8eaed; }"
+    "QComboBox QAbstractItemView { background: #ffffff; color: #202124; selection-background-color: #e8f0fe; selection-color: #1a73e8; border: 1px solid #dadce0; border-radius: 4px; outline: none; }"
+    "QToolBar::separator { background: #e0e0e0; width: 1px; margin: 6px 4px; }";
 const char kDarkMenuSS[] =
     "QMenu { background: #16202d; color: #c7d5e0; border: 1px solid #2a475e; }"
     "QMenu::item { padding: 8px 24px; }"
@@ -500,7 +501,7 @@ void NoteWidget::setupToolbar()
     m_highlightBtn->setText("高亮");
     m_highlightBtn->setToolTip("文字高亮笔：点击套用当前颜色，箭头选色");
     m_highlightBtn->setPopupMode(QToolButton::MenuButtonPopup);
-    m_highlightBtn->setStyleSheet("QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 7px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton::menu-indicator { subcontrol-position: right center; subcontrol-origin: padding; left: -2px; }");
+    m_highlightBtn->setStyleSheet("QToolButton { background: transparent; color: #444746; border: none; border-radius: 4px; padding: 5px 8px; font-size: 13px; } QToolButton:hover { background: #f1f3f4; color: #202124; } QToolButton::menu-indicator { subcontrol-position: right center; subcontrol-origin: padding; left: -2px; }");
     QAction *highlightNow = new QAction("高亮", this);
     connect(highlightNow, &QAction::triggered, this, [this]() { applyHighlightColor(m_currentHighlight); });
     m_highlightBtn->setDefaultAction(highlightNow);
@@ -548,7 +549,7 @@ void NoteWidget::setupToolbar()
     // Format painter: click = paint once, double-click = continuous (Esc exits).
     m_painterBtn = new QToolButton;
     m_painterBtn->setToolTip("格式刷：单击刷一次，双击连续刷（Esc 退出）");
-    m_painterBtn->setStyleSheet("QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 7px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton:checked { background: #2a475e; color: #66c0f4; }");
+    m_painterBtn->setStyleSheet("QToolButton { background: transparent; color: #444746; border: none; border-radius: 4px; padding: 5px 8px; font-size: 13px; } QToolButton:hover { background: #f1f3f4; color: #202124; } QToolButton:checked { background: #e8f0fe; color: #1a73e8; }");
     m_actionFormatPainter = new QAction("格式刷", this);
     m_actionFormatPainter->setCheckable(true);
     connect(m_actionFormatPainter, &QAction::triggered, this, &NoteWidget::toggleFormatPainter);
@@ -642,7 +643,7 @@ void NoteWidget::setupToolbar()
     insertBtn->setText("插入 ▾");
     insertBtn->setToolTip("插入图片 / 链接 / 双链 / 日期 / 分割线 / 背景");
     insertBtn->setPopupMode(QToolButton::InstantPopup);
-    insertBtn->setStyleSheet("QToolButton { background: transparent; color: #c7d5e0; border: none; border-radius: 4px; padding: 4px 8px; font-size: 13px; } QToolButton:hover { background: rgba(42,71,94,0.7); color: #fff; } QToolButton::menu-indicator { image: none; }");
+    insertBtn->setStyleSheet("QToolButton { background: transparent; color: #444746; border: none; border-radius: 4px; padding: 5px 8px; font-size: 13px; } QToolButton:hover { background: #f1f3f4; color: #202124; } QToolButton::menu-indicator { image: none; }");
     QMenu *insertMenu = new QMenu(insertBtn);
     insertMenu->setStyleSheet(kDarkMenuSS);
     m_actionImage = insertMenu->addAction("图片…", this, &NoteWidget::insertImage);
