@@ -977,11 +977,11 @@ QPixmap MaterialWidget::thumbnailForItem(const MaterialItem &item)
         reader.setAutoTransform(true);
         QSize orig = reader.size();
         if (orig.isValid() && !orig.isEmpty()) {
-            const qreal scale = qMin(360.0 / orig.width(), 360.0 / orig.height());
+            const qreal scale = qMin(480.0 / orig.width(), 480.0 / orig.height());
             reader.setScaledSize(QSize(qMax(1, qRound(orig.width() * scale)),
                                         qMax(1, qRound(orig.height() * scale))));
         } else {
-            reader.setScaledSize(QSize(360, 360));
+            reader.setScaledSize(QSize(480, 480));
         }
         QImage img = reader.read();
         if (img.isNull()) return QPixmap();
@@ -992,13 +992,13 @@ QPixmap MaterialWidget::thumbnailForItem(const MaterialItem &item)
         ThumbCache::save(path, pix); // persist for next launch
         it = m_thumbCache.constFind(path);
     }
-    int size = 140;
-    if (m_thumbnailSize == "small") size = 96;
-    if (m_thumbnailSize == "large") size = 180;
     // Extract dominant color for color filtering (lazy, cached)
     if (!m_colorCache.contains(path))
         m_colorCache.insert(path, extractDominantColor(it.value()));
-    return it.value().scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    // Return the full cached thumbnail (max 360px edge) instead of pre-shrinking
+    // to 140px — the display layer scales it to card size, and pre-shrinking
+    // meant the card got a tiny 140px pixmap that was then upscaled -> blurry.
+    return it.value();
 }
 
 QIcon MaterialWidget::iconForType(AssetType type) const

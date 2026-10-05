@@ -45,9 +45,8 @@ inline bool webpWritable()
 inline QString cacheBasePath(const QString &filePath)
 {
     QFileInfo fi(filePath);
-    // v2: bump whenever the thumbnail generation logic changes (e.g. aspect-ratio fix)
-    // so old stretched caches are automatically invalidated.
-    const QString key = "v2#" + filePath + "#" + QString::number(fi.lastModified().toSecsSinceEpoch());
+    // v3: bumped from 360px to 480px max edge for sharper HiDPI cards.
+    const QString key = "v3#" + filePath + "#" + QString::number(fi.lastModified().toSecsSinceEpoch());
     const QByteArray hash = QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Md5).toHex();
     return cacheDir() + "/" + QString::fromLatin1(hash);
 }
