@@ -1860,18 +1860,6 @@ void ReaderWidget::showSelectionMenu(const QPoint &globalPos)
         relayoutPage();
     });
 
-    menu.addAction("✍  划线并写笔记", this, [this, s, e, excerpt]() {
-        bool ok = false;
-        QString note = QInputDialog::getMultiLineText(
-            this, "写笔记",
-            QString("原文：%1\n\n写下你的笔记：").arg(excerpt.left(60)),
-            QString(), &ok);
-        if (!ok || note.trimmed().isEmpty()) return;
-        m_library->addAnnotation(m_currentBookId, s, e - s, "yellow", note.trimmed());
-        clearTextSelection();
-        relayoutPage();
-    });
-
     menu.addSeparator();
     menu.addAction("复制原文", this, [this, s, e]() {
         QApplication::clipboard()->setText(m_bookText.mid(s, e - s));
