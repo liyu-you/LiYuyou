@@ -1850,6 +1850,11 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
     QMenu menu;
     menu.setStyleSheet("QMenu { background: white; border: 1px solid #ddd; } QMenu::item { padding: 8px 24px; } QMenu::item:selected { background: #2ea043; color: white; }");
 
+    // Always-available: import + batch scan
+    menu.addAction("导入书籍", this, &ReaderWidget::importBook);
+    menu.addAction("扫描文件夹（批量导入）", this, &ReaderWidget::scanBookFolder);
+    menu.addSeparator();
+
     if (item) {
         QString id = item->data(Qt::UserRole).toString();
         menu.addAction("打开阅读", this, [this, item]() { openBook(item); });
@@ -1859,8 +1864,7 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
                 m_library->removeBook(id);
         });
     } else {
-        menu.addAction("导入书籍", this, &ReaderWidget::importBook);
-        menu.addAction("扫描文件夹（批量导入）", this, &ReaderWidget::scanBookFolder);
+        // empty area — nothing extra beyond the top-level import/scan
     }
     menu.exec(m_shelfGrid->mapToGlobal(pos));
 }
