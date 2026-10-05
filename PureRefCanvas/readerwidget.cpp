@@ -173,7 +173,7 @@ public:
 
         const int total = index.data(kShelfTotalCharsRole).toInt();
         const int progress = index.data(kShelfProgressRole).toInt();
-        const int pct = total > 0 ? qBound(0, progress * 100 / total, 100) : 0;
+        const int pct = total > 0 ? qBound(0, qRound(100.0 * progress / total), 100) : 0;
         const int barW = qMin(184, qMax(80, titleRight - textX));
         const QRect barBg(textX, card.top() + 106, barW, 6);
         painter->setPen(Qt::NoPen);
@@ -2358,7 +2358,9 @@ void ReaderWidget::refreshShelf()
         item->setIcon(coverIcon);
         item->setSizeHint(QSize(360, 156));
 
-        const int pct = book.totalChars > 0 ? qBound(0, book.progress * 100 / book.totalChars, 100) : 0;
+        const int pct = book.totalChars > 0
+            ? qBound(0, qRound(100.0 * book.progress / book.totalChars), 100)
+            : 0;
         if (!latestRead.isValid() || book.lastRead > latestRead) {
             latestRead = book.lastRead;
             latestPct = pct;
