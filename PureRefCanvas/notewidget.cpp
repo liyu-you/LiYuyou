@@ -219,8 +219,8 @@ void NoteWidget::setupUI()
     // Logseq-style [[wiki-links]]: detected via setSource on anchor clicks.
     m_editor->setStyleSheet(R"(
         QTextEdit {
-            background-color: rgba(255,255,255,0.95);
-            color: #2c2c2c;
+            background-color: #ffffff;
+            color: #202124;
             border: none;
             padding: 32px 72px;
             font-size: 14px;
@@ -2392,7 +2392,7 @@ void NoteWidget::setBackgroundImage(const QString &path)
         }
     } else {
         m_bgPixmap = QPixmap();
-        m_stack->setStyleSheet("background: transparent;");
+        m_stack->setStyleSheet("QStackedWidget { background: #ffffff; }");
         setStyleSheet("");
         setObjectName("noteRoot");
     }
