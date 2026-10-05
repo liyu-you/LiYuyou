@@ -417,7 +417,7 @@ void LoginDialog::setupLoginPage()
     logoFont.setPointSize(22);
     logoFont.setBold(true);
     logo->setFont(logoFont);
-    logo->setText("🐦 里与由");
+    logo->setText("里与由");
     logo->setStyleSheet("font-size: 26px; font-weight: 700; color: #1f2329; letter-spacing: 1px;");
     layout->addWidget(logo);
     layout->addSpacing(10);
