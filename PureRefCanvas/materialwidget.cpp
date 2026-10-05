@@ -377,34 +377,36 @@ void MaterialWidget::setupUI()
     browserLayout->setSpacing(0);
 
     m_splitter = new QSplitter(Qt::Horizontal);
-    m_splitter->setStyleSheet("QSplitter::handle { background: #333; }");
+    m_splitter->setStyleSheet("QSplitter::handle { background: rgba(255,255,255,0.08); }");
 
-    // Left: folder tree
+    // Left: folder tree — Chrome-style frosted dark sidebar
     QWidget *leftPanel = new QWidget;
     leftPanel->setFixedWidth(220);
-    leftPanel->setStyleSheet("background: #1a1a1a; border-right: 1px solid #333;");
+    leftPanel->setStyleSheet("background: rgba(22,27,34,0.55); border-right: 1px solid rgba(255,255,255,0.08);");
     QVBoxLayout *leftLayout = new QVBoxLayout(leftPanel);
-    leftLayout->setContentsMargins(8, 8, 8, 8);
-    leftLayout->setSpacing(6);
+    leftLayout->setContentsMargins(12, 16, 12, 12);
+    leftLayout->setSpacing(10);
 
     m_searchEdit = new QLineEdit;
     m_searchEdit->setPlaceholderText("🔍 搜索资产");
-    m_searchEdit->setFixedHeight(30);
-    m_searchEdit->setStyleSheet("QLineEdit { background: #2a2a2a; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; padding: 2px 10px; font-size: 13px; } QLineEdit:focus { border-color: #66c0f4; }");
+    m_searchEdit->setFixedHeight(36);
+    m_searchEdit->setStyleSheet(
+        "QLineEdit { background: rgba(255,255,255,0.10); color: #fff; border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 2px 16px; font-size: 13px; }"
+        "QLineEdit:focus { background: rgba(255,255,255,0.16); border-color: #8ab4f8; }");
     connect(m_searchEdit, &QLineEdit::textChanged, this, &MaterialWidget::onSearchChanged);
     leftLayout->addWidget(m_searchEdit);
 
     QLabel *sourcesLabel = new QLabel("  内容浏览器");
-    sourcesLabel->setStyleSheet("color: #888; font-size: 12px; font-weight: 600; padding: 4px;");
+    sourcesLabel->setStyleSheet("color: rgba(255,255,255,0.55); font-size: 11px; font-weight: 600; padding: 4px; letter-spacing: 1px;");
     leftLayout->addWidget(sourcesLabel);
 
     m_folderTree = new QTreeWidget;
     m_folderTree->setHeaderHidden(true);
     m_folderTree->setStyleSheet(R"(
-        QTreeWidget { background: transparent; border: none; outline: none; color: #ccc; font-size: 13px; }
-        QTreeWidget::item { padding: 4px 6px; border-radius: 3px; }
-        QTreeWidget::item:selected { background: #2a475e; color: #66c0f4; }
-        QTreeWidget::item:hover:!selected { background: #2a2a2a; }
+        QTreeWidget { background: transparent; border: none; outline: none; color: rgba(255,255,255,0.85); font-size: 13px; }
+        QTreeWidget::item { padding: 6px 8px; border-radius: 6px; }
+        QTreeWidget::item:selected { background: rgba(138,180,248,0.25); color: #fff; }
+        QTreeWidget::item:hover:!selected { background: rgba(255,255,255,0.08); }
     )");
     connect(m_folderTree, &QTreeWidget::itemClicked, this, &MaterialWidget::onFolderTreeClicked);
     m_folderTree->setContextMenuPolicy(Qt::CustomContextMenu);
