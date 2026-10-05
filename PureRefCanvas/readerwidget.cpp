@@ -1747,6 +1747,12 @@ void ReaderWidget::onSliderReleased()
     QScrollBar *sb = m_readingView->verticalScrollBar();
     const int max = sb->maximum();
     sb->setValue(max > 0 ? qRound(max * m_progressSlider->value() / 1000.0) : 0);
+    // After a drag, persist the new source position immediately so the shelf
+    // percentage matches where the user actually landed (otherwise backToShelf
+    // would save the pre-drag position).
+    if (!m_currentBookId.isEmpty()) {
+        m_library->updateProgress(m_currentBookId, topCharPos());
+    }
 }
 
 void ReaderWidget::showToc()
