@@ -21,6 +21,7 @@ qt_add_executable(PureRefCanvas
     imageio.h
     notewidget.h notewidget.cpp
     flashcardstore.h flashcardstore.cpp
+    gardenview.h gardenview.cpp
     materiallibrary.h materiallibrary.cpp
     materialwidget.h materialwidget.cpp
     contentbrowserpanel.h contentbrowserpanel.cpp

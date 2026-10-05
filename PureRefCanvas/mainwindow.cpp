@@ -72,6 +72,7 @@
 #include <QGuiApplication>
 #include <QClipboard>
 #include "flashcardstore.h"
+#include "gardenview.h"
 
 // ========== Windows Acrylic Blur (毛玻璃效果) ==========
 #ifdef Q_OS_WIN
@@ -787,6 +788,16 @@ connect(fcSc, &QShortcut::activated, this, [this]() {
         idx++;
     }
     QMessageBox::information(this, "闪卡复习", "今天的卡片复习完了 ✨");
+});
+
+// ===== Digital garden: Ctrl+Shift+G =====
+QShortcut *gardenSc = new QShortcut(QKeySequence("Ctrl+Shift+G"), this);
+gardenSc->setContext(Qt::ApplicationShortcut);
+connect(gardenSc, &QShortcut::activated, this, [this]() {
+    if (!m_noteWidget) return;
+    GardenDialog dlg(this);
+    dlg.setNotes(m_noteWidget->allNotes());
+    dlg.exec();
 });
 
     applyTheme(m_currentTheme);
