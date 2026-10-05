@@ -2,6 +2,7 @@
 #include "userauth.h"
 #include "logindialog.h"
 #include <QApplication>
+#include <QSurfaceFormat>
 #include <QIcon>
 #include <QSettings>
 #include <QTranslator>
@@ -304,6 +305,24 @@ int main(int argc, char *argv[])
     bool hwAccel = settings.value("hardwareAcceleration", true).toBool();
     if (!hwAccel) {
         QApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
+    } else {
+        // Force hardware-accelerated rendering pipeline.
+        // - AA_ShareOpenGLContexts: lets QOpenGLWidget / RHI share one GL context
+        // - AA_UseDesktopOpenGL: use native desktop OpenGL (better perf than ANGLE on Win10/11)
+        // - QT_ANGLE_PLATFORM=d3d11: fallback via Direct3D 11 if desktop GL missing
+        QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+        qputenv("QT_OPENGL", "desktop");
+        qputenv("QT_ANGLE_PLATFORM", "d3d11");
+        qputenv("QT_D3D_ADAPTER_INDEX", "0");
+
+        // 4x multisample antialiasing + double buffer for smoother scrolling.
+        QSurfaceFormat fmt;
+        fmt.setRenderableType(QSurfaceFormat::OpenGL);
+        fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+        fmt.setSamples(4);
+        fmt.setDepthBufferSize(24);
+        fmt.setStencilBufferSize(8);
+        QSurfaceFormat::setDefaultFormat(fmt);
     }
 
     QApplication app(argc, argv);
