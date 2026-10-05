@@ -828,7 +828,6 @@ void CanvasView::setMinimapThrottleEnabled(bool enabled)
 void CanvasView::updateEmptyHint()
 {
     if (!m_emptyHint || !m_canvasScene) return;
-    const bool empty = m_canvasScene->items().isEmpty();
-    m_emptyHint->setVisible(empty);
-    if (empty) m_emptyHint->raise();
+    // Empty-state hint disabled by user request.
+    m_emptyHint->setVisible(false);
 }
