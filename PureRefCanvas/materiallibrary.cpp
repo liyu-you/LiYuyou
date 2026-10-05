@@ -15,6 +15,10 @@
 #include <QDateTime>
 #include <QSet>
 #include <QTimer>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QSqlError>
+#include <QVariant>
 #include <algorithm>
 
 QString MaterialItem::fullPath(const QString &libraryRoot) const
@@ -38,8 +42,14 @@ MaterialLibrary::MaterialLibrary(const QString &rootPath, QObject *parent)
     : QObject(parent), m_rootPath(rootPath)
 {
     QDir().mkpath(m_rootPath + "/assets");
-    load();
+    openDatabase();   // opens (or creates) library.db, applies schema, migrates legacy json
+    load();           // SELECT * into m_items
     setupWatcher();
+}
+
+MaterialLibrary::~MaterialLibrary()
+{
+    closeDatabase();
 }
 
 QString MaterialLibrary::assetsPath() const
@@ -116,11 +126,12 @@ void MaterialLibrary::scanAndImportNewFiles()
             if (sz.isValid()) { item.width = sz.width(); item.height = sz.height(); }
         }
         m_items.append(item);
+        upsertItem(item);
         known.insert(rel);
         any = true;
     }
     if (any) {
-        save(); // emits libraryChanged → grids refresh
+        emit libraryChanged();
         setupWatcher();
     }
 }
@@ -128,6 +139,174 @@ void MaterialLibrary::scanAndImportNewFiles()
 QString MaterialLibrary::metadataPath() const
 {
     return m_rootPath + "/library.json";
+}
+
+QString MaterialLibrary::dbPath() const
+{
+    return m_rootPath + "/library.db";
+}
+
+// ------------------------------------------------------------------
+// Storage layer: SQLite (WAL).
+//
+// Why WAL:
+//   - Concurrent readers don't block the writer, and vice versa.
+//   - Crash consistency is automatic; we don't have to journal the JSON
+//     ourselves.
+//   - save() no longer rewrites the whole file on every tag change.
+// ------------------------------------------------------------------
+bool MaterialLibrary::openDatabase()
+{
+    m_dbConnName = "liyoud_lib_" + QString::number(reinterpret_cast<quintptr>(this));
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", m_dbConnName);
+    db.setDatabaseName(dbPath());
+    if (!db.open()) {
+        qWarning("MaterialLibrary: cannot open %s: %s",
+                 qPrintable(dbPath()), qPrintable(db.lastError().text()));
+        return false;
+    }
+    // WAL: better concurrent read/write, crash-safe.
+    QSqlQuery q(db);
+    q.exec("PRAGMA journal_mode = WAL");
+    q.exec("PRAGMA synchronous = NORMAL");   // safe under WAL, faster than FULL
+    q.exec("PRAGMA foreign_keys = ON");
+
+    applySchema();
+
+    // One-shot migration from the legacy JSON file.
+    if (QFileInfo::exists(metadataPath()) && !QFileInfo::exists(dbPath() + "-wal")) {
+        migrateLegacyJson();
+    }
+    return true;
+}
+
+void MaterialLibrary::closeDatabase()
+{
+    if (m_dbConnName.isEmpty()) return;
+    {
+        QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+        if (db.isOpen()) db.close();
+    }
+    QSqlDatabase::removeDatabase(m_dbConnName);
+    m_dbConnName.clear();
+}
+
+void MaterialLibrary::applySchema()
+{
+    QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+    QSqlQuery q(db);
+    q.exec(R"(CREATE TABLE IF NOT EXISTS items (
+        id            TEXT PRIMARY KEY,
+        fileName      TEXT NOT NULL,
+        filePath      TEXT NOT NULL UNIQUE,
+        type          INTEGER NOT NULL DEFAULT 0,
+        tags_json     TEXT NOT NULL DEFAULT '[]',
+        note          TEXT NOT NULL DEFAULT '',
+        rating        INTEGER NOT NULL DEFAULT 0,
+        source_url    TEXT NOT NULL DEFAULT '',
+        referrer      TEXT NOT NULL DEFAULT '',
+        width         INTEGER NOT NULL DEFAULT 0,
+        height        INTEGER NOT NULL DEFAULT 0,
+        file_size     INTEGER NOT NULL DEFAULT 0,
+        imported_at   TEXT NOT NULL
+    ))");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_items_folder ON items(filePath)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_items_rating ON items(rating)");
+
+    q.exec(R"(CREATE TABLE IF NOT EXISTS history (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id    TEXT NOT NULL,
+        field      TEXT NOT NULL,
+        old_value  TEXT,
+        new_value  TEXT,
+        ts         TEXT NOT NULL
+    ))");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_history_item ON history(item_id, ts)");
+}
+
+void MaterialLibrary::migrateLegacyJson()
+{
+    QFile file(metadataPath());
+    if (!file.open(QIODevice::ReadOnly)) return;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+    if (!doc.isArray()) return;
+
+    QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+    db.transaction();
+    for (const QJsonValue &val : doc.array()) {
+        const QJsonObject obj = val.toObject();
+        MaterialItem item;
+        item.id = obj["id"].toString();
+        item.fileName = obj["fileName"].toString();
+        item.filePath = obj["filePath"].toString();
+        item.type = (AssetType)obj["type"].toInt(0);
+        item.tags = obj["tags"].toVariant().toStringList();
+        item.note = obj["note"].toString();
+        item.rating = obj["rating"].toInt(0);
+        item.sourceUrl = obj["sourceUrl"].toString();
+        item.sourceReferrer = obj["sourceReferrer"].toString();
+        item.width = obj["width"].toInt();
+        item.height = obj["height"].toInt();
+        item.fileSize = obj["fileSize"].toVariant().toLongLong();
+        item.importedAt = QDateTime::fromString(obj["importedAt"].toString(), Qt::ISODate);
+        upsertItem(item);
+    }
+    db.commit();
+
+    // Rename the legacy file so we don't migrate twice.
+    QFile::rename(metadataPath(), metadataPath() + ".bak");
+}
+
+void MaterialLibrary::upsertItem(const MaterialItem &item)
+{
+    QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+    QSqlQuery q(db);
+    q.prepare(R"(INSERT OR REPLACE INTO items
+        (id, fileName, filePath, type, tags_json, note, rating,
+         source_url, referrer, width, height, file_size, imported_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?))");
+    q.addBindValue(item.id);
+    q.addBindValue(item.fileName);
+    q.addBindValue(item.filePath);
+    q.addBindValue((int)item.type);
+    q.addBindValue(QJsonDocument(QJsonArray::fromStringList(item.tags)).toJson(QJsonDocument::Compact));
+    q.addBindValue(item.note);
+    q.addBindValue(item.rating);
+    q.addBindValue(item.sourceUrl);
+    q.addBindValue(item.sourceReferrer);
+    q.addBindValue(item.width);
+    q.addBindValue(item.height);
+    q.addBindValue((qlonglong)item.fileSize);
+    q.addBindValue(item.importedAt.toString(Qt::ISODate));
+    if (!q.exec()) {
+        qWarning("upsertItem: %s", qPrintable(q.lastError().text()));
+    }
+}
+
+void MaterialLibrary::deleteItemRow(const QString &id)
+{
+    QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+    QSqlQuery q(db);
+    q.prepare("DELETE FROM items WHERE id = ?");
+    q.addBindValue(id);
+    q.exec();
+}
+
+void MaterialLibrary::recordHistory(const QString &itemId, const QString &field,
+                                    const QString &oldValue, const QString &newValue)
+{
+    if (oldValue == newValue) return; // no-op, don't pollute the log
+    QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+    QSqlQuery q(db);
+    q.prepare(R"(INSERT INTO history (item_id, field, old_value, new_value, ts)
+                 VALUES (?,?,?,?,?))");
+    q.addBindValue(itemId);
+    q.addBindValue(field);
+    q.addBindValue(oldValue);
+    q.addBindValue(newValue);
+    q.addBindValue(QDateTime::currentDateTime().toString(Qt::ISODate));
+    q.exec();
 }
 
 QString MaterialLibrary::generateId() const
@@ -152,57 +331,39 @@ AssetType MaterialLibrary::detectType(const QString &fileName)
 
 bool MaterialLibrary::load()
 {
-    QFile file(metadataPath());
-    if (!file.open(QIODevice::ReadOnly)) return false;
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    file.close();
-    if (!doc.isArray()) return false;
     m_items.clear();
-    for (const QJsonValue &val : doc.array()) {
-        QJsonObject obj = val.toObject();
+    QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+    if (!db.isOpen()) return false;
+    QSqlQuery q("SELECT id, fileName, filePath, type, tags_json, note, rating, "
+                "source_url, referrer, width, height, file_size, imported_at FROM items", db);
+    while (q.next()) {
         MaterialItem item;
-        item.id = obj["id"].toString();
-        item.fileName = obj["fileName"].toString();
-        item.filePath = obj["filePath"].toString();
-        item.type = (AssetType)obj["type"].toInt(0);
-        item.tags = obj["tags"].toVariant().toStringList();
-        item.note = obj["note"].toString();
-        item.rating = obj["rating"].toInt(0);
-        item.sourceUrl = obj["sourceUrl"].toString();
-        item.sourceReferrer = obj["sourceReferrer"].toString();
-        item.width = obj["width"].toInt();
-        item.height = obj["height"].toInt();
-        item.fileSize = obj["fileSize"].toVariant().toLongLong();
-        item.importedAt = QDateTime::fromString(obj["importedAt"].toString(), Qt::ISODate);
+        item.id        = q.value(0).toString();
+        item.fileName  = q.value(1).toString();
+        item.filePath  = q.value(2).toString();
+        item.type      = (AssetType)q.value(3).toInt();
+        {
+            const QJsonArray tagArr = QJsonDocument::fromJson(q.value(4).toByteArray()).array();
+            for (const QJsonValue &v : tagArr) item.tags << v.toString();
+        }
+        item.note      = q.value(5).toString();
+        item.rating    = q.value(6).toInt();
+        item.sourceUrl = q.value(7).toString();
+        item.sourceReferrer = q.value(8).toString();
+        item.width     = q.value(9).toInt();
+        item.height    = q.value(10).toInt();
+        item.fileSize  = q.value(11).toLongLong();
+        item.importedAt = QDateTime::fromString(q.value(12).toString(), Qt::ISODate);
         m_items.append(item);
     }
     return true;
 }
 
+// save() is now a no-op on the storage side: every mutator writes straight
+// through to SQLite. We keep the method (and the libraryChanged emission) so
+// call sites that still call save() after batch edits don't silently break.
 bool MaterialLibrary::save()
 {
-    QFile file(metadataPath());
-    if (!file.open(QIODevice::WriteOnly)) return false;
-    QJsonArray arr;
-    for (const MaterialItem &item : m_items) {
-        QJsonObject obj;
-        obj["id"] = item.id;
-        obj["fileName"] = item.fileName;
-        obj["filePath"] = item.filePath;
-        obj["type"] = (int)item.type;
-        obj["tags"] = QJsonArray::fromStringList(item.tags);
-        obj["note"] = item.note;
-        obj["rating"] = item.rating;
-        obj["sourceUrl"] = item.sourceUrl;
-        obj["sourceReferrer"] = item.sourceReferrer;
-        obj["width"] = item.width;
-        obj["height"] = item.height;
-        obj["fileSize"] = (double)item.fileSize;
-        obj["importedAt"] = item.importedAt.toString(Qt::ISODate);
-        arr.append(obj);
-    }
-    file.write(QJsonDocument(arr).toJson());
-    file.close();
     emit libraryChanged();
     return true;
 }
@@ -441,9 +602,10 @@ bool MaterialLibrary::importFiles(const QStringList &filePaths, const QString &t
             }
         }
         m_items.append(item);
+        upsertItem(item);
         any = true;
     }
-    if (any) save();
+    if (any) emit libraryChanged();
     return any;
 }
 
@@ -471,7 +633,8 @@ QString MaterialLibrary::importFromImage(const QImage &image, const QString &tar
     item.width = image.width();
     item.height = image.height();
     m_items.append(item);
-    save();
+    upsertItem(item);
+    emit libraryChanged();
     return item.id;
 }
 
@@ -482,11 +645,12 @@ bool MaterialLibrary::deleteItems(const QStringList &ids)
         auto it = std::find_if(m_items.begin(), m_items.end(), [&](const MaterialItem &i) { return i.id == id; });
         if (it != m_items.end()) {
             QFile::remove(assetsPath() + "/" + it->filePath);
+            deleteItemRow(id);
             m_items.erase(it);
             any = true;
         }
     }
-    if (any) save();
+    if (any) emit libraryChanged();
     return any;
 }
 
@@ -504,9 +668,11 @@ bool MaterialLibrary::renameItem(const QString &id, const QString &newName)
         if (QFile::exists(newFull)) return false;
         QFile::rename(oldFull, newFull);
     }
+    recordHistory(id, "file_name", it->fileName, newFileName);
     it->fileName = newFileName;
     it->filePath = newRelPath;
-    save();
+    upsertItem(*it);
+    emit libraryChanged();
     return true;
 }
 
@@ -528,10 +694,10 @@ bool MaterialLibrary::renameFolder(const QString &oldPath, const QString &newNam
     for (MaterialItem &item : m_items) {
         if (item.filePath == oldPath || item.filePath.startsWith(oldPath + "/")) {
             item.filePath = newPath + item.filePath.mid(oldPath.length());
+            upsertItem(item);
         }
     }
 
-    save();
     emit libraryChanged();
     return true;
 }
@@ -548,10 +714,11 @@ bool MaterialLibrary::moveItems(const QStringList &ids, const QString &targetFol
         QDir().mkpath(QFileInfo(newFull).absolutePath());
         if (QFile::rename(oldFull, newFull)) {
             it->filePath = newRelPath;
+            upsertItem(*it);
             any = true;
         }
     }
-    if (any) save();
+    if (any) emit libraryChanged();
     return any;
 }
 
@@ -595,8 +762,11 @@ bool MaterialLibrary::setRating(const QString &id, int rating)
     auto it = std::find_if(m_items.begin(), m_items.end(),
         [&](const MaterialItem &i) { return i.id == id; });
     if (it == m_items.end()) return false;
+    const int old = it->rating;
     it->rating = qBound(0, rating, 5);
-    save();
+    upsertItem(*it);
+    recordHistory(id, "rating", QString::number(old), QString::number(it->rating));
+    emit libraryChanged();
     return true;
 }
 
@@ -605,7 +775,6 @@ bool MaterialLibrary::setTags(const QString &id, const QStringList &tags)
     auto it = std::find_if(m_items.begin(), m_items.end(),
         [&](const MaterialItem &i) { return i.id == id; });
     if (it == m_items.end()) return false;
-    it->tags = tags;
     // Keep tags tidy: trim, drop empties, dedupe, case-preserved order.
     QStringList cleaned;
     for (const QString &t : tags) {
@@ -613,8 +782,11 @@ bool MaterialLibrary::setTags(const QString &id, const QStringList &tags)
         if (s.isEmpty() || cleaned.contains(s, Qt::CaseInsensitive)) continue;
         cleaned << s;
     }
+    const QString oldJoined = it->tags.join(",");
     it->tags = cleaned;
-    save();
+    upsertItem(*it);
+    recordHistory(id, "tags", oldJoined, cleaned.join(","));
+    emit libraryChanged();
     return true;
 }
 
@@ -627,8 +799,11 @@ bool MaterialLibrary::addTag(const QString &id, const QString &tag)
     if (s.isEmpty()) return false;
     for (const QString &t : it->tags)
         if (t.compare(s, Qt::CaseInsensitive) == 0) return true; // already present
+    const QString oldJoined = it->tags.join(",");
     it->tags << s;
-    save();
+    upsertItem(*it);
+    recordHistory(id, "tags", oldJoined, it->tags.join(","));
+    emit libraryChanged();
     return true;
 }
 
@@ -638,10 +813,13 @@ bool MaterialLibrary::removeTag(const QString &id, const QString &tag)
         [&](const MaterialItem &i) { return i.id == id; });
     if (it == m_items.end()) return false;
     QString s = tag.trimmed();
+    const QString oldJoined = it->tags.join(",");
     it->tags.erase(std::remove_if(it->tags.begin(), it->tags.end(),
         [&](const QString &t) { return t.compare(s, Qt::CaseInsensitive) == 0; }),
         it->tags.end());
-    save();
+    upsertItem(*it);
+    recordHistory(id, "tags", oldJoined, it->tags.join(","));
+    emit libraryChanged();
     return true;
 }
 
@@ -650,8 +828,11 @@ bool MaterialLibrary::setNote(const QString &id, const QString &note)
     auto it = std::find_if(m_items.begin(), m_items.end(),
         [&](const MaterialItem &i) { return i.id == id; });
     if (it == m_items.end()) return false;
+    const QString old = it->note;
     it->note = note;
-    save();
+    upsertItem(*it);
+    recordHistory(id, "note", old, note);
+    emit libraryChanged();
     return true;
 }
 
@@ -660,9 +841,12 @@ bool MaterialLibrary::setSource(const QString &id, const QString &sourceUrl, con
     auto it = std::find_if(m_items.begin(), m_items.end(),
         [&](const MaterialItem &i) { return i.id == id; });
     if (it == m_items.end()) return false;
+    const QString oldUrl = it->sourceUrl;
     it->sourceUrl = sourceUrl;
     it->sourceReferrer = referrer;
-    save();
+    upsertItem(*it);
+    recordHistory(id, "source_url", oldUrl, sourceUrl);
+    emit libraryChanged();
     return true;
 }
 

@@ -39,6 +39,7 @@ class MaterialLibrary : public QObject
     Q_OBJECT
 public:
     explicit MaterialLibrary(const QString &rootPath, QObject *parent = nullptr);
+    ~MaterialLibrary() override;
 
     bool load();
     bool save();
@@ -89,15 +90,31 @@ private:
     void setupWatcher();
     void scanAndImportNewFiles();
 
+    QString metadataPath() const;   // legacy library.json (kept for migration)
+    QString dbPath() const;         // library.db (SQLite WAL)
+    QString generateId() const;
+    QString uniqueFilePath(const QString &folder, const QString &fileName) const;
+    void collectSubFolders(const QString &path, QSet<QString> &folders) const;
+
+    // --- Storage layer (SQLite WAL) ---
+    bool openDatabase();            // open or create library.db, apply migrations
+    void closeDatabase();
+    void applySchema();             // CREATE TABLE IF NOT EXISTS ...
+    void migrateLegacyJson();      // one-shot: import old library.json, rename to .bak
+    void upsertItem(const MaterialItem &item);   // INSERT OR REPLACE one row
+    void deleteItemRow(const QString &id);
+    void recordHistory(const QString &itemId, const QString &field,
+                       const QString &oldValue, const QString &newValue);
+
     QString m_rootPath;
     QList<MaterialItem> m_items;
     QFileSystemWatcher *m_watcher = nullptr;
     QTimer *m_scanTimer = nullptr;
 
-    QString metadataPath() const;
-    QString generateId() const;
-    QString uniqueFilePath(const QString &folder, const QString &fileName) const;
-    void collectSubFolders(const QString &path, QSet<QString> &folders) const;
+    // Qt SQL connection handle. We keep the connection name (not the
+    // QSqlDatabase object itself) because QSqlDatabase cannot live in a
+    // container without an open driver at destruction time.
+    QString m_dbConnName;
 };
 
 #endif

@@ -13,6 +13,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFile>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
@@ -104,6 +106,20 @@ int main(int argc, char **argv)
         // 6. allTags() aggregation
         QStringList tags = lib.allTags();
         CHECK(tags.contains("icon") && tags.contains("Red"), "allTags() lists both tags");
+
+        // 7. History table: every metadata mutation should have been logged.
+        {
+            QSqlDatabase hdb = QSqlDatabase::addDatabase("QSQLITE", "hist_check");
+            hdb.setDatabaseName(root + "/library.db");
+            CHECK(hdb.open(), "history db opens");
+            QSqlQuery q(hdb);
+            q.exec("SELECT COUNT(*) FROM history");
+            CHECK(q.next() && q.value(0).toInt() >= 3, "history has >=3 rows");
+            q.exec("SELECT field, old_value, new_value FROM history WHERE field='rating' ORDER BY id DESC LIMIT 1");
+            CHECK(q.next() && q.value(0).toString() == "rating", "rating history row recorded");
+            hdb.close();
+            QSqlDatabase::removeDatabase("hist_check");
+        }
     }
 
     QDir(root).removeRecursively();
