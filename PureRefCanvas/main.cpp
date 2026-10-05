@@ -407,6 +407,21 @@ int main(int argc, char *argv[])
     app.processEvents();
     loading.finishLoading();
 
+    // Re-assert QToolTip style AFTER MainWindow's setStyleSheet has run.
+    // QToolTip is a top-level popup that inherits palette from QWidget, and
+    // MainWindow's blanket `QWidget { background: ... }` was winning the cascade.
+    // Appending this last makes it the final word in the QSS chain.
+    app.setStyleSheet(app.styleSheet() + R"(
+        QToolTip {
+            background-color: #ffffff !important;
+            color: #202124 !important;
+            border: 1px solid #dadce0 !important;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+    )");
+
     // Handle logout: hide main window, show login dialog again
     QObject::connect(&w, &MainWindow::loggedOut, &app, [&w, &auth]() {
         w.hide();
