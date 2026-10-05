@@ -19,9 +19,9 @@ MusicLibraryDb::~MusicLibraryDb()
     close();
 }
 
-bool MusicLibraryDb::open()
+DbOk MusicLibraryDb::open()
 {
-    if (m_open) return true;
+    if (m_open) return {};
     QFileInfo fi(m_dbPath);
     QDir().mkpath(fi.absolutePath());
 
@@ -31,8 +31,9 @@ bool MusicLibraryDb::open()
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connName);
     db.setDatabaseName(m_dbPath);
     if (!db.open()) {
-        qWarning() << "MusicLibraryDb: cannot open" << m_dbPath << db.lastError().text();
-        return false;
+        const QString err = db.lastError().text();
+        qWarning() << "MusicLibraryDb: cannot open" << m_dbPath << err;
+        return std::unexpected(QStringLiteral("无法打开音乐库数据库：%1").arg(err));
     }
     {
         // Qt6: QSqlDatabase::exec(const QString&) is deprecated; use QSqlQuery(db).exec().
@@ -43,7 +44,7 @@ bool MusicLibraryDb::open()
     }
     m_open = true;
     createSchema();
-    return true;
+    return {};
 }
 
 void MusicLibraryDb::close()
@@ -110,7 +111,7 @@ bool MusicLibraryDb::isFresh(const QString &path, const QString &fingerprint) co
     return true;
 }
 
-bool MusicLibraryDb::loadCached(const QString &path, const QString &fingerprint, SongInfo &out) const
+DbSong MusicLibraryDb::loadCached(const QString &path, const QString &fingerprint) const
 {
     const QString connName = QStringLiteral("musicdb_%1").arg(m_connectionSeq);
     QSqlDatabase db = QSqlDatabase::database(connName);
@@ -119,7 +120,9 @@ bool MusicLibraryDb::loadCached(const QString &path, const QString &fingerprint,
               "FROM songs WHERE path=? AND fingerprint=?");
     q.addBindValue(path);
     q.addBindValue(fingerprint);
-    if (!q.exec() || !q.next()) return false;
+    if (!q.exec() || !q.next())
+        return std::unexpected(QStringLiteral("无缓存元数据"));
+    SongInfo out;
     out.path = path;
     out.title = q.value(0).toString();
     out.artist = q.value(1).toString();
@@ -133,7 +136,7 @@ bool MusicLibraryDb::loadCached(const QString &path, const QString &fingerprint,
     out.bitrate = q.value(9).toInt();
     out.embeddedCoverMime = q.value(10).toString();
     out.embeddedCover = q.value(11).toByteArray();
-    return true;
+    return out;
 }
 
 void MusicLibraryDb::upsertSong(const SongInfo &song, qint64 size, qint64 mtime)

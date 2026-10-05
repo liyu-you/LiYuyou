@@ -16,6 +16,7 @@
 #include <QString>
 #include <QHash>
 #include <QSet>
+#include <expected>
 
 class QSqlDatabase;
 
@@ -27,12 +28,16 @@ struct SongStats {
     qint64 lastPlayedAt = 0;
 };
 
+// C++23: fallible operations return std::expected instead of bool + out-param.
+using DbOk   = std::expected<void, QString>;
+using DbSong = std::expected<SongInfo, QString>;
+
 class MusicLibraryDb {
 public:
     explicit MusicLibraryDb(const QString &dbPath);
     ~MusicLibraryDb();
 
-    bool open();
+    DbOk open();
     void close();
     bool isOpen() const { return m_open; }
 
@@ -43,8 +48,9 @@ public:
     // (i.e. the file has not changed since last scan).
     bool isFresh(const QString &path, const QString &fingerprint) const;
 
-    // Load cached song metadata by path. Returns false when no fresh row.
-    bool loadCached(const QString &path, const QString &fingerprint, SongInfo &out) const;
+    // Load cached song metadata by path. On success returns the SongInfo; on
+    // failure (no fresh row) returns an error string.
+    DbSong loadCached(const QString &path, const QString &fingerprint) const;
 
     // Upsert parsed metadata + cover blob.
     void upsertSong(const SongInfo &song, qint64 size, qint64 mtime);

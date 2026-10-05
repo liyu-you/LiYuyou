@@ -6,6 +6,16 @@
 #include <QDateTime>
 #include <QHash>
 #include <QByteArray>
+#include <expected>
+
+// C++23: Result<T, QString> replaces the old "bool method(..., QString *error)"
+// C-style out-param idiom. Success carries T (or nothing for Result<void>);
+// failure carries the human-readable Chinese message the UI used to show.
+// Callers use `if (result) {...} else { showError(result.error()); }` and can
+// no longer accidentally drop the error by passing nullptr.
+template <typename T>
+using AuthResult = std::expected<T, QString>;
+using AuthOk     = std::expected<void, QString>;
 
 // Credential hashing primitives. Exposed (rather than file-static) so the
 // credential path can be checked against the published PBKDF2 test vectors.
@@ -40,6 +50,7 @@ class UserAuth : public QObject
 public:
     explicit UserAuth(QObject *parent = nullptr);
 
+    // Pure predicates / crypto helpers — no error channel, kept as-is.
     static bool isValidEmail(const QString &email);
     static QString hashPassword(const QString &password);
     static bool isStrongPassword(const QString &password, QString *hint = nullptr);
@@ -48,27 +59,32 @@ public:
     // transparently upgrade it after a successful check.
     static bool verifyHash(const QString &value, const QString &storedHash,
                            bool *needsRehash = nullptr);
-
-    bool registerUser(const QString &username, const QString &email,
-                      const QString &password, const QString &securityQuestion,
-                      const QString &securityAnswer, QString *error = nullptr);
-    bool login(const QString &account, const QString &password, QString *error = nullptr);
-    bool verifyLogin(const QString &account, const QString &password) const; // 纯验证，无副作用
-    bool loginAsUser(const QString &account); // 预验证成功后快速登录（跳过密码验证）
-    bool resetPassword(const QString &email, const QString &securityAnswer,
-                       const QString &newPassword, QString *error = nullptr);
-    bool bindEmail(const QString &username, const QString &newEmail, QString *error = nullptr);
-    bool changePassword(const QString &username, const QString &oldPassword,
-                        const QString &newPassword, QString *error = nullptr);
-    bool updateAvatar(const QString &username, const QString &avatarPath, QString *error = nullptr);
-    bool updateUsername(const QString &oldUsername, const QString &newUsername, QString *error = nullptr);
-    bool updateNickname(const QString &username, const QString &newNickname, QString *error = nullptr);
-    bool updateBio(const QString &username, const QString &newBio, QString *error = nullptr);
-    bool updateBackground(const QString &username, const QString &bgPath, QString *error = nullptr);
-    bool updateAccountCover(const QString &username, const QString &coverPath, QString *error = nullptr);
-    bool clearAccountCover(const QString &username, QString *error = nullptr);
-    bool updateUserId(const QString &username, const QString &newId, QString *error = nullptr);
     static bool isValidUserId(const QString &id);
+
+    // ---- Fallible mutations (C++23 expected) ----
+    AuthOk registerUser(const QString &username, const QString &email,
+                        const QString &password, const QString &securityQuestion,
+                        const QString &securityAnswer);
+    AuthOk login(const QString &account, const QString &password);
+    AuthOk resetPassword(const QString &email, const QString &securityAnswer,
+                         const QString &newPassword);
+    AuthOk bindEmail(const QString &username, const QString &newEmail);
+    AuthOk changePassword(const QString &username, const QString &oldPassword,
+                         const QString &newPassword);
+    AuthOk updateAvatar(const QString &username, const QString &avatarPath);
+    AuthOk updateUsername(const QString &oldUsername, const QString &newUsername);
+    AuthOk updateNickname(const QString &username, const QString &newNickname);
+    AuthOk updateBio(const QString &username, const QString &newBio);
+    AuthOk updateBackground(const QString &username, const QString &bgPath);
+    AuthOk updateAccountCover(const QString &username, const QString &coverPath);
+    AuthOk clearAccountCover(const QString &username);
+    AuthOk updateUserId(const QString &username, const QString &newId);
+
+    // Pure verification, no side effects. No error channel.
+    bool verifyLogin(const QString &account, const QString &password) const;
+    // Pre-verified fast path (auto-login / loginAsUser): no password check, no
+    // error string. Returns false when the account does not exist.
+    bool loginAsUser(const QString &account);
 
     UserInfo currentUser() const { return m_currentUser; }
     bool isLoggedIn() const { return !m_currentUser.username.isEmpty(); }
@@ -101,8 +117,8 @@ signals:
 private:
     bool load();
     bool save();
-    // save() plus a user-facing reason when the write could not happen
-    bool commit(QString *error);
+    // save() plus a user-facing reason when the write could not happen.
+    AuthOk commit();
     QString dataPath() const;
 
     // Failed-attempt throttling (in memory only: a restart clears it, which is
@@ -111,7 +127,8 @@ private:
         int failures = 0;
         QDateTime lockedUntil;
     };
-    bool throttled(const QString &key, QString *error) const;
+    // Returns a non-empty cooldown message when the key is locked out, else "".
+    QString throttleMessage(const QString &key) const;
     void noteFailure(const QString &key);
     void clearFailures(const QString &key);
 
@@ -122,4 +139,4 @@ private:
     QString m_storeError;
 };
 
-#endif
+#endif // USERAUTH_H

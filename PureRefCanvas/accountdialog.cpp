@@ -536,68 +536,59 @@ void AccountDialog::onChangeUserId()
 void AccountDialog::onSave()
 {
     UserInfo user = m_auth->currentUser();
-    QString error;
 
     // Update nickname if changed
     if (m_nicknameEdit->text().trimmed() != user.nickname) {
-        if (!m_auth->updateNickname(user.username, m_nicknameEdit->text().trimmed(), &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->updateNickname(user.username, m_nicknameEdit->text().trimmed()); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
     }
 
     // Update bio (signature) if changed
     if (m_bioEdit->text().trimmed() != user.bio) {
-        if (!m_auth->updateBio(user.username, m_bioEdit->text().trimmed(), &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->updateBio(user.username, m_bioEdit->text().trimmed()); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
     }
 
     // Update username if changed
     if (m_usernameEdit->text().trimmed() != user.username) {
-        if (!m_auth->updateUsername(user.username, m_usernameEdit->text().trimmed(), &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->updateUsername(user.username, m_usernameEdit->text().trimmed()); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
     }
 
     // Update user ID if changed
     if (m_userIdEdit->text().trimmed() != user.userId) {
-        if (!m_auth->updateUserId(m_auth->currentUser().username, m_userIdEdit->text().trimmed(), &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->updateUserId(m_auth->currentUser().username, m_userIdEdit->text().trimmed()); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
         if (m_coverIdLabel) m_coverIdLabel->setText("ID: " + m_auth->currentUser().userId);
     }
 
     // Update email if changed
     if (m_emailEdit->text().trimmed().toLower() != user.email) {
-        if (!m_auth->bindEmail(m_auth->currentUser().username, m_emailEdit->text().trimmed(), &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->bindEmail(m_auth->currentUser().username, m_emailEdit->text().trimmed()); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
     }
 
     // Update avatar
     if (!m_newAvatarPath.isEmpty()) {
-        if (!m_auth->updateAvatar(m_auth->currentUser().username, m_newAvatarPath, &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->updateAvatar(m_auth->currentUser().username, m_newAvatarPath); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
     }
 
     // Update account cover (independent from the splash/startup background)
     if (!m_newCoverPath.isEmpty()) {
-        if (!m_auth->updateAccountCover(m_auth->currentUser().username, m_newCoverPath, &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->updateAccountCover(m_auth->currentUser().username, m_newCoverPath); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
     } else if (m_coverClearPending) {
         // 用户点了“恢复默认背景”：把账号里的封面路径清空（启动页背景不受影响）。
-        if (!m_auth->clearAccountCover(m_auth->currentUser().username, &error)) {
-            showWarning(this, "保存失败", error);
-            return;
+        if (auto r = m_auth->clearAccountCover(m_auth->currentUser().username); !r) {
+            showWarning(this, "保存失败", r.error()); return;
         }
     }
 
@@ -617,11 +608,10 @@ void AccountDialog::onChangePassword()
         return;
     }
 
-    QString error;
-    if (m_auth->changePassword(m_auth->currentUser().username, oldPwd, newPwd, &error)) {
+    if (auto r = m_auth->changePassword(m_auth->currentUser().username, oldPwd, newPwd); r) {
         showNotice(this, "修改密码", "密码修改成功！");
     } else {
-        showWarning(this, "修改密码", error);
+        showWarning(this, "修改密码", r.error());
     }
 }
 

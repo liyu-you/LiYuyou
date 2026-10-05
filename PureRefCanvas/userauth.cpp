@@ -95,15 +95,14 @@ UserAuth::UserAuth(QObject *parent) : QObject(parent)
     }
 }
 
-bool UserAuth::throttled(const QString &key, QString *error) const
+QString UserAuth::throttleMessage(const QString &key) const
 {
     const auto it = m_attempts.constFind(key);
-    if (it == m_attempts.constEnd()) return false;
-    if (!it->lockedUntil.isValid()) return false;
+    if (it == m_attempts.constEnd()) return {};
+    if (!it->lockedUntil.isValid()) return {};
     const qint64 secs = QDateTime::currentDateTime().secsTo(it->lockedUntil);
-    if (secs <= 0) return false; // cooldown elapsed
-    if (error) *error = QString("尝试过于频繁，请 %1 秒后再试").arg(secs);
-    return true;
+    if (secs <= 0) return {}; // cooldown elapsed
+    return QString("尝试过于频繁，请 %1 秒后再试").arg(secs);
 }
 
 void UserAuth::noteFailure(const QString &key)
@@ -193,39 +192,25 @@ bool UserAuth::isStrongPassword(const QString &password, QString *hint)
     return true;
 }
 
-bool UserAuth::registerUser(const QString &username, const QString &email,
-                             const QString &password, const QString &securityQuestion,
-                             const QString &securityAnswer, QString *error)
+AuthOk UserAuth::registerUser(const QString &username, const QString &email,
+                              const QString &password, const QString &securityQuestion,
+                              const QString &securityAnswer)
 {
-    if (username.trimmed().isEmpty()) {
-        if (error) *error = "用户名不能为空";
-        return false;
-    }
-    if (username.length() < 2 || username.length() > 20) {
-        if (error) *error = "用户名长度2-20位";
-        return false;
-    }
-    if (!isValidEmail(email)) {
-        if (error) *error = "邮箱格式不正确";
-        return false;
-    }
+    if (username.trimmed().isEmpty())
+        return std::unexpected("用户名不能为空");
+    if (username.length() < 2 || username.length() > 20)
+        return std::unexpected("用户名长度2-20位");
+    if (!isValidEmail(email))
+        return std::unexpected("邮箱格式不正确");
     QString hint;
-    if (!isStrongPassword(password, &hint)) {
-        if (error) *error = hint;
-        return false;
-    }
-    if (securityQuestion.isEmpty() || securityAnswer.isEmpty()) {
-        if (error) *error = "请设置安全问题和答案";
-        return false;
-    }
-    if (userExists(username)) {
-        if (error) *error = "用户名已存在";
-        return false;
-    }
-    if (emailExists(email)) {
-        if (error) *error = "邮箱已被注册";
-        return false;
-    }
+    if (!isStrongPassword(password, &hint))
+        return std::unexpected(hint);
+    if (securityQuestion.isEmpty() || securityAnswer.isEmpty())
+        return std::unexpected("请设置安全问题和答案");
+    if (userExists(username))
+        return std::unexpected("用户名已存在");
+    if (emailExists(email))
+        return std::unexpected("邮箱已被注册");
 
     UserInfo user;
     user.username = username.trimmed();
@@ -252,21 +237,19 @@ bool UserAuth::registerUser(const QString &username, const QString &email,
     m_users.append(user);
     if (!save()) {
         m_users.removeLast();
-        if (error) {
-            *error = m_storeHealthy
-                ? "账号数据保存失败，请检查磁盘空间或权限"
-                : "账号数据文件异常，已阻止写入以免覆盖现有账号";
-        }
-        return false;
+        return std::unexpected(m_storeHealthy
+            ? QStringLiteral("账号数据保存失败，请检查磁盘空间或权限")
+            : QStringLiteral("账号数据文件异常，已阻止写入以免覆盖现有账号"));
     }
-    return true;
+    return {};
 }
 
-bool UserAuth::login(const QString &account, const QString &password, QString *error)
+AuthOk UserAuth::login(const QString &account, const QString &password)
 {
     const QString acc = account.trimmed();
     const QString throttleKey = "login:" + acc.toLower();
-    if (throttled(throttleKey, error)) return false;
+    if (QString cooldown = throttleMessage(throttleKey); !cooldown.isEmpty())
+        return std::unexpected(cooldown);
 
     for (UserInfo &u : m_users) {
         if (u.username == acc || u.email == acc.toLower()) {
@@ -275,8 +258,9 @@ bool UserAuth::login(const QString &account, const QString &password, QString *e
                 noteFailure(throttleKey);
                 // Surface the cooldown, otherwise it just looks like another
                 // wrong-password failure and the user keeps hammering the button.
-                if (error && !throttled(throttleKey, error)) *error = "密码错误";
-                return false;
+                if (QString cooldown = throttleMessage(throttleKey); !cooldown.isEmpty())
+                    return std::unexpected(cooldown);
+                return std::unexpected("密码错误");
             }
             // Legacy hash: upgrade it now that the password is known to be right.
             if (needsRehash) u.passwordHash = hashPassword(password);
@@ -285,11 +269,10 @@ bool UserAuth::login(const QString &account, const QString &password, QString *e
             clearFailures(throttleKey);
             save();
             emit loginSuccess(m_currentUser);
-            return true;
+            return {};
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
 bool UserAuth::verifyLogin(const QString &account, const QString &password) const
@@ -324,212 +307,175 @@ bool UserAuth::loginAsUser(const QString &account)
     return false;
 }
 
-bool UserAuth::resetPassword(const QString &email, const QString &securityAnswer,
-                              const QString &newPassword, QString *error)
+AuthOk UserAuth::resetPassword(const QString &email, const QString &securityAnswer,
+                               const QString &newPassword)
 {
-    if (!isValidEmail(email)) {
-        if (error) *error = "邮箱格式不正确";
-        return false;
-    }
+    if (!isValidEmail(email))
+        return std::unexpected("邮箱格式不正确");
     QString hint;
-    if (!isStrongPassword(newPassword, &hint)) {
-        if (error) *error = hint;
-        return false;
-    }
+    if (!isStrongPassword(newPassword, &hint))
+        return std::unexpected(hint);
 
     const QString mail = email.trimmed().toLower();
     const QString throttleKey = "reset:" + mail;
-    if (throttled(throttleKey, error)) return false;
+    if (QString cooldown = throttleMessage(throttleKey); !cooldown.isEmpty())
+        return std::unexpected(cooldown);
 
     for (UserInfo &u : m_users) {
         if (u.email == mail) {
             bool needsRehash = false;
             if (!verifyHash(securityAnswer.toLower(), u.securityAnswerHash, &needsRehash)) {
                 noteFailure(throttleKey);
-                if (error && !throttled(throttleKey, error)) *error = "安全答案错误";
-                return false;
+                if (QString cd = throttleMessage(throttleKey); !cd.isEmpty())
+                    return std::unexpected(cd);
+                return std::unexpected("安全答案错误");
             }
             // The security answer is a credential too: upgrade it the same way.
             if (needsRehash) u.securityAnswerHash = hashPassword(securityAnswer.toLower());
             u.passwordHash = hashPassword(newPassword);
             clearFailures(throttleKey);
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "该邮箱未注册";
-    return false;
+    return std::unexpected("该邮箱未注册");
 }
 
-bool UserAuth::bindEmail(const QString &username, const QString &newEmail, QString *error)
+AuthOk UserAuth::bindEmail(const QString &username, const QString &newEmail)
 {
-    if (!isValidEmail(newEmail)) {
-        if (error) *error = "邮箱格式不正确";
-        return false;
-    }
+    if (!isValidEmail(newEmail))
+        return std::unexpected("邮箱格式不正确");
     for (UserInfo &u : m_users) {
         if (u.username == username) {
-            if (u.email == newEmail.trimmed().toLower()) {
-                if (error) *error = "新邮箱与当前邮箱相同";
-                return false;
-            }
-            if (emailExists(newEmail) && u.email != newEmail.trimmed().toLower()) {
-                if (error) *error = "邮箱已被其他账号绑定";
-                return false;
-            }
+            if (u.email == newEmail.trimmed().toLower())
+                return std::unexpected("新邮箱与当前邮箱相同");
+            if (emailExists(newEmail) && u.email != newEmail.trimmed().toLower())
+                return std::unexpected("邮箱已被其他账号绑定");
             u.email = newEmail.trimmed().toLower();
             u.emailVerified = true;
             m_currentUser = u;
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::changePassword(const QString &username, const QString &oldPassword,
-                               const QString &newPassword, QString *error)
+AuthOk UserAuth::changePassword(const QString &username, const QString &oldPassword,
+                                const QString &newPassword)
 {
     QString hint;
-    if (!isStrongPassword(newPassword, &hint)) {
-        if (error) *error = hint;
-        return false;
-    }
+    if (!isStrongPassword(newPassword, &hint))
+        return std::unexpected(hint);
     for (UserInfo &u : m_users) {
         if (u.username == username) {
-            if (!verifyHash(oldPassword, u.passwordHash)) {
-                if (error) *error = "原密码错误";
-                return false;
-            }
+            if (!verifyHash(oldPassword, u.passwordHash))
+                return std::unexpected("原密码错误");
             u.passwordHash = hashPassword(newPassword);
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::updateAvatar(const QString &username, const QString &avatarPath, QString *error)
+AuthOk UserAuth::updateAvatar(const QString &username, const QString &avatarPath)
 {
     for (UserInfo &u : m_users) {
         if (u.username == username) {
             u.avatarPath = avatarPath;
-            if (m_currentUser.username == username) {
+            if (m_currentUser.username == username)
                 m_currentUser.avatarPath = avatarPath;
-            }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::updateUsername(const QString &oldUsername, const QString &newUsername, QString *error)
+AuthOk UserAuth::updateUsername(const QString &oldUsername, const QString &newUsername)
 {
     QString name = newUsername.trimmed();
-    if (name.length() < 2 || name.length() > 20) {
-        if (error) *error = "用户名长度需在2-20位之间";
-        return false;
-    }
-    if (userExists(name)) {
-        if (error) *error = "该用户名已被使用";
-        return false;
-    }
+    if (name.length() < 2 || name.length() > 20)
+        return std::unexpected("用户名长度需在2-20位之间");
+    if (userExists(name))
+        return std::unexpected("该用户名已被使用");
     for (UserInfo &u : m_users) {
         if (u.username == oldUsername) {
             u.username = name;
-            if (m_currentUser.username == oldUsername) {
+            if (m_currentUser.username == oldUsername)
                 m_currentUser.username = name;
-            }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::updateNickname(const QString &username, const QString &newNickname, QString *error)
+AuthOk UserAuth::updateNickname(const QString &username, const QString &newNickname)
 {
     QString nick = newNickname.trimmed();
-    if (nick.isEmpty()) {
-        if (error) *error = "昵称不能为空";
-        return false;
-    }
-    if (nick.length() > 20) {
-        if (error) *error = "昵称长度不能超过20位";
-        return false;
-    }
+    if (nick.isEmpty())
+        return std::unexpected("昵称不能为空");
+    if (nick.length() > 20)
+        return std::unexpected("昵称长度不能超过20位");
     for (UserInfo &u : m_users) {
         if (u.username == username) {
             u.nickname = nick;
-            if (m_currentUser.username == username) {
+            if (m_currentUser.username == username)
                 m_currentUser.nickname = nick;
-            }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::updateBio(const QString &username, const QString &newBio, QString *error)
+AuthOk UserAuth::updateBio(const QString &username, const QString &newBio)
 {
     QString bio = newBio.trimmed().left(30);
     for (UserInfo &u : m_users) {
         if (u.username == username) {
             u.bio = bio;
-            if (m_currentUser.username == username) {
+            if (m_currentUser.username == username)
                 m_currentUser.bio = bio;
-            }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::updateBackground(const QString &username, const QString &bgPath, QString *error)
+AuthOk UserAuth::updateBackground(const QString &username, const QString &bgPath)
 {
     for (UserInfo &u : m_users) {
         if (u.username == username) {
             u.backgroundPath = bgPath;
-            if (m_currentUser.username == username) {
+            if (m_currentUser.username == username)
                 m_currentUser.backgroundPath = bgPath;
-            }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::updateAccountCover(const QString &username, const QString &coverPath, QString *error)
+AuthOk UserAuth::updateAccountCover(const QString &username, const QString &coverPath)
 {
     for (UserInfo &u : m_users) {
         if (u.username == username) {
             u.accountCoverPath = coverPath;
-            if (m_currentUser.username == username) {
+            if (m_currentUser.username == username)
                 m_currentUser.accountCoverPath = coverPath;
-            }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
-bool UserAuth::clearAccountCover(const QString &username, QString *error)
+AuthOk UserAuth::clearAccountCover(const QString &username)
 {
     for (UserInfo &u : m_users) {
         if (u.username == username) {
             u.accountCoverPath.clear();
-            if (m_currentUser.username == username) {
+            if (m_currentUser.username == username)
                 m_currentUser.accountCoverPath.clear();
-            }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
 bool UserAuth::isValidUserId(const QString &id)
@@ -539,25 +485,20 @@ bool UserAuth::isValidUserId(const QString &id)
     return re.match(id).hasMatch();
 }
 
-bool UserAuth::updateUserId(const QString &username, const QString &newId, QString *error)
+AuthOk UserAuth::updateUserId(const QString &username, const QString &newId)
 {
     QString id = newId.trimmed();
-    if (!isValidUserId(id)) {
-        if (error) *error = "ID需以字母开头，仅含字母和数字，长度6-20位";
-        return false;
-    }
-    if (userIdExists(id)) {
-        if (error) *error = "该ID已被使用";
-        return false;
-    }
+    if (!isValidUserId(id))
+        return std::unexpected("ID需以字母开头，仅含字母和数字，长度6-20位");
+    if (userIdExists(id))
+        return std::unexpected("该ID已被使用");
     for (UserInfo &u : m_users) {
         if (u.username == username) {
             // Check cooldown: 30 days
             if (u.lastIdChangeTime.isValid()) {
                 qint64 daysLeft = 30 - u.lastIdChangeTime.daysTo(QDateTime::currentDateTime());
                 if (daysLeft > 0) {
-                    if (error) *error = QString("ID修改过于频繁，请%1天后再试（每30天可修改一次）").arg(daysLeft);
-                    return false;
+                    return std::unexpected(QString("ID修改过于频繁，请%1天后再试（每30天可修改一次）").arg(daysLeft));
                 }
             }
             u.userId = id;
@@ -566,11 +507,10 @@ bool UserAuth::updateUserId(const QString &username, const QString &newId, QStri
                 m_currentUser.userId = id;
                 m_currentUser.lastIdChangeTime = u.lastIdChangeTime;
             }
-            return commit(error);
+            return commit();
         }
     }
-    if (error) *error = "用户不存在";
-    return false;
+    return std::unexpected("用户不存在");
 }
 
 void UserAuth::logout()
@@ -624,15 +564,12 @@ QString UserAuth::avatarPathForUser(const QString &username) const
     return QString();
 }
 
-bool UserAuth::commit(QString *error)
+AuthOk UserAuth::commit()
 {
-    if (save()) return true;
-    if (error) {
-        *error = m_storeHealthy
-            ? "保存失败，请检查磁盘空间或权限"
-            : "账号数据文件异常，已阻止写入以免覆盖现有账号";
-    }
-    return false;
+    if (save()) return {};
+    return std::unexpected(m_storeHealthy
+        ? QStringLiteral("保存失败，请检查磁盘空间或权限")
+        : QStringLiteral("账号数据文件异常，已阻止写入以免覆盖现有账号"));
 }
 
 bool UserAuth::load()

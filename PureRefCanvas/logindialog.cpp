@@ -769,8 +769,7 @@ void LoginDialog::doQuickLogin()
 void LoginDialog::doLogin()
 {
     clearError();
-    QString error;
-    if (m_auth->login(m_loginAccount->text(), m_loginPassword->text(), &error)) {
+    if (auto result = m_auth->login(m_loginAccount->text(), m_loginPassword->text()); result) {
         m_loggedInUser = m_auth->currentUser();
         QSettings settings("PureRefCanvas", "里与由");
         settings.setValue("lastUser", m_loggedInUser.username);
@@ -792,7 +791,7 @@ void LoginDialog::doLogin()
         settings.setValue("login/autoLogin", m_autoLogin && m_autoLogin->isChecked());
         accept();
     } else {
-        showError(error);
+        showError(result.error());
         // If auto-login failed, go to login page
         if (m_stack->currentIndex() == 0) {
             m_stack->setCurrentIndex(2);
@@ -811,10 +810,9 @@ void LoginDialog::doRegister()
         showError("两次密码不一致");
         return;
     }
-    QString error;
-    if (m_auth->registerUser(m_regUsername->text(), m_regEmail->text(),
-                              m_regPassword->text(), m_regQuestion->currentText(),
-                              m_regAnswer->text(), &error)) {
+    if (auto result = m_auth->registerUser(m_regUsername->text(), m_regEmail->text(),
+                                           m_regPassword->text(), m_regQuestion->currentText(),
+                                           m_regAnswer->text()); result) {
         QMessageBox msgBox(this);
         msgBox.setWindowTitle("注册成功");
         msgBox.setText(QString("账号「%1」注册成功！\n\n绑定邮箱：%2\n\n请使用账号密码登录。").arg(m_regUsername->text()).arg(m_regEmail->text()));
@@ -826,7 +824,7 @@ void LoginDialog::doRegister()
         m_loginPassword->clear();
         m_stack->setCurrentIndex(2);
     } else {
-        showError(error);
+        showError(result.error());
     }
 }
 
@@ -837,9 +835,8 @@ void LoginDialog::doResetPassword()
         showError("两次密码不一致");
         return;
     }
-    QString error;
-    if (m_auth->resetPassword(m_forgotEmail->text(), m_forgotAnswer->text(),
-                               m_forgotNewPassword->text(), &error)) {
+    if (auto result = m_auth->resetPassword(m_forgotEmail->text(), m_forgotAnswer->text(),
+                                            m_forgotNewPassword->text()); result) {
         QMessageBox msgBox(this);
         msgBox.setWindowTitle("重置成功");
         msgBox.setText("密码已成功重置！\n\n请使用新密码登录。");
@@ -848,7 +845,7 @@ void LoginDialog::doResetPassword()
         msgBox.exec();
         m_stack->setCurrentIndex(2);
     } else {
-        showError(error);
+        showError(result.error());
     }
 }
 
@@ -885,7 +882,7 @@ void LoginDialog::onConnectTick()
             m_auth->loginAsUser(m_savedAutoAccount);
             m_loggedInUser = m_auth->currentUser();
             accept();
-        } else if (m_auth->login(m_savedAutoAccount, m_savedAutoPassword, nullptr)) {
+        } else if (m_auth->login(m_savedAutoAccount, m_savedAutoPassword)) {
             m_loggedInUser = m_auth->currentUser();
             accept();
         } else {

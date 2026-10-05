@@ -1249,9 +1249,15 @@ void MusicPlayerWidget::scanMusicFolder()
         // Fingerprint-based cache: skip re-parsing when file unchanged.
         const QString fp = MusicLibraryDb::makeFingerprint(fi.size(), fi.lastModified().toMSecsSinceEpoch());
         SongInfo song;
-        if (!m_db || !m_db->loadCached(f, fp, song)) {
+        if (m_db) {
+            if (auto cached = m_db->loadCached(f, fp); cached) {
+                song = *cached;
+            } else {
+                song = SongMetadata::read(f);
+                m_db->upsertSong(song, fi.size(), fi.lastModified().toMSecsSinceEpoch());
+            }
+        } else {
             song = SongMetadata::read(f);
-            if (m_db) m_db->upsertSong(song, fi.size(), fi.lastModified().toMSecsSinceEpoch());
         }
         m_allSongs << song;
         existing.insert(f);
