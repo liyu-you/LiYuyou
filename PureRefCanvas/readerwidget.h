@@ -237,6 +237,11 @@ private:
     QTimer *m_readClock = nullptr;
     int m_readFlushCount = 0;
 
+    // Pomodoro focus timer (25 min)
+    QPushButton *m_pomodoroBtn = nullptr;
+    QTimer *m_pomodoroTimer = nullptr;
+    int m_pomodoroRemaining = 25 * 60;
+
     int m_pendingRestorePos = 0;   // position to restore after a book opens
     int m_lastTopPos = 0;          // top char captured on resize (cheap re-scroll)
 

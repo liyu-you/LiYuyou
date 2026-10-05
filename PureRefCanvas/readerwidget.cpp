@@ -574,6 +574,49 @@ void ReaderWidget::setupReaderPage()
     topLayout->addWidget(m_bookTitleLabel, 1);
     topLayout->addWidget(m_tocBtn);
 
+    // Pomodoro button — 25-minute focus timer, shows remaining time
+    m_pomodoroBtn = new QPushButton("🍅 25:00");
+    m_pomodoroBtn->setFixedSize(80, 30);
+    m_pomodoroBtn->setCursor(Qt::PointingHandCursor);
+    m_pomodoroBtn->setStyleSheet(
+        "QPushButton { background: transparent; border: 1px solid rgba(0,0,0,0.15); border-radius: 15px; "
+        "font-size: 12px; padding: 4px 8px; }"
+        "QPushButton:hover { background: rgba(0,0,0,0.06); }");
+    m_pomodoroRemaining = 25 * 60;
+    m_pomodoroTimer = new QTimer(this);
+    m_pomodoroTimer->setInterval(1000);
+    connect(m_pomodoroTimer, &QTimer::timeout, this, [this]() {
+        m_pomodoroRemaining--;
+        int mm = m_pomodoroRemaining / 60;
+        int ss = m_pomodoroRemaining % 60;
+        m_pomodoroBtn->setText(QString("🍅 %1:%2")
+                                  .arg(mm, 2, 10, QChar('0'))
+                                  .arg(ss, 2, 10, QChar('0')));
+        if (m_pomodoroRemaining <= 0) {
+            m_pomodoroTimer->stop();
+            m_pomodoroBtn->setText("🍅 完成!");
+            m_pomodoroBtn->setStyleSheet(
+                "QPushButton { background: #07c160; color: white; border: none; border-radius: 15px; "
+                "font-size: 12px; padding: 4px 8px; }");
+            m_pomodoroRemaining = 25 * 60;
+        }
+    });
+    connect(m_pomodoroBtn, &QPushButton::clicked, this, [this]() {
+        if (m_pomodoroTimer->isActive()) {
+            m_pomodoroTimer->stop();
+            m_pomodoroBtn->setText("🍅 继续");
+            m_pomodoroBtn->setStyleSheet(
+                "QPushButton { background: rgba(255,193,7,0.2); border: 1px solid #ffc107; border-radius: 15px; "
+                "font-size: 12px; padding: 4px 8px; }");
+        } else {
+            m_pomodoroTimer->start();
+            m_pomodoroBtn->setStyleSheet(
+                "QPushButton { background: rgba(231,76,60,0.1); border: 1px solid #e74c3c; border-radius: 15px; "
+                "font-size: 12px; padding: 4px 8px; }");
+        }
+    });
+    topLayout->addWidget(m_pomodoroBtn);
+
     // Reading view — selectable text so highlights/notes are possible
     m_readingView = new QTextEdit;
     m_readingView->setReadOnly(true);
