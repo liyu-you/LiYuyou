@@ -139,19 +139,21 @@ public:
         mainLayout->setContentsMargins(0, 0, 0, 0);
         mainLayout->setSpacing(0);
 
-        // Container with rounded corners
+        // Container with rounded corners — Google command-palette style
         QWidget *container = new QWidget;
-        container->setStyleSheet("background: #16202d; border: 1px solid #2a475e; border-radius: 10px;");
+        container->setStyleSheet(R"(
+            QWidget { background: #ffffff; border: 1px solid #dadce0; border-radius: 16px; }
+        )");
         QVBoxLayout *containerLayout = new QVBoxLayout(container);
-        containerLayout->setContentsMargins(12, 12, 12, 12);
-        containerLayout->setSpacing(8);
+        containerLayout->setContentsMargins(16, 16, 16, 12);
+        containerLayout->setSpacing(10);
 
         // Search input
         m_searchEdit = new QLineEdit;
-        m_searchEdit->setPlaceholderText("搜索笔记、素材、书籍...  (Ctrl+K)");
+        m_searchEdit->setPlaceholderText("搜索笔记、素材、书籍、音乐...   输入 > 执行命令");
         m_searchEdit->setStyleSheet(R"(
-            QLineEdit { background: #0f1923; color: #c7d5e0; border: 1px solid #2a475e; border-radius: 6px; padding: 10px 14px; font-size: 14px; }
-            QLineEdit:focus { border-color: #66c0f4; }
+            QLineEdit { background: #f1f3f4; color: #202124; border: none; border-radius: 12px; padding: 12px 16px; font-size: 15px; selection-background-color: #cfe8ff; }
+            QLineEdit:focus { background: #e8eaed; }
         )");
         containerLayout->addWidget(m_searchEdit);
 
@@ -159,16 +161,15 @@ public:
         m_resultList = new QListWidget;
         m_resultList->setStyleSheet(R"(
             QListWidget { background: transparent; border: none; outline: none; }
-            QListWidget::item { padding: 8px 12px; border-radius: 5px; margin: 1px 0; }
-            QListWidget::item:selected { background: #2a475e; }
-            QListWidget::item:hover:!selected { background: rgba(42,71,94,0.4); }
+            QListWidget::item { padding: 10px 14px; border-radius: 8px; margin: 1px 0; color: #202124; }
+            QListWidget::item:selected { background: rgba(26,115,232,0.14); color: #1a73e8; }
         )");
         m_resultList->setSpacing(2);
         containerLayout->addWidget(m_resultList, 1);
 
         // Hint label
-        QLabel *hint = new QLabel("↑↓ 选择  Enter 打开  Esc 关闭");
-        hint->setStyleSheet("color: #5a6b7a; font-size: 11px; padding: 2px 4px;");
+        QLabel *hint = new QLabel("↑↓ 选择   Enter 打开   Esc 关闭");
+        hint->setStyleSheet("color: #9aa0a6; font-size: 11px; padding: 2px 4px;");
         hint->setAlignment(Qt::AlignCenter);
         containerLayout->addWidget(hint);
 
@@ -195,8 +196,42 @@ protected:
 private slots:
     void doSearch(const QString &text) {
         m_resultList->clear();
-        if (text.trimmed().isEmpty()) return;
-        QString query = text.toLower();
+        QString trimmed = text.trimmed();
+        if (trimmed.isEmpty()) return;
+        QString query = trimmed.toLower();
+
+        // ">command" mode — quick actions
+        if (trimmed.startsWith(">")) {
+            QString cmd = trimmed.mid(1).toLower();
+            struct Act { QString name; QString id; };
+            QVector<Act> actions = {
+                {"📝  新建笔记", "act:newNote"},
+                {"📥  导入素材到库", "act:importMat"},
+                {"📚  导入书籍", "act:importBook"},
+                {"🎵  导入音乐", "act:importMusic"},
+                {"🎨  切换到画布", "act:goto:canvas"},
+                {"📝  切换到笔记", "act:goto:note"},
+                {"🖼  切换到库", "act:goto:mat"},
+                {"📖  切换到阅读", "act:goto:reader"},
+                {"🎵  切换到音乐", "act:goto:music"},
+                {"🔍  清空全部搜索缓存", "act:clearThumb"},
+            };
+            for (const auto &a : actions) {
+                if (a.name.toLower().contains(cmd)) {
+                    QListWidgetItem *item = new QListWidgetItem(a.name);
+                    item->setData(Qt::UserRole, "action");
+                    item->setData(Qt::UserRole + 1, a.id);
+                    m_resultList->addItem(item);
+                }
+            }
+            if (m_resultList->count() == 0) {
+                QListWidgetItem *e = new QListWidgetItem("  无匹配命令");
+                e->setForeground(QColor("#9aa0a6"));
+                e->setFlags(Qt::NoItemFlags);
+                m_resultList->addItem(e);
+            }
+            return;
+        }
 
         // Search notes
         if (m_mainWindow->m_noteWidget) {
@@ -206,7 +241,6 @@ private slots:
                     item->setData(Qt::UserRole, "note");
                     item->setData(Qt::UserRole + 1, note.id);
                     item->setToolTip("笔记: " + note.title);
-                    item->setForeground(QColor("#c7d5e0"));
                     m_resultList->addItem(item);
                 }
             }
@@ -221,7 +255,6 @@ private slots:
                     item->setData(Qt::UserRole, "material");
                     item->setData(Qt::UserRole + 1, mat.fullPath(m_mainWindow->m_sharedLibrary->assetsPath()));
                     item->setToolTip("素材: " + mat.fileName);
-                    item->setForeground(QColor("#c7d5e0"));
                     m_resultList->addItem(item);
                 }
             }
@@ -239,7 +272,18 @@ private slots:
                     item->setData(Qt::UserRole, "book");
                     item->setData(Qt::UserRole + 1, fi.absoluteFilePath());
                     item->setToolTip("书籍: " + fi.fileName());
-                    item->setForeground(QColor("#c7d5e0"));
+                    m_resultList->addItem(item);
+                }
+            }
+        }
+
+        // Search music
+        if (m_mainWindow->m_musicWidget) {
+            for (const SongInfo &s : m_mainWindow->m_musicWidget->currentSongList()) {
+                if (s.title.toLower().contains(query) || s.artist.toLower().contains(query)) {
+                    QListWidgetItem *item = new QListWidgetItem("🎵  " + s.title + " — " + s.artist);
+                    item->setData(Qt::UserRole, "song");
+                    item->setData(Qt::UserRole + 1, s.path);
                     m_resultList->addItem(item);
                 }
             }
@@ -247,7 +291,7 @@ private slots:
 
         if (m_resultList->count() == 0) {
             QListWidgetItem *empty = new QListWidgetItem("  未找到匹配结果");
-            empty->setForeground(QColor("#5a6b7a"));
+            empty->setForeground(QColor("#9aa0a6"));
             empty->setFlags(Qt::NoItemFlags);
             m_resultList->addItem(empty);
         }
@@ -265,6 +309,21 @@ private slots:
             m_mainWindow->switchToPage(2);
         } else if (type == "book") {
             m_mainWindow->switchToPage(3);
+        } else if (type == "song" && m_mainWindow->m_musicWidget) {
+            m_mainWindow->switchToPage(4);
+            m_mainWindow->m_musicWidget->playSong(data);
+        } else if (type == "action") {
+            if (data == "act:newNote" && m_mainWindow->m_noteWidget) {
+                m_mainWindow->switchToPage(1);
+                m_mainWindow->m_noteWidget->newNote();
+            } else if (data == "act:importMat" && m_mainWindow->m_materialWidget) {
+                m_mainWindow->switchToPage(2);
+                m_mainWindow->m_materialWidget->importFiles();
+            } else if (data == "act:goto:canvas") m_mainWindow->switchToPage(0);
+            else if (data == "act:goto:note")   m_mainWindow->switchToPage(1);
+            else if (data == "act:goto:mat")    m_mainWindow->switchToPage(2);
+            else if (data == "act:goto:reader")  m_mainWindow->switchToPage(3);
+            else if (data == "act:goto:music")   m_mainWindow->switchToPage(4);
         }
         accept();
     }
@@ -810,6 +869,40 @@ void MainWindow::setupNavigation()
         m_navButtons.append(btn);
         navLayout->addWidget(btn);
     }
+
+    // ===== Mini music bar (always visible, controls music across tabs) =====
+    QWidget *miniMusic = new QWidget(navContainer);
+    miniMusic->setStyleSheet("background: transparent;");
+    QHBoxLayout *mmL = new QHBoxLayout(miniMusic);
+    mmL->setContentsMargins(0, 0, 0, 0);
+    mmL->setSpacing(2);
+    auto mmBtn = [](const QString &text, const QString &tip) {
+        QToolButton *b = new QToolButton;
+        b->setText(text);
+        b->setToolTip(tip);
+        b->setFixedSize(30, 30);
+        b->setCursor(Qt::PointingHandCursor);
+        b->setStyleSheet(
+            "QToolButton { font-size: 14px; color: #5f6368; border: none; border-radius: 15px; background: transparent; }"
+            "QToolButton:hover { background: rgba(0,0,0,0.08); color: #202124; }");
+        return b;
+    };
+    QToolButton *mmPrev = mmBtn("⏮", "上一首");
+    QToolButton *mmPlay = mmBtn("▶", "播放/暂停");
+    QToolButton *mmNext = mmBtn("⏭", "下一首");
+    mmL->addWidget(mmPrev);
+    mmL->addWidget(mmPlay);
+    mmL->addWidget(mmNext);
+    connect(mmPrev, &QToolButton::clicked, this, [this]() { if (m_musicWidget) m_musicWidget->playPrev(); });
+    connect(mmPlay, &QToolButton::clicked, this, [this, mmPlay]() {
+        if (m_musicWidget) {
+            m_musicWidget->togglePlay();
+            // We don't have a signal to know play/pause state yet; just keep icon static.
+        }
+    });
+    connect(mmNext, &QToolButton::clicked, this, [this]() { if (m_musicWidget) m_musicWidget->playNext(); });
+    navLayout->addWidget(miniMusic);
+    navLayout->addSpacing(12);
 
     // Spacer
     navLayout->addStretch();

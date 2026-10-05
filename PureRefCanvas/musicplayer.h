@@ -53,6 +53,8 @@ public slots:
     void volumeUp();
     void volumeDown();
     void setVolume(int vol);
+    void playSong(const QString &path);   // public: global search / mini bar can invoke
+    QList<SongInfo> currentSongList() const;
 
 private slots:
     // Navigation
@@ -104,7 +106,6 @@ private:
     void loadLibrary();
     void saveLibrary();
     void refreshSongTable();
-    void playSong(const QString &path);
     void playSongAt(int index);
     void updateNowPlaying();
     void updatePlayingRow();
@@ -117,7 +118,6 @@ private:
     void setupMusicWatcher();
     void onMusicDirChanged(const QString &path);
     void scanMusicFolder();
-    QList<SongInfo> currentSongList() const;
     void parseLrc(const QString &lrcPath);
     void parseLrcText(const QString &content);
     void clearLyrics();
