@@ -674,7 +674,12 @@ void NoteWidget::setupToolbar()
 QWidget *NoteWidget::createCard(const NoteData &note)
 {
     QWidget *card = new QWidget;
-    card->setFixedWidth(240);
+    // Minimum width keeps small windows usable; the column stretch in
+    // refreshCards() lets cards grow to fill wide monitors instead of
+    // leaving empty space on the right.
+    card->setMinimumWidth(240);
+    card->setMaximumWidth(420);
+    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     card->setMinimumHeight(160);
     card->setCursor(Qt::PointingHandCursor);
     card->setStyleSheet(R"(
@@ -761,6 +766,11 @@ void NoteWidget::refreshCards()
     // Calculate columns
     int viewWidth = m_gridScroll->viewport()->width() - 40;
     int cols = qMax(1, viewWidth / 260);
+
+    // Every column gets equal stretch so cards fill the available width
+    // instead of piling up on the left.
+    for (int c = 0; c < cols; ++c)
+        m_gridLayout->setColumnStretch(c, 1);
 
     for (int i = 0; i < filtered.size(); ++i) {
         QWidget *card = createCard(filtered[i]);
