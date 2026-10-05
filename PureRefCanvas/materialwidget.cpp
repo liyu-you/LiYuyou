@@ -314,7 +314,7 @@ bool MasonryContainer::eventFilter(QObject *obj, QEvent *event)
         QMouseEvent *me = static_cast<QMouseEvent*>(event);
         if (me->button() == Qt::LeftButton) {
             m_pressed = true;
-            m_pressPos = me->globalPos();
+            m_pressPos = me->globalPosition().toPoint();
             setSelectedCard(card);
         }
     } else if (event->type() == QEvent::MouseButtonRelease) {
@@ -322,7 +322,7 @@ bool MasonryContainer::eventFilter(QObject *obj, QEvent *event)
     } else if (event->type() == QEvent::MouseMove) {
         if (m_pressed && m_selectedCard == card) {
             QMouseEvent *me = static_cast<QMouseEvent*>(event);
-            if ((me->globalPos() - m_pressPos).manhattanLength() > QApplication::startDragDistance()) {
+            if ((me->globalPosition().toPoint() - m_pressPos).manhattanLength() > QApplication::startDragDistance()) {
                 m_pressed = false;
                 QString path = card->property("filePath").toString();
                 if (!path.isEmpty()) {

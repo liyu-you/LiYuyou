@@ -34,9 +34,13 @@ bool MusicLibraryDb::open()
         qWarning() << "MusicLibraryDb: cannot open" << m_dbPath << db.lastError().text();
         return false;
     }
-    db.exec("PRAGMA journal_mode = WAL");
-    db.exec("PRAGMA synchronous = NORMAL");
-    db.exec("PRAGMA temp_store = MEMORY");
+    {
+        // Qt6: QSqlDatabase::exec(const QString&) is deprecated; use QSqlQuery(db).exec().
+        QSqlQuery q(db);
+        q.exec("PRAGMA journal_mode = WAL");
+        q.exec("PRAGMA synchronous = NORMAL");
+        q.exec("PRAGMA temp_store = MEMORY");
+    }
     m_open = true;
     createSchema();
     return true;
@@ -58,7 +62,8 @@ void MusicLibraryDb::createSchema()
 {
     const QString connName = QStringLiteral("musicdb_%1").arg(m_connectionSeq);
     QSqlDatabase db = QSqlDatabase::database(connName);
-    db.exec(R"(CREATE TABLE IF NOT EXISTS songs (
+    QSqlQuery q(db);
+    q.exec(R"(CREATE TABLE IF NOT EXISTS songs (
         path TEXT PRIMARY KEY,
         fingerprint TEXT NOT NULL DEFAULT '',
         title TEXT NOT NULL DEFAULT '',
@@ -75,7 +80,7 @@ void MusicLibraryDb::createSchema()
         cover BLOB,
         updated_at INTEGER NOT NULL DEFAULT 0
     ))");
-    db.exec(R"(CREATE TABLE IF NOT EXISTS stats (
+    q.exec(R"(CREATE TABLE IF NOT EXISTS stats (
         path TEXT PRIMARY KEY,
         play_count INTEGER NOT NULL DEFAULT 0,
         listen_ms INTEGER NOT NULL DEFAULT 0,
@@ -83,9 +88,9 @@ void MusicLibraryDb::createSchema()
         favorite_at INTEGER NOT NULL DEFAULT 0,
         last_played_at INTEGER NOT NULL DEFAULT 0
     ))");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_songs_fingerprint ON songs(fingerprint)");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_stats_last_played ON stats(last_played_at DESC)");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_stats_favorite ON stats(favorite, last_played_at DESC)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_songs_fingerprint ON songs(fingerprint)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_stats_last_played ON stats(last_played_at DESC)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_stats_favorite ON stats(favorite, last_played_at DESC)");
 }
 
 QString MusicLibraryDb::makeFingerprint(qint64 size, qint64 mtime)

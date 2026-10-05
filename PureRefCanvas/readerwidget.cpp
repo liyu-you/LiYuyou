@@ -1007,7 +1007,7 @@ void ReaderWidget::loadBook(const QString &id)
             static const QRegularExpression separatorRe(
                 QStringLiteral("^[\\-—_=·*\\s]+$"));
             const bool heading = headingStarts.contains(ls);
-            const bool separator = separatorRe.match(line).hasMatch();
+            const bool separator = separatorRe.matchView(line).hasMatch();
             const bool indented = line.startsWith(QChar(0x3000));
             if (heading || separator || indented || curBegin < 0) {
                 flushPara();

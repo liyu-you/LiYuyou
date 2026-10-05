@@ -178,13 +178,11 @@ void ImageItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
         }
 
         // Resize
-        QPointF sceneDelta = event->scenePos() - m_pressScenePos;
-        // Map delta to item coordinates (accounting for rotation)
+        // Map mouse delta to item coordinates (accounting for rotation).
         QPointF itemDelta = mapFromScene(event->scenePos()) - mapFromScene(m_pressScenePos);
 
         qreal newW = m_pressSize.width();
         qreal newH = m_pressSize.height();
-        QPointF newPos = pos();
 
         bool keepRatio = !(event->modifiers() & Qt::ShiftModifier);
         qreal ratio = m_pixmap.width() > 0 ? (qreal)m_pixmap.height() / m_pixmap.width() : 1.0;

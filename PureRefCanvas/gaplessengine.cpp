@@ -161,10 +161,10 @@ qint64 GaplessEngine::positionMs() const
     if (!m_format.isValid() || m_writtenFramesThisTrack == 0) return 0;
     const qint64 sr = m_format.sampleRate();
     if (sr <= 0) return 0;
-    // Frames written minus frames still sitting in the sink buffer.
-    qint64 sinkUs = 0;
-    if (m_sink) sinkUs = m_sink->processedUSecs();
     // Approximate: frames written at format sample rate.
+    // (Previously subtracted m_sink->processedUSecs(), but that value was
+    // computed and discarded — dead code. If a more accurate position is
+    // needed later, query the sink properly instead of approx-ing.)
     return m_writtenFramesThisTrack * 1000 / sr;
 }
 

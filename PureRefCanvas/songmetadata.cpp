@@ -423,7 +423,11 @@ void walkMp4Atoms(const QByteArray &d, int start, int end, const QByteArray &pat
 {
     int p = start;
     while (p + 8 <= end) {
-        const quint32 sz = readBE32(d, p);
+        // MP4 atom sizes are on-disk 32-bit big-endian; the file itself is a
+        // QByteArray (int-indexed), so anything > INT_MAX is structurally
+        // impossible. Narrow once here to keep all downstream arithmetic
+        // signed and dodge -Wsign-compare.
+        const int sz = static_cast<int>(readBE32(d, p));
         if (sz < 8 || p + sz > end) break;
         const QByteArray name = d.mid(p + 4, 4);
         const int hdr = (name == "meta") ? 12 : 8; // meta has 4-byte version/flags
@@ -441,7 +445,7 @@ void walkMp4Atoms(const QByteArray &d, int start, int end, const QByteArray &pat
                 // covr contains a data atom whose payload is the image.
                 int dp = p + 8;
                 while (dp + 8 <= p + sz) {
-                    const quint32 dsz = readBE32(d, dp);
+                    const int dsz = static_cast<int>(readBE32(d, dp));
                     const QByteArray dn = d.mid(dp + 4, 4);
                     if (dn == "data" && dsz > 16) {
                         const QByteArray img = d.mid(dp + 16, dsz - 16);
@@ -459,7 +463,7 @@ void walkMp4Atoms(const QByteArray &d, int start, int end, const QByteArray &pat
                 QByteArray dataVal;
                 int sp = p + hdr;
                 while (sp + 8 <= p + sz) {
-                    const quint32 ssz = readBE32(d, sp);
+                    const int ssz = static_cast<int>(readBE32(d, sp));
                     const QByteArray sn = d.mid(sp + 4, 4);
                     if (ssz < 8 || sp + ssz > p + sz) break;
                     if (sn == "mean") mean = QString::fromUtf8(d.mid(sp + 8, ssz - 8)).trimmed();

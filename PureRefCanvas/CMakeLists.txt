@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
 project(PureRefCanvas VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+# C++23: strict mode, no GNU extensions.
+# Toolchain: Qt 6.11.2 mingw_64 ships GCC 13.1, which accepts -std=c++23 and
+# implements the language features (if consteval, using enum, constexpr
+# expansions, designated initializers, etc.). Library components that GCC 13
+# still lacks (std::print, full std::expected polish) are deliberately NOT used
+# yet; when the toolchain is bumped to GCC 14+/WinLibs, those can be adopted
+# incrementally without further CMake changes.
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -51,6 +59,22 @@ qt_add_executable(PureRefCanvas
 target_compile_definitions(PureRefCanvas PRIVATE APP_VERSION="${PROJECT_VERSION}")
 
 target_link_libraries(PureRefCanvas PRIVATE Qt6::Widgets Qt6::Multimedia Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::Sql Qt6::PrintSupport)
+
+# Strict warnings under C++23. We deliberately do NOT use -Werror yet: the code
+# base was written for C++17 and may have benign pedantic warnings; we surface
+# them first and clean up incrementally. -Wno-unknown-pragmas keeps Qt/MOC
+# pragmas quiet.
+target_compile_options(PureRefCanvas PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Wno-unknown-pragmas
+    -Wno-unused-parameter
+    # GetProcAddress returns FARPROC (long long(*)()); casting to the real
+    # function pointer type is the canonical Win32 pattern. Silence GCC's
+    # -Wcast-function-type rather than scatter reinterpret_casts around.
+    -Wno-cast-function-type
+)
 
 if(WIN32)
     # dwmapi: acrylic blur / rounded corners. crypt32: DPAPI, used to protect the
