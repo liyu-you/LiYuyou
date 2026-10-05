@@ -311,6 +311,11 @@ int main(int argc, char *argv[])
     app.setOrganizationName("PureRefCanvas");
     app.setWindowIcon(QIcon(":/app.ico"));
 
+    // Force Fusion style: on Windows, the native Windows style draws QToolTip
+    // as a system-native dark popup that ignores stylesheet AND palette.
+    // Fusion paints everything in Qt, so our QToolTip QSS actually takes effect.
+    app.setStyle("Fusion");
+
     // Global Google Material tooltip style (QToolTip is a top-level widget,
     // widget-level stylesheets can't reach it — must be set on QApplication).
     // Use both stylesheet AND palette: on Windows, QToolTip sometimes ignores
