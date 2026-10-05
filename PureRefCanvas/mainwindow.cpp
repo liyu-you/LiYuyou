@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "autosavecontroller.h"
+#include "themeapplier.h"
 #include "updatechecker.h"
 #include "canvasscene.h"
 #include "canvasview.h"
@@ -75,59 +76,6 @@
 #include "flashcardstore.h"
 #include "gardenview.h"
 
-// ========== Windows Acrylic Blur (毛玻璃效果) ==========
-#ifdef Q_OS_WIN
-enum AccentState {
-    ACCENT_DISABLED = 0,
-    ACCENT_ENABLE_GRADIENT = 1,
-    ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
-    ACCENT_ENABLE_BLURBEHIND = 3,
-    ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
-    ACCENT_INVALID_STATE = 5
-};
-
-struct AccentPolicy {
-    AccentState AccentState;
-    DWORD AccentFlags;
-    DWORD GradientColor;
-    DWORD AnimationId;
-};
-
-struct WindowCompositionAttributeData {
-    DWORD Attribute;
-    PVOID Data;
-    ULONG DataSize;
-};
-
-typedef BOOL (WINAPI *PFN_SetWindowCompositionAttribute)(HWND, WindowCompositionAttributeData*);
-
-static void enableAcrylicBlur(HWND hwnd, bool enable, DWORD gradientColor = 0xAA1B2838)
-{
-    HMODULE hUser = GetModuleHandle(L"user32.dll");
-    if (!hUser) return;
-    PFN_SetWindowCompositionAttribute SetWindowCompositionAttribute =
-        (PFN_SetWindowCompositionAttribute)GetProcAddress(hUser, "SetWindowCompositionAttribute");
-    if (!SetWindowCompositionAttribute) return;
-
-    AccentPolicy accent = {enable ? ACCENT_ENABLE_ACRYLICBLURBEHIND : ACCENT_DISABLED, 0, gradientColor, 0};
-    WindowCompositionAttributeData data = {19, &accent, sizeof(accent)};
-    SetWindowCompositionAttribute(hwnd, &data);
-}
-
-// Windows 11: rounded window corners via DWM (silent no-op on Windows 10)
-static void enableRoundedCorners(HWND hwnd)
-{
-    HMODULE hDwm = LoadLibraryW(L"dwmapi.dll");
-    if (!hDwm) return;
-    typedef HRESULT (WINAPI *PFN_DwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
-    PFN_DwmSetWindowAttribute DwmSetWindowAttribute =
-        (PFN_DwmSetWindowAttribute)GetProcAddress(hDwm, "DwmSetWindowAttribute");
-    if (!DwmSetWindowAttribute) return;
-    const DWORD DWMWA_WINDOW_CORNER_PREFERENCE = 33; // window corner preference
-    const DWORD DWMWCP_ROUND = 2;                    // round the corners
-    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &DWMWCP_ROUND, sizeof(DWMWCP_ROUND));
-}
-#endif
 
 // ========== Global Search Dialog (Ctrl+K) ==========
 class GlobalSearchDialog : public QDialog {
@@ -829,15 +777,23 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
     statusBar()->showMessage("已自动保存", 1500);
 });
 
-    applyTheme(m_cfg.currentTheme);
-    applyFontSize(m_cfg.fontSize);
-    applyThumbnailSize(m_cfg.thumbnailSize);
-    applyNoteBgColor(m_cfg.noteBgColor);
-    applyReaderColors(m_cfg.readerBgColor, m_cfg.readerTextColor);
-    applyBgImage(m_cfg.bgImagePath);
-    applyEditorSettings(m_cfg.noteDefaultFont, m_cfg.noteDefaultFontSize);
-    applyTransparencySettings();
-    applyMenuBarMode();
+    // Theme / visual settings: delegate to a ThemeApplier that owns every
+    // applyTheme/applyTransparencySettings/applyAcrylic/etc. knob.
+    {
+        ThemeApplier::Widgets w;
+        w.window           = this;
+        w.stack            = m_stack;
+        w.navToolBar       = m_navToolBar;
+        w.menuHamburger    = m_menuHamburger;
+        w.canvasView       = m_canvasView;
+        w.materialWidget   = m_materialWidget;
+        w.noteWidget       = m_noteWidget;
+        w.readerWidget     = m_readerWidget;
+        w.musicWidget      = m_musicWidget;
+        w.contentBrowser   = m_contentBrowser;
+        m_theme = new ThemeApplier(m_cfg, w);
+        m_theme->applyAll();
+    }
 
     // Auto-save: delegate to a dedicated controller. We hand it callbacks that
     // reach into our child widgets; it owns the timer and the on-disk paths.
@@ -883,7 +839,7 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
     // Enable acrylic blur (毛玻璃效果) — Windows 10/11
 #ifdef Q_OS_WIN
     winId(); // force HWND creation
-    applyAcrylic();
+    if (m_theme) m_theme->applyAcrylic();
 #endif
 
     // Auto-check for updates on startup (delayed to avoid impacting launch)
@@ -2246,12 +2202,14 @@ void MainWindow::openSettings()
         m_cfg.noteDefaultFontSize = dlg.editorFontSize();
 
         // Immediate-apply settings
-        applyTheme(m_cfg.currentTheme);
-        applyFontSize(m_cfg.fontSize);
-        applyThumbnailSize(m_cfg.thumbnailSize);
-        applyNoteBgColor(m_cfg.noteBgColor);
-        applyReaderColors(m_cfg.readerBgColor, m_cfg.readerTextColor);
-        applyBgImage(m_cfg.bgImagePath);
+        if (m_theme) {
+            m_theme->applyTheme(m_cfg.currentTheme);
+            m_theme->applyFontSize(m_cfg.fontSize);
+            m_theme->applyThumbnailSize(m_cfg.thumbnailSize);
+            m_theme->applyNoteBgColor(m_cfg.noteBgColor);
+            m_theme->applyReaderColors(m_cfg.readerBgColor, m_cfg.readerTextColor);
+            m_theme->applyBgImage(m_cfg.bgImagePath);
+        }
         if (m_readerWidget) m_readerWidget->setShelfBackground(m_cfg.readerShelfBgPath);
         if (m_readerWidget) m_readerWidget->setBackgroundImage(m_cfg.readerBgPath);
         if (m_canvasView) m_canvasView->setBackgroundImage(m_cfg.canvasBgPath);
@@ -2268,7 +2226,7 @@ void MainWindow::openSettings()
         if (m_noteWidget) m_noteWidget->setBackgroundImage(m_cfg.noteBgPath);
         if (m_materialWidget) m_materialWidget->setBackgroundImage(m_cfg.libraryBgPath);
         if (m_musicWidget) m_musicWidget->setBackgroundImage(m_cfg.musicBgPath);
-        applyEditorSettings(m_cfg.noteDefaultFont, m_cfg.noteDefaultFontSize);
+        if (m_theme) m_theme->applyEditorSettings(m_cfg.noteDefaultFont, m_cfg.noteDefaultFontSize);
 
         // Music shortcuts
         m_cfg.scPlayPause = dlg.shortcutPlayPause();
@@ -2330,7 +2288,7 @@ void MainWindow::openSettings()
         applyAutostart(m_cfg.autostart);
         m_cfg.acrylicEnabled = dlg.acrylicEnabled();
         m_cfg.acrylicOpacity = dlg.acrylicOpacity();
-        applyAcrylic();
+        if (m_theme) m_theme->applyAcrylic();
         m_cfg.menuBarTransparent = dlg.menuBarTransparent();
         m_cfg.menuBarAutoHide = dlg.menuBarAutoHide();
         m_cfg.navToolbarTransparent = dlg.navToolbarTransparent();
@@ -2340,8 +2298,10 @@ void MainWindow::openSettings()
         m_cfg.musicPanelsTransparent = dlg.musicPanelsTransparent();
         m_cfg.notePanelsTransparent = dlg.notePanelsTransparent();
         m_cfg.readerPanelsTransparent = dlg.readerPanelsTransparent();
-        applyTransparencySettings();
-        applyMenuBarMode();
+        if (m_theme) {
+            m_theme->applyTransparencySettings();
+            m_theme->applyMenuBarMode();
+        }
         m_cfg.materialDir = dlg.materialDir();
         m_cfg.booksDir = dlg.booksDir();
         m_cfg.musicDir = dlg.musicDir();
@@ -2368,199 +2328,6 @@ void MainWindow::openSettings()
     }
 }
 
-void MainWindow::applyTheme(const QString &theme)
-{
-    // Theme transition overlay (safe method: fade overlay instead of screenshot)
-    QWidget *overlay = nullptr;
-    if (centralWidget() && isVisible() && m_cfg.currentTheme != theme) {
-        overlay = new QWidget(centralWidget());
-        overlay->setGeometry(centralWidget()->rect());
-        overlay->setStyleSheet(m_cfg.currentTheme == "dark"
-            ? "background: rgba(22,32,45,0.9);"
-            : "background: rgba(240,242,245,0.9);");
-        overlay->setWindowOpacity(0.0);
-        overlay->show();
-        overlay->raise();
-        // Fade in overlay
-        QPropertyAnimation *fadeIn = new QPropertyAnimation(overlay, "windowOpacity", this);
-        fadeIn->setDuration(120);
-        fadeIn->setStartValue(0.0);
-        fadeIn->setEndValue(1.0);
-        fadeIn->start();
-    }
-
-    m_cfg.currentTheme = theme;
-    if (theme == "light") {
-        setStyleSheet(R"(
-            QMainWindow { background-color: #f0f2f5; }
-            QWidget { background-color: #f0f2f5; color: #1a1a1a; }
-            QToolTip { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 6px; padding: 8px 12px; font-size: 12px; }
-            QMenuBar { background-color: #ffffff; color: #333; border: none; border-bottom: 1px solid #e0e0e0; padding: 2px; font-size: 13px; }
-            QMenuBar::item { background: transparent; padding: 6px 14px; border-radius: 3px; }
-            QMenuBar::item:selected { background-color: #e8f0fe; color: #1a73e8; }
-            QMenu { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 8px; padding: 6px; font-size: 13px; }
-            QMenu::item { padding: 8px 28px 8px 16px; border-radius: 4px; }
-            QMenu::item:selected { background-color: #e8f0fe; color: #1a73e8; }
-            QMenu::separator { height: 1px; background-color: #e0e0e0; margin: 4px 8px; }
-            QToolBar { background-color: #ffffff; border: none; border-bottom: 1px solid #e0e0e0; padding: 4px 8px; spacing: 4px; }
-            QToolBar QToolButton { background-color: transparent; color: #555; border: none; padding: 6px 12px; border-radius: 3px; font-size: 13px; }
-            QToolBar QToolButton:hover { background-color: #e8f0fe; color: #1a73e8; }
-            QToolBar QToolButton:pressed { background-color: #1a73e8; color: #ffffff; }
-            QToolBar::separator { width: 1px; background-color: #e0e0e0; margin: 4px 6px; }
-            QStatusBar { background-color: #ffffff; color: #666; border-top: 1px solid #e0e0e0; font-size: 12px; }
-            QStatusBar QLabel { color: #666; padding: 0 10px; background-color: transparent; }
-            QPushButton { background-color: #e8eaed; color: #333; border: none; padding: 6px 16px; border-radius: 3px; font-size: 13px; }
-            QPushButton:hover { background-color: #d2d6db; color: #1a73e8; }
-            QPushButton:pressed { background-color: #1a73e8; color: #ffffff; }
-            QLineEdit, QTextEdit, QPlainTextEdit, QTextBrowser {
-                background-color: #ffffff; color: #333;
-                border: 1px solid #dadce0; border-radius: 3px; padding: 5px 8px; font-size: 13px;
-                selection-background-color: #1a73e8; selection-color: #ffffff;
-            }
-            QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus { border-color: #1a73e8; }
-            QListWidget, QTableWidget, QTreeWidget {
-                background-color: #ffffff; color: #333;
-                border: 1px solid #dadce0; border-radius: 3px; font-size: 13px; outline: none;
-            }
-            QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {
-                background-color: #e8f0fe; color: #1a73e8;
-            }
-            QHeaderView::section {
-                background-color: #f8f9fa; color: #666;
-                border: none; border-bottom: 1px solid #e0e0e0; padding: 8px; font-size: 12px; font-weight: normal;
-            }
-            QComboBox {
-                background-color: #ffffff; color: #333;
-                border: 1px solid #dadce0; border-radius: 3px; padding: 4px 10px; font-size: 13px;
-            }
-            QComboBox:hover { border-color: #1a73e8; }
-            QComboBox QAbstractItemView {
-                background-color: #ffffff; color: #333;
-                border: 1px solid #dadce0; selection-background-color: #e8f0fe; selection-color: #1a73e8; outline: none;
-            }
-            QScrollBar:vertical { background-color: #f1f3f4; width: 10px; border: none; }
-            QScrollBar::handle:vertical { background-color: #dadce0; border-radius: 5px; min-height: 30px; margin: 2px; }
-            QScrollBar::handle:vertical:hover { background-color: #bdc1c6; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-            QScrollBar:horizontal { background-color: #f1f3f4; height: 10px; border: none; }
-            QScrollBar::handle:horizontal { background-color: #dadce0; border-radius: 5px; min-width: 30px; margin: 2px; }
-            QScrollBar::handle:horizontal:hover { background-color: #bdc1c6; }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-            QSplitter::handle { background-color: #e0e0e0; }
-            QLabel { background-color: transparent; color: #333; }
-            QDialog, QInputDialog, QMessageBox, QFileDialog { background-color: #f0f2f5; }
-            QDialog, QInputDialog, QMessageBox, QFileDialog { background-color: #f0f2f5; }
-            QGroupBox { border: 1px solid #dadce0; border-radius: 4px; margin-top: 12px; padding-top: 8px; color: #666; font-size: 13px; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
-            QCheckBox, QRadioButton { color: #333; spacing: 8px; font-size: 13px; }
-            QProgressBar { background-color: #f1f3f4; border: 1px solid #dadce0; border-radius: 3px; text-align: center; color: #333; font-size: 12px; }
-            QProgressBar::chunk { background-color: #1a73e8; border-radius: 2px; }
-            QSlider::groove:horizontal { height: 4px; background-color: #dadce0; border-radius: 2px; }
-            QSlider::handle:horizontal { width: 12px; height: 12px; margin: -4px 0; background-color: #1a73e8; border-radius: 6px; }
-            QSlider::handle:horizontal:hover { background-color: #1557b0; }
-            QSlider::sub-page:horizontal { background-color: #1a73e8; border-radius: 2px; }
-        )");
-    } else {
-        setStyleSheet(R"(
-            QMainWindow { background-color: #1b2838; }
-            QWidget { background-color: #1b2838; color: #c7d5e0; }
-            QToolTip { background-color: #ffffff; color: #202124; border: 1px solid #dadce0; border-radius: 6px; padding: 8px 12px; font-size: 12px; }
-            QMenuBar { background-color: transparent; color: #c7d5e0; border: none; padding: 2px; font-size: 13px; }
-            QMenuBar::item { background: transparent; padding: 6px 14px; border-radius: 3px; }
-            QMenuBar::item:selected { background-color: #2a475e; color: #ffffff; }
-            QMenu { background-color: #16202d; color: #c7d5e0; border: 1px solid #2a475e; padding: 4px; font-size: 13px; }
-            QMenu::item { padding: 6px 28px; border-radius: 3px; }
-            QMenu::item:selected { background-color: #2a475e; color: #ffffff; }
-            QMenu::separator { height: 1px; background-color: #2a475e; margin: 4px 8px; }
-            QToolBar { background-color: #16202d; border: none; border-bottom: 1px solid #2a475e; padding: 4px 8px; spacing: 4px; }
-            QToolBar QToolButton { background-color: transparent; color: #8f98a0; border: none; padding: 6px 12px; border-radius: 3px; font-size: 13px; }
-            QToolBar QToolButton:hover { background-color: #2a475e; color: #66c0f4; }
-            QToolBar QToolButton:pressed { background-color: #1a9fff; color: #ffffff; }
-            QToolBar::separator { width: 1px; background-color: #2a475e; margin: 4px 6px; }
-            QStatusBar { background-color: #16202d; color: #8f98a0; border-top: 1px solid #2a475e; font-size: 12px; }
-            QStatusBar QLabel { color: #8f98a0; padding: 0 10px; background-color: transparent; }
-            QPushButton { background-color: #2a475e; color: #c7d5e0; border: none; padding: 6px 16px; border-radius: 3px; font-size: 13px; }
-            QPushButton:hover { background-color: #3d6b8a; color: #ffffff; }
-            QPushButton:pressed { background-color: #1a9fff; color: #ffffff; }
-            QLineEdit, QTextEdit, QPlainTextEdit, QTextBrowser {
-                background-color: #16202d; color: #c7d5e0;
-                border: 1px solid #2a475e; border-radius: 3px; padding: 5px 8px; font-size: 13px;
-                selection-background-color: #1a9fff; selection-color: #ffffff;
-            }
-            QListWidget, QTableWidget, QTreeWidget {
-                background-color: #16202d; color: #c7d5e0;
-                border: 1px solid #2a475e; border-radius: 3px; font-size: 13px; outline: none;
-            }
-            QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {
-                background-color: #2a475e; color: #66c0f4;
-            }
-            QHeaderView::section {
-                background-color: #1b2838; color: #8f98a0;
-                border: none; border-bottom: 1px solid #2a475e; padding: 8px; font-size: 12px; font-weight: normal;
-            }
-            QComboBox {
-                background-color: #16202d; color: #c7d5e0;
-                border: 1px solid #2a475e; border-radius: 3px; padding: 4px 10px; font-size: 13px;
-            }
-            QComboBox:hover { border-color: #66c0f4; }
-            QComboBox QAbstractItemView {
-                background-color: #16202d; color: #c7d5e0;
-                border: 1px solid #2a475e; selection-background-color: #2a475e; selection-color: #66c0f4; outline: none;
-            }
-            QScrollBar:vertical { background-color: #16202d; width: 10px; border: none; }
-            QScrollBar::handle:vertical { background-color: #2a475e; border-radius: 5px; min-height: 30px; margin: 2px; }
-            QScrollBar::handle:vertical:hover { background-color: #3d6b8a; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-            QScrollBar:horizontal { background-color: #16202d; height: 10px; border: none; }
-            QScrollBar::handle:horizontal { background-color: #2a475e; border-radius: 5px; min-width: 30px; margin: 2px; }
-            QScrollBar::handle:horizontal:hover { background-color: #3d6b8a; }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-            QSplitter::handle { background-color: #2a475e; }
-            QLabel { background-color: transparent; color: #c7d5e0; }
-            QDialog, QInputDialog, QMessageBox, QFileDialog { background-color: #1b2838; }
-            QGroupBox { border: 1px solid #2a475e; border-radius: 4px; margin-top: 12px; padding-top: 8px; color: #8f98a0; font-size: 13px; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
-            QCheckBox, QRadioButton { color: #c7d5e0; spacing: 8px; font-size: 13px; }
-            QProgressBar { background-color: #16202d; border: 1px solid #2a475e; border-radius: 3px; text-align: center; color: #c7d5e0; font-size: 12px; }
-            QProgressBar::chunk { background-color: #66c0f4; border-radius: 2px; }
-            QSlider::groove:horizontal { height: 4px; background-color: #2a475e; border-radius: 2px; }
-            QSlider::handle:horizontal { width: 12px; height: 12px; margin: -4px 0; background-color: #66c0f4; border-radius: 6px; }
-            QSlider::handle:horizontal:hover { background-color: #1a9fff; }
-            QSlider::sub-page:horizontal { background-color: #66c0f4; border-radius: 2px; }
-        )");
-    }
-
-    // Apply custom background image if set
-    if (!m_cfg.bgImagePath.isEmpty() && QFile::exists(m_cfg.bgImagePath)) {
-        setStyleSheet(styleSheet() + QString(R"(
-            QMainWindow { background-image: url(%1); background-repeat: no-repeat; background-position: center; background-attachment: fixed; }
-        )").arg(QDir::toNativeSeparators(m_cfg.bgImagePath).replace("\\", "/")));
-    }
-
-    // Fade out transition overlay after theme applied
-    if (overlay) {
-        QTimer::singleShot(50, this, [overlay]() {
-            if (!overlay) return;
-            QPropertyAnimation *fadeOut = new QPropertyAnimation(overlay, "windowOpacity");
-            fadeOut->setDuration(200);
-            fadeOut->setStartValue(1.0);
-            fadeOut->setEndValue(0.0);
-            fadeOut->setEasingCurve(QEasingCurve::OutCubic);
-            connect(fadeOut, &QPropertyAnimation::finished, overlay, &QWidget::deleteLater);
-            connect(fadeOut, &QPropertyAnimation::finished, fadeOut, &QPropertyAnimation::deleteLater);
-            fadeOut->start();
-        });
-    }
-}
-
-void MainWindow::applyFontSize(int size)
-{
-    m_cfg.fontSize = size;
-    QFont f = font();
-    f.setPointSize(size);
-    QApplication::setFont(f);
-}
-
 void MainWindow::loadSettings()
 {
     // All key/default wiring lives in AppSettings::load; here we just hand it
@@ -2572,142 +2339,6 @@ void MainWindow::saveSettings()
 {
     const int page = m_stack ? m_stack->currentIndex() : 0;
     m_cfg.save(page);
-}
-
-void MainWindow::applyThumbnailSize(const QString &size)
-{
-    if (!m_materialWidget) return;
-    m_materialWidget->setThumbnailSize(size);
-}
-
-void MainWindow::applyNoteBgColor(const QColor &c)
-{
-    if (!m_noteWidget) return;
-    m_noteWidget->setBgColor(c);
-}
-
-void MainWindow::applyReaderColors(const QColor &bg, const QColor &text)
-{
-    if (!m_readerWidget) return;
-    m_readerWidget->setCustomColors(bg, text);
-}
-
-void MainWindow::applyBgImage(const QString &path)
-{
-    m_cfg.bgImagePath = path;
-
-    bool hasImage = !path.isEmpty() && QFile::exists(path);
-
-    if (hasImage) {
-        // Make stack and all pages transparent so wallpaper shows through
-        m_stack->setStyleSheet("background: transparent; border: none;");
-        for (int i = 0; i < m_stack->count(); ++i) {
-            QWidget *page = m_stack->widget(i);
-            if (page) {
-                page->setStyleSheet("background: transparent;");
-                page->setAttribute(Qt::WA_TranslucentBackground, false);
-            }
-        }
-        // Canvas: light overlay so grid + wallpaper both visible, not too dark
-        if (m_canvasView) {
-            m_canvasView->setBackgroundBrush(QColor(30, 30, 32, 60));
-            m_canvasView->setStyleSheet("background: transparent; border: none;");
-        }
-    } else {
-        // Restore default solid backgrounds. Theme-aware: the stack sits
-        // BEHIND pages whose own background is transparent or failed to load
-        // (e.g. an undecodable reader-shelf image), so a hardcoded dark color
-        // would leak through in light mode.
-        m_stack->setStyleSheet(QString("background: %1; border: none;")
-                                   .arg(m_cfg.currentTheme == "light" ? "#f0f2f5" : "#1b2838"));
-        for (int i = 0; i < m_stack->count(); ++i) {
-            QWidget *page = m_stack->widget(i);
-            if (page) page->setStyleSheet("");
-        }
-        if (m_canvasView) {
-            m_canvasView->setBackgroundBrush(QColor(30, 30, 32));
-            m_canvasView->setStyleSheet("");
-        }
-    }
-
-    applyTheme(m_cfg.currentTheme);
-}
-
-void MainWindow::applyAcrylic()
-{
-#ifdef Q_OS_WIN
-    HWND hwnd = (HWND)winId();
-    if (!hwnd) return;
-    enableRoundedCorners(hwnd);
-    // Convert opacity percentage (30-100) to alpha byte (0-255)
-    BYTE alpha = (BYTE)(m_cfg.acrylicOpacity * 255 / 100);
-    // Color format: 0xAABBGGRR, default dark blue #1B2838
-    DWORD gradientColor = ((DWORD)alpha << 24) | 0x0038281B;
-    enableAcrylicBlur(hwnd, m_cfg.acrylicEnabled, gradientColor);
-#endif
-}
-
-void MainWindow::applyTransparencySettings()
-{
-    // Menu bar (respect current theme colors)
-    const bool light = (m_cfg.currentTheme == "light");
-    const QString menuBg = m_cfg.menuBarTransparent ? "transparent" : (light ? "#ffffff" : "#16202d");
-    const QString menuColor = light ? "#333333" : "#c7d5e0";
-    const QString menuBorder = light ? "border-bottom: 1px solid #e0e0e0;" : "border: none;";
-    menuBar()->setStyleSheet(QString(
-        "QMenuBar { background-color: %1; color: %2; %3 padding: 2px; font-size: 13px; }")
-        .arg(menuBg).arg(menuColor).arg(menuBorder));
-
-    // Navigation toolbar
-    if (m_navToolBar) {
-        if (m_cfg.navToolbarTransparent) {
-            m_navToolBar->setStyleSheet(
-                "QToolBar { background: transparent; border: none; padding: 0px; spacing: 0px; }"
-                " QToolBar::separator { width: 0; }");
-        } else {
-            m_navToolBar->setStyleSheet(
-                "QToolBar { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-                " stop:0 rgba(255,255,255,0.08), stop:0.5 rgba(255,255,255,0.02), stop:1 #141e2b);"
-                " border-bottom: 1px solid #2a475e; padding: 0px; spacing: 0px; }"
-                " QToolBar::separator { width: 0; }");
-        }
-    }
-
-    // Library status bar (N 项)
-    if (m_materialWidget)
-        m_materialWidget->setStatusBarTransparent(m_cfg.libraryStatusBarTransparent);
-
-    // Library asset grid
-    if (m_materialWidget)
-        m_materialWidget->setGridTransparent(m_cfg.libraryGridTransparent);
-
-    // Global content browser panel
-    if (m_contentBrowser)
-        m_contentBrowser->setTransparent(m_cfg.contentBrowserTransparent);
-
-    // Music player panels
-    if (m_musicWidget)
-        m_musicWidget->setPanelsTransparent(m_cfg.musicPanelsTransparent);
-
-    // Note page panels
-    if (m_noteWidget)
-        m_noteWidget->setPanelsTransparent(m_cfg.notePanelsTransparent);
-
-    // Reader page panels
-    if (m_readerWidget)
-        m_readerWidget->setPanelsTransparent(m_cfg.readerPanelsTransparent);
-}
-
-void MainWindow::applyMenuBarMode()
-{
-    // 半隐藏：隐藏原生菜单栏，用导航栏上的 ☰ 按钮承载菜单；否则显示原生菜单栏。
-    if (m_cfg.menuBarAutoHide) {
-        if (menuBar()) menuBar()->hide();
-        if (m_menuHamburger) m_menuHamburger->show();
-    } else {
-        if (menuBar()) menuBar()->show();
-        if (m_menuHamburger) m_menuHamburger->hide();
-    }
 }
 
 void MainWindow::applyAutostart(bool enabled)
@@ -2724,25 +2355,6 @@ void MainWindow::applyAutostart(bool enabled)
         reg.remove("里与由");
     }
 #endif
-}
-
-void MainWindow::applyEditorSettings(const QString &font, int fontSize)
-{
-    m_cfg.noteDefaultFont = font;
-    m_cfg.noteDefaultFontSize = fontSize;
-    if (!m_noteWidget) return;
-    QTextEdit *editor = m_noteWidget->editor();
-    if (!editor) return;
-    QFont f = editor->font();
-    f.setFamily(font);
-    f.setPointSize(fontSize);
-    editor->setFont(f);
-    // Also set default font for new text
-    QTextCursor cursor = editor->textCursor();
-    QTextCharFormat fmt;
-    fmt.setFont(f);
-    cursor.mergeCharFormat(fmt);
-    editor->mergeCurrentCharFormat(fmt);
 }
 
 void MainWindow::applyMusicShortcuts()

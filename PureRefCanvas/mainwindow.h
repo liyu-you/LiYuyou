@@ -24,6 +24,7 @@ class MaterialLibrary;
 class ContentBrowserPanel;
 class UserAuth;
 class AutoSaveController;
+class ThemeApplier;
 #include "userauth.h"
 
 class MainWindow : public QMainWindow
@@ -105,17 +106,7 @@ private:
 
     bool maybeSave();
     void loadImages(const QStringList &paths);
-    void applyTheme(const QString &theme);
-    void applyFontSize(int size);
-    void applyThumbnailSize(const QString &size);
-    void applyNoteBgColor(const QColor &c);
-    void applyReaderColors(const QColor &bg, const QColor &text);
-    void applyBgImage(const QString &path);
-    void applyAcrylic();
-    void applyTransparencySettings();
-    void applyMenuBarMode();   // 普通菜单栏 <-> ☰ 半隐藏按钮
     void applyAutostart(bool enabled);  // write/remove Windows Run registry key
-    void applyEditorSettings(const QString &font, int fontSize);
     void refreshCanvasItemList();
     void showAccountDialog();
     void logoutUser();
@@ -174,6 +165,7 @@ private:
 
     // Auto-save timer + weekly report are delegated to a dedicated controller.
     AutoSaveController *m_autosave = nullptr;
+    ThemeApplier *m_theme = nullptr;
 
     // System tray
     QSystemTrayIcon *m_tray = nullptr;
