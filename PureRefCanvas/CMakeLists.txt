@@ -27,6 +27,7 @@ qt_add_executable(PureRefCanvas
     themeapplier.h themeapplier.cpp
     shutdowncontroller.h shutdowncontroller.cpp
     traycontroller.h traycontroller.cpp
+    traymenustyle.h
     logger.h logger.cpp
     lyricspanel.h lyricspanel.cpp
     canvasview.h canvasview.cpp

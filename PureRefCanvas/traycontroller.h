@@ -14,6 +14,10 @@
 
 class QSystemTrayIcon;
 class QString;
+class QMenu;
+class QAction;
+class QLabel;
+class QWidgetAction;
 
 class TrayController : public QObject
 {
@@ -35,6 +39,16 @@ public:
     void setup();
     bool initialized() const { return m_initialized; }
 
+    // Menu construction is separated from tray setup so the tray UI test can
+    // build and render the menu on a headless (offscreen) platform where no
+    // system tray exists. Idempotent; returns the menu.
+    QMenu *buildMenu();
+
+    // Re-skin the menu (stylesheet + icons + header) for the given scheme.
+    // Called automatically with the OS theme when the menu opens and whenever
+    // the OS color scheme changes; exposed so tests can force both schemes.
+    void applyTheme(bool dark);
+
     // Called from MainWindow::closeEvent. Returns true if the close was
     // intercepted (window hidden to tray); caller should then event->ignore().
     // Returns false if the window should actually close (closeBehavior != tray
@@ -42,9 +56,21 @@ public:
     bool handleCloseRequest(const QString &closeBehavior);
 
 private:
+    QIcon resolveIcon() const;
+
     Hooks            m_hooks;
     QSystemTrayIcon *m_tray = nullptr;
     bool             m_initialized = false;
+
+    // Menu + everything applyTheme() re-skins.
+    QMenu         *m_menu = nullptr;
+    QAction       *m_showAct = nullptr;
+    QAction       *m_hideAct = nullptr;
+    QAction       *m_settingsAct = nullptr;
+    QAction       *m_accountAct = nullptr;
+    QAction       *m_quitAct = nullptr;
+    QLabel        *m_headerTitle = nullptr;
+    QLabel        *m_headerVersion = nullptr;
 };
 
 #endif // TRAYCONTROLLER_H
