@@ -27,11 +27,72 @@ static QString boxTitle(const QString &subject)
     return app.isEmpty() ? subject : QString("%1 - %2").arg(app, subject);
 }
 
-// Qt 默认按钮是英文 OK/Yes/No/Cancel，与全中文界面不符，统一换成中文。
+// Material 风格轻量提示卡片：无边框、白底圆角、蓝色信息图标、胶囊确定按钮。
+// 替代原生 QMessageBox，与全应用 Google 风格统一。
 static void showNotice(QWidget *parent, const QString &subject, const QString &text)
 {
-    QMessageBox box(QMessageBox::Information, boxTitle(subject), text, QMessageBox::NoButton, parent);
-    box.addButton("确定", QMessageBox::AcceptRole);
+    QDialog box(parent);
+    box.setWindowTitle(boxTitle(subject));
+    box.setWindowFlags(box.windowFlags() | Qt::FramelessWindowHint);
+    box.setAttribute(Qt::WA_TranslucentBackground);
+    box.setFixedWidth(320);
+
+    auto *card = new QWidget(&box);
+    card->setObjectName("noticeCard");
+    card->setStyleSheet(
+        "QWidget#noticeCard { background: #ffffff; border-radius: 14px; }"
+        "QLabel { color: #202124; }"
+        "QLabel#title { font-size: 16px; font-weight: 600; }"
+        "QLabel#body { font-size: 14px; color: #5f6368; }"
+        "QPushButton { background: #1a73e8; color: #ffffff; border: none;"
+        "  border-radius: 18px; padding: 8px 28px; font-size: 13px; font-weight: 500; }"
+        "QPushButton:hover { background: #1557b0; }"
+    );
+
+    auto *outer = new QVBoxLayout(&box);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->addWidget(card);
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(24, 24, 24, 20);
+    layout->setSpacing(12);
+
+    // Info icon: blue circle with white "i"
+    auto *iconRow = new QHBoxLayout;
+    iconRow->setSpacing(12);
+    auto *iconLabel = new QLabel;
+    QPixmap iconPix(28, 28);
+    iconPix.fill(Qt::transparent);
+    QPainter ip(&iconPix);
+    ip.setRenderHint(QPainter::Antialiasing);
+    ip.setBrush(QColor("#1a73e8"));
+    ip.setPen(Qt::NoPen);
+    ip.drawEllipse(0, 0, 28, 28);
+    ip.setPen(QPen(Qt::white, 2));
+    QFont ifont = box.font();
+    ifont.setPointSize(12);
+    ifont.setBold(true);
+    ip.setFont(ifont);
+    ip.drawText(QRect(0, 0, 28, 28), Qt::AlignCenter, "i");
+    iconLabel->setPixmap(iconPix);
+    auto *titleLabel = new QLabel(subject);
+    titleLabel->setObjectName("title");
+    iconRow->addWidget(iconLabel, 0, Qt::AlignVCenter);
+    iconRow->addWidget(titleLabel, 1, Qt::AlignVCenter);
+    layout->addLayout(iconRow);
+
+    auto *bodyLabel = new QLabel(text);
+    bodyLabel->setObjectName("body");
+    bodyLabel->setWordWrap(true);
+    layout->addWidget(bodyLabel);
+
+    auto *btnRow = new QHBoxLayout;
+    btnRow->addStretch();
+    auto *okBtn = new QPushButton("确定");
+    btnRow->addWidget(okBtn);
+    layout->addLayout(btnRow);
+
+    QObject::connect(okBtn, &QPushButton::clicked, &box, &QDialog::accept);
     box.exec();
 }
 
@@ -93,12 +154,12 @@ static QString coverStyleQss(bool hasCover)
         qss += "QLabel#fieldLabel { color: rgba(255,255,255,0.7); font-size: 12px; padding-left: 2px; }\n";
         qss += "QLabel#metaLabel { color: rgba(255,255,255,0.5); font-size: 11px; padding-left: 2px; }\n";
         qss += "QLabel#warnLabel { color: #ffb84d; font-size: 11px; padding-left: 2px; }\n";
-        qss += "QLineEdit { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 10px 14px; font-size: 14px; }\n";
-        qss += "QLineEdit:focus { border-color: #07c160; background: rgba(255,255,255,0.2); }\n";
+        qss += "QLineEdit { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; font-size: 13px; min-height: 20px; }\n";
+        qss += "QLineEdit:focus { border-color: #1a73e8; background: rgba(255,255,255,0.2); }\n";
         qss += "QLineEdit:disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1); }\n";
-        qss += "QPushButton#grayBtn { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 10px; font-size: 14px; }\n";
+        qss += "QPushButton#grayBtn { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 16px; font-size: 13px; min-height: 20px; }\n";
         qss += "QPushButton#grayBtn:hover { background: rgba(255,255,255,0.25); }\n";
-        qss += "QPushButton#redBtn { background: rgba(255,255,255,0.15); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.3); border-radius: 4px; padding: 10px; font-size: 14px; }\n";
+        qss += "QPushButton#redBtn { background: rgba(255,255,255,0.15); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.3); border-radius: 6px; padding: 8px 16px; font-size: 13px; min-height: 20px; }\n";
         qss += "QPushButton#redBtn:hover { background: rgba(255,107,107,0.2); }\n";
         qss += "QPushButton#avatarBtn { background: transparent; border: 2px solid rgba(255,255,255,0.8); padding: 0; border-radius: 36px; }\n";
         qss += "QPushButton#avatarBtn:hover { border-color: #07c160; }\n";
@@ -110,19 +171,19 @@ static QString coverStyleQss(bool hasCover)
         qss += "QLabel#fieldLabel { color: rgba(0,0,0,0.6); font-size: 12px; padding-left: 2px; }\n";
         qss += "QLabel#metaLabel { color: rgba(0,0,0,0.4); font-size: 11px; padding-left: 2px; }\n";
         qss += "QLabel#warnLabel { color: #b8860b; font-size: 11px; padding-left: 2px; }\n";
-        qss += "QLineEdit { background: #f4f4f7; color: #1f1f24; border: 1px solid #dcdce2; border-radius: 4px; padding: 10px 14px; font-size: 14px; }\n";
-        qss += "QLineEdit:focus { border-color: #07c160; background: #ffffff; }\n";
+        qss += "QLineEdit { background: #f4f4f7; color: #1f1f24; border: 1px solid #dcdce2; border-radius: 6px; padding: 8px 12px; font-size: 13px; min-height: 20px; }\n";
+        qss += "QLineEdit:focus { border-color: #1a73e8; background: #ffffff; }\n";
         qss += "QLineEdit:disabled { background: #ececef; color: rgba(0,0,0,0.4); border: 1px solid #e0e0e4; }\n";
-        qss += "QPushButton#grayBtn { background: #ececef; color: #333333; border: 1px solid #dcdce2; border-radius: 4px; padding: 10px; font-size: 14px; }\n";
+        qss += "QPushButton#grayBtn { background: #ececef; color: #333333; border: 1px solid #dcdce2; border-radius: 6px; padding: 8px 16px; font-size: 13px; min-height: 20px; }\n";
         qss += "QPushButton#grayBtn:hover { background: #e0e0e6; }\n";
-        qss += "QPushButton#redBtn { background: #fdecec; color: #e04b4b; border: 1px solid #f5c2c2; border-radius: 4px; padding: 10px; font-size: 14px; }\n";
+        qss += "QPushButton#redBtn { background: #fdecec; color: #e04b4b; border: 1px solid #f5c2c2; border-radius: 6px; padding: 8px 16px; font-size: 13px; min-height: 20px; }\n";
         qss += "QPushButton#redBtn:hover { background: #fbdcdc; }\n";
         qss += "QPushButton#avatarBtn { background: transparent; border: 2px solid #cfcfd6; padding: 0; border-radius: 36px; }\n";
         qss += "QPushButton#avatarBtn:hover { border-color: #07c160; }\n";
     }
     // 两态共用
-    qss += "QPushButton#greenBtn { background-color: #07c160; color: #fff; border: none; border-radius: 4px; padding: 10px; font-size: 14px; font-weight: 500; }\n";
-    qss += "QPushButton#greenBtn:hover { background-color: #06ad56; }\n";
+    qss += "QPushButton#greenBtn { background-color: #1a73e8; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 500; min-height: 20px; }\n";
+    qss += "QPushButton#greenBtn:hover { background-color: #1557b0; }\n";
     qss += "QPushButton#bgBtn { background: transparent; border: none; padding: 0; }\n";
     return qss;
 }
@@ -131,7 +192,7 @@ AccountDialog::AccountDialog(UserAuth *auth, QWidget *parent)
     : QDialog(parent), m_auth(auth)
 {
     setWindowTitle("账号信息");
-    setFixedSize(380, 600);
+    setFixedSize(380, 640);
 
     UserInfo user = m_auth->currentUser();
     QString displayName = user.nickname.isEmpty() ? user.username : user.nickname;
@@ -219,8 +280,8 @@ AccountDialog::AccountDialog(UserAuth *auth, QWidget *parent)
     QWidget *formWidget = new QWidget;
     formWidget->setObjectName("formArea");
     QVBoxLayout *formLayout = new QVBoxLayout(formWidget);
-    formLayout->setContentsMargins(24, 20, 24, 20);
-    formLayout->setSpacing(10);
+    formLayout->setContentsMargins(24, 16, 24, 16);
+    formLayout->setSpacing(8);
 
     // Nickname
     QLabel *nickLabel = new QLabel("昵称");

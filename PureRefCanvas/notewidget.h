@@ -198,6 +198,7 @@ private:
     void saveNotes();
     void saveCurrentNote();
     void refreshCards();
+    void showCardContextMenu(const QString &noteId, const QPoint &globalPos);
     void refreshFolderList();
     void updateStatusBar();
     void refreshOutline();  // VNote: extract headings from current note
@@ -240,6 +241,8 @@ private:
     QWidget *m_gridWidget;
     QGridLayout *m_gridLayout;
     QLabel *m_emptyLabel = nullptr;
+    QLabel *m_totalCountLabel = nullptr;
+    QLabel *m_starredCountLabel = nullptr;
 
     QWidget *m_editorPage;
     QWidget *m_editorTopBar;

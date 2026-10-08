@@ -370,19 +370,22 @@ void MaterialWidget::setupUI()
     mainLayout->addWidget(m_stack);
 
     // ===== Browser Page =====
+    // Google-Photos redesign: opaque pure-white surface everywhere; the old
+    // translucent dark chrome over a photo wallpaper is gone.
     m_browserPage = new QWidget;
-    m_browserPage->setStyleSheet("background: transparent;");
+    m_browserPage->setStyleSheet("background: #ffffff;");
     QVBoxLayout *browserLayout = new QVBoxLayout(m_browserPage);
     browserLayout->setContentsMargins(0, 0, 0, 0);
     browserLayout->setSpacing(0);
 
     m_splitter = new QSplitter(Qt::Horizontal);
-    m_splitter->setStyleSheet("QSplitter::handle { background: rgba(255,255,255,0.08); }");
+    m_splitter->setStyleSheet("QSplitter::handle { background: #e0e0e0; }");
 
-    // Left: folder tree — Chrome-style frosted dark sidebar
+    // Left: folder tree — Google light sidebar (hidden by default; MainWindow
+    // docks the shared ContentBrowserPanel instead)
     QWidget *leftPanel = new QWidget;
     leftPanel->setFixedWidth(220);
-    leftPanel->setStyleSheet("background: rgba(22,27,34,0.55); border-right: 1px solid rgba(255,255,255,0.08);");
+    leftPanel->setStyleSheet("background: #f8f9fa; border-right: 1px solid #e0e0e0;");
     QVBoxLayout *leftLayout = new QVBoxLayout(leftPanel);
     leftLayout->setContentsMargins(12, 16, 12, 12);
     leftLayout->setSpacing(10);
@@ -391,22 +394,22 @@ void MaterialWidget::setupUI()
     m_searchEdit->setPlaceholderText("🔍 搜索资产");
     m_searchEdit->setFixedHeight(36);
     m_searchEdit->setStyleSheet(
-        "QLineEdit { background: rgba(255,255,255,0.10); color: #fff; border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 2px 16px; font-size: 13px; }"
-        "QLineEdit:focus { background: rgba(255,255,255,0.16); border-color: #8ab4f8; }");
+        "QLineEdit { background: #f1f3f4; color: #202124; border: 1px solid transparent; border-radius: 18px; padding: 2px 16px; font-size: 13px; }"
+        "QLineEdit:focus { background: #ffffff; border-color: #1a73e8; }");
     connect(m_searchEdit, &QLineEdit::textChanged, this, &MaterialWidget::onSearchChanged);
     leftLayout->addWidget(m_searchEdit);
 
     QLabel *sourcesLabel = new QLabel("  内容浏览器");
-    sourcesLabel->setStyleSheet("color: rgba(255,255,255,0.55); font-size: 11px; font-weight: 600; padding: 4px; letter-spacing: 1px;");
+    sourcesLabel->setStyleSheet("color: #5f6368; font-size: 11px; font-weight: 600; padding: 4px; letter-spacing: 1px;");
     leftLayout->addWidget(sourcesLabel);
 
     m_folderTree = new QTreeWidget;
     m_folderTree->setHeaderHidden(true);
     m_folderTree->setStyleSheet(R"(
-        QTreeWidget { background: transparent; border: none; outline: none; color: rgba(255,255,255,0.85); font-size: 13px; }
+        QTreeWidget { background: transparent; border: none; outline: none; color: #3c4043; font-size: 13px; }
         QTreeWidget::item { padding: 6px 8px; border-radius: 6px; }
-        QTreeWidget::item:selected { background: rgba(138,180,248,0.25); color: #fff; }
-        QTreeWidget::item:hover:!selected { background: rgba(255,255,255,0.08); }
+        QTreeWidget::item:selected { background: #e8f0fe; color: #1a73e8; }
+        QTreeWidget::item:hover:!selected { background: #f1f3f4; }
     )");
     connect(m_folderTree, &QTreeWidget::itemClicked, this, &MaterialWidget::onFolderTreeClicked);
     m_folderTree->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -1661,13 +1664,15 @@ void MaterialWidget::createColorFilterBar()
 
     lay->addStretch();
 
-    // Material-style filter chip: frosted translucent white pill, 8px radius,
-    // no heavy borders. Sits lightly on the background image like Google Photos.
+    // Google Material filter chip: light gray pill, 16px radius, no border.
+    // Looks like Google Photos / Google Drive filter dropdowns.
     const QString chipStyle =
-        "QComboBox { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.22); border-radius: 16px; padding: 4px 14px; font-size: 12px; }"
-        "QComboBox:hover { background: rgba(255,255,255,0.28); }"
+        "QComboBox { background: #f1f3f4; color: #202124; border: none; border-radius: 16px; padding: 4px 14px; font-size: 12px; }"
+        "QComboBox:hover { background: #e8eaed; }"
         "QComboBox::drop-down { border: none; width: 18px; }"
-        "QComboBox QAbstractItemView { background: rgba(40,45,55,0.95); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; selection-background-color: #2ea043; padding: 4px; }";
+        "QComboBox::down-arrow { image: none; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #5f6368; margin-right: 8px; }"
+        "QComboBox QAbstractItemView { background: #ffffff; color: #202124; border: none; border-radius: 10px; selection-background-color: #e8f0fe; selection-color: #1a73e8; padding: 6px; outline: none; }"
+        "QComboBox QAbstractItemView::item { padding: 6px 12px; border-radius: 6px; }";
 
     // Size filter
     m_sizeFilter = new QComboBox;

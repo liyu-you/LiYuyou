@@ -287,7 +287,7 @@ void ReaderWidget::setupShelfPage()
     QVBoxLayout *titleBlock = new QVBoxLayout;
     titleBlock->setContentsMargins(0, 0, 0, 0);
     titleBlock->setSpacing(2);
-    m_shelfTitle = new QLabel("书架");
+    m_shelfTitle = new QLabel("书库");
     m_shelfTitle->setStyleSheet("font-size: 22px; font-weight: 500; color: #111827;");
     m_shelfCountLabel = new QLabel("0 本书");
     m_shelfCountLabel->setStyleSheet("font-size: 13px; color: #6B7280;");
@@ -462,7 +462,7 @@ void ReaderWidget::setupReadingSidebar()
     browserLabel->setStyleSheet("font-size: 13px; font-weight: 500; color: #6B7280;");
     sb->addWidget(browserLabel);
 
-    // Active "书架" row
+    // Active "书库" row
     QWidget *activeRow = new QWidget;
     activeRow->setStyleSheet("background: #EAF3DE; border-radius: 10px;");
     QHBoxLayout *activeLayout = new QHBoxLayout(activeRow);
@@ -470,7 +470,7 @@ void ReaderWidget::setupReadingSidebar()
     activeLayout->setSpacing(8);
     QLabel *shelfIcon = new QLabel("▮");
     shelfIcon->setStyleSheet("color: #27500A; font-size: 14px;");
-    QLabel *shelfText = new QLabel("书架");
+    QLabel *shelfText = new QLabel("书库");
     shelfText->setStyleSheet("color: #27500A; font-size: 14px; font-weight: 500;");
     activeLayout->addWidget(shelfIcon);
     activeLayout->addWidget(shelfText);
@@ -560,8 +560,14 @@ void ReaderWidget::setupReaderPage()
     QHBoxLayout *topLayout = new QHBoxLayout(m_topBar);
     topLayout->setContentsMargins(12, 0, 12, 0);
 
-    m_backBtn = new QPushButton("← 书架");
-    m_backBtn->setStyleSheet("QPushButton { background: transparent; border: none; font-size: 14px; padding: 6px 10px; border-radius: 4px; } QPushButton:hover { background: rgba(0,0,0,0.08); }");
+    m_backBtn = new QPushButton("← 书库");
+    m_backBtn->setObjectName("backShelfBtn");
+    m_backBtn->setFixedHeight(30);
+    m_backBtn->setCursor(Qt::PointingHandCursor);
+    m_backBtn->setStyleSheet(
+        "QPushButton#backShelfBtn { background: transparent; border: 1px solid #dadce0;"
+        " border-radius: 15px; font-size: 12px; padding: 4px 14px; color: #5f6368; }"
+        "QPushButton#backShelfBtn:hover { background: #f1f3f4; color: #202124; }");
     connect(m_backBtn, &QPushButton::clicked, this, &ReaderWidget::backToShelf);
 
     m_bookTitleLabel = new QLabel;
@@ -569,7 +575,13 @@ void ReaderWidget::setupReaderPage()
     m_bookTitleLabel->setAlignment(Qt::AlignCenter);
 
     m_tocBtn = new QPushButton("目录");
-    m_tocBtn->setStyleSheet("QPushButton { background: transparent; border: none; font-size: 14px; padding: 6px 10px; border-radius: 4px; } QPushButton:hover { background: rgba(0,0,0,0.08); }");
+    m_tocBtn->setObjectName("tocBtn");
+    m_tocBtn->setFixedHeight(30);
+    m_tocBtn->setCursor(Qt::PointingHandCursor);
+    m_tocBtn->setStyleSheet(
+        "QPushButton#tocBtn { background: transparent; border: 1px solid #dadce0;"
+        " border-radius: 15px; font-size: 12px; padding: 4px 14px; color: #5f6368; }"
+        "QPushButton#tocBtn:hover { background: #f1f3f4; color: #202124; }");
     connect(m_tocBtn, &QPushButton::clicked, this, &ReaderWidget::showToc);
 
     topLayout->addWidget(m_backBtn);
@@ -1892,7 +1904,7 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
         menu.addAction("打开阅读", this, [this, item]() { openBook(item); });
         menu.addAction("更改封面图片", this, [this, id]() { changeBookCover(id); });
         QAction *delAct = menu.addAction("删除书籍", this, [this, id]() {
-            if (QMessageBox::question(this, "确认删除", "确定从书架删除这本书？") == QMessageBox::Yes)
+            if (QMessageBox::question(this, "确认删除", "确定从书库删除这本书？") == QMessageBox::Yes)
                 m_library->removeBook(id);
         });
         delAct->setObjectName("dangerItem");
@@ -2272,7 +2284,7 @@ void ReaderWidget::refreshShelf()
     m_shelfGrid->clear();
     auto books = m_library->books();
 
-    if (m_shelfTitle) m_shelfTitle->setText("书架");
+    if (m_shelfTitle) m_shelfTitle->setText("书库");
     if (m_shelfCountLabel) m_shelfCountLabel->setText(QString("%1 本书").arg(books.size()));
 
     int latestPct = 0;
@@ -2567,9 +2579,16 @@ void ReaderWidget::applyTheme()
     m_bookTitleLabel->setStyleSheet(QString("font-size: 15px; font-weight: 500; color: %1;").arg(barText));
     m_pageLabel->setStyleSheet(QString("font-size: 12px; color: %1; min-width: 44px;").arg(barText));
 
-    QString btnStyle = QString("QPushButton { background: transparent; border: none; font-size: 14px; color: %1; padding: 6px 10px; border-radius: 4px; } QPushButton:hover { background: rgba(0,0,0,0.08); }").arg(barText);
-    m_backBtn->setStyleSheet(btnStyle);
-    m_tocBtn->setStyleSheet(btnStyle);
+    // Google Material pill button style — same as pomodoro timer button.
+    // Use ID selectors so the rule can't be broadened/overridden by parent QSS.
+    const QString pillQss = QString(
+        "QPushButton#backShelfBtn, QPushButton#tocBtn {"
+        " background: transparent; border: 1px solid #dadce0; border-radius: 15px;"
+        " font-size: 12px; color: %1; padding: 4px 14px; }"
+        "QPushButton#backShelfBtn:hover, QPushButton#tocBtn:hover {"
+        " background: #f1f3f4; color: #202124; }").arg(barText);
+    m_backBtn->setStyleSheet(pillQss);
+    m_tocBtn->setStyleSheet(pillQss);
 
     QString ctrlBtnStyle = ctrlButtonStyle();
     QString activeBtnStyle = QString(

@@ -634,6 +634,18 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1280, 800);
     setAcceptDrops(true);
 
+    // Global Google Material tooltip style — white card, rounded, soft shadow feel
+    qApp->setStyleSheet(qApp->styleSheet() + R"(
+        QToolTip {
+            background: #ffffff;
+            color: #202124;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+    )");
+
     loadSettings();
 
     setupNavigation();
@@ -951,16 +963,27 @@ void MainWindow::setupNavigation()
     brandLayout->setSpacing(2);
     // ☰ 半隐藏菜单按钮（开启"菜单栏半隐藏"后才可见）
     m_menuHamburger = new QToolButton(brandWidget);
-    m_menuHamburger->setText("☰");
+    m_menuHamburger->setText("●\n●\n●");
     m_menuHamburger->setToolTip("菜单（文件/编辑/视图/帮助）");
     m_menuHamburger->setAutoRaise(true);
     m_menuHamburger->setCursor(Qt::PointingHandCursor);
-    m_menuHamburger->setFixedSize(30, 30);
+    m_menuHamburger->setFixedSize(32, 32);
     m_menuHamburger->setStyleSheet(
-        "QToolButton { font-size: 16px; color: #374151; border: none; border-radius: 6px; background: transparent; }"
-        "QToolButton:hover { background: rgba(0,0,0,0.06); }");
+        "QToolButton { font-size: 7px; color: #5f6368; border: none; border-radius: 16px; background: #f1f3f4; line-height: 0px; }"
+        "QToolButton:hover { background: #e8eaed; color: #202124; }"
+        "QToolButton:pressed { background: #dadce0; color: #202124; }");
     connect(m_menuHamburger, &QToolButton::clicked, this, [this]() {
         QMenu popup;
+        // Google Material style — same as menubar dropdowns
+        popup.setStyleSheet(R"(
+            QMenu { background: #ffffff; color: #202124; border: none;
+                    border-radius: 10px; padding: 8px; font-size: 13px; }
+            QMenu::item { padding: 8px 28px 8px 16px; border-radius: 6px; }
+            QMenu::item:selected { background: #e8f0fe; color: #1a73e8; }
+            QMenu::separator { height: 1px; background: #e0e0e0; margin: 6px 8px; }
+        )");
+        popup.setWindowFlag(Qt::FramelessWindowHint, true);
+        popup.setAttribute(Qt::WA_TranslucentBackground);
         QMenu *f = popup.addMenu("文件(&F)");
         f->addAction(m_actions.value(0));  f->addSeparator();
         f->addAction(m_actions.value(1)); f->addAction(m_actions.value(2)); f->addAction(m_actions.value(3));
@@ -1037,21 +1060,21 @@ void MainWindow::setupNavigation()
         btn->setStyleSheet(R"(
             QPushButton {
                 background: transparent;
-                color: #6B7280;
+                color: #5f6368;
                 border: none;
-                border-radius: 13px;
-                padding: 6px 16px;
+                border-radius: 16px;
+                padding: 6px 18px;
                 font-size: 13px;
                 font-weight: 500;
                 qproperty-alignment: AlignCenter;
             }
             QPushButton:hover {
-                background: #F3F4F6;
-                color: #111827;
+                background: #f1f3f4;
+                color: #202124;
             }
             QPushButton:pressed {
-                background: #E5E7EB;
-                color: #111827;
+                background: #e8eaed;
+                color: #202124;
             }
         )");
         connect(btn, &QPushButton::clicked, this, [this, i]() { switchToPage(i); });
@@ -1347,33 +1370,33 @@ void MainWindow::updateNavButtons()
         m_navButtons[i]->setProperty("selected", selected);
         m_navButtons[i]->setStyleSheet(selected ? R"(
             QPushButton {
-                background: #EAF3DE;
-                color: #27500A;
-                border: 1px solid #2FA66A;
-                border-radius: 13px;
-                padding: 6px 16px;
+                background: #e8f0fe;
+                color: #1a73e8;
+                border: none;
+                border-radius: 16px;
+                padding: 6px 18px;
                 font-size: 13px;
                 font-weight: 500;
                 qproperty-alignment: AlignCenter;
             }
             QPushButton:pressed {
-                background: #C0DD97;
-                color: #27500A;
+                background: #d2e3fc;
+                color: #1a73e8;
             }
         )" : R"(
             QPushButton {
                 background: transparent;
-                color: #6B7280;
-                border: 1px solid transparent;
-                border-radius: 13px;
-                padding: 6px 16px;
+                color: #5f6368;
+                border: none;
+                border-radius: 16px;
+                padding: 6px 18px;
                 font-size: 13px;
                 font-weight: 500;
                 qproperty-alignment: AlignCenter;
             }
             QPushButton:hover {
-                background: #F3F4F6;
-                color: #111827;
+                background: #f1f3f4;
+                color: #202124;
             }
             QPushButton:pressed {
                 background: #E5E7EB;
@@ -1606,15 +1629,36 @@ void MainWindow::exportImage()
 
 void MainWindow::about()
 {
-    QMessageBox::about(this, "关于 里与由",
-        "<h2>里与由 工作区</h2>"
-        "<p>一个集成多种工具的创意工作区</p>"
-        "<p><b>画布：</b>无限画布，支持图片导入、移动、缩放、旋转、多选、层级、保存/加载</p>"
-        "<p><b>笔记：</b>富文本编辑器，支持字体、颜色、列表、引用、代码块、图片、链接，保存 HTML/MD/TXT</p>"
-        "<p><b>库：</b>本地素材管理，文件夹+标签，缩略图网格，搜索，双击预览大图</p>"
-        "<p><b>阅读：</b>电子书阅读器，分页阅读，字体调节，4种主题，目录，书签，进度自动保存</p>"
-        "<p><b>音乐：</b>音乐播放器，歌单管理，播放控制，音量，进度，4种播放模式</p>"
-        "<p>顶部导航切换工作区 · 滚轮缩放画布 · 拖拽导入图片</p>");
+    QMessageBox box(this);
+    box.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    box.setWindowTitle("关于 里与由");
+    box.setIconPixmap(windowIcon().pixmap(64, 64));
+    box.setText(
+        "<h2 style='color:#202124; margin:0 0 4px 0;'>里与由 工作区</h2>"
+        "<p style='color:#5f6368; margin:0 0 16px 0; font-size:13px;'>一个集成多种工具的创意工作区</p>"
+        "<p style='color:#202124; margin: 4px 0; font-size:13px;'><b style='color:#1a73e8;'>画布</b> · 无限画布，拖拽导入图片</p>"
+        "<p style='color:#202124; margin: 4px 0; font-size:13px;'><b style='color:#1a73e8;'>笔记</b> · 富文本编辑，支持 Markdown</p>"
+        "<p style='color:#202124; margin: 4px 0; font-size:13px;'><b style='color:#1a73e8;'>库</b> · 本地素材管理，缩略图预览</p>"
+        "<p style='color:#202124; margin: 4px 0; font-size:13px;'><b style='color:#1a73e8;'>阅读</b> · 电子书阅读器，多主题</p>"
+        "<p style='color:#202124; margin: 4px 0; font-size:13px;'><b style='color:#1a73e8;'>音乐</b> · 本地音乐播放器，歌词同步</p>"
+        "<p style='color:#5f6368; margin:16px 0 0 0; font-size:11px;'>顶部导航切换 · 滚轮缩放 · 拖拽导入</p>");
+    box.setStandardButtons(QMessageBox::Ok);
+    box.setStyleSheet(R"(
+        QMessageBox {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+        }
+        QLabel { background: transparent; color: #202124; }
+        QPushButton {
+            background: #e8f0fe; color: #1a73e8; border: none;
+            border-radius: 18px; padding: 10px 32px; font-size: 13px; font-weight: 500;
+            min-width: 80px;
+        }
+        QPushButton:hover { background: #d2e3fc; }
+        QPushButton:pressed { background: #aecbfa; }
+    )");
+    box.exec();
 }
 
 // ========== Edit Operations ==========

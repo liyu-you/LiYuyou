@@ -238,7 +238,7 @@ AuthOk UserAuth::registerUser(const QString &username, const QString &email,
     if (!save()) {
         m_users.removeLast();
         return std::unexpected(m_storeHealthy
-            ? QStringLiteral("账号数据保存失败，请检查磁盘空间或权限")
+            ? QStringLiteral("账号数据保存失败：%1").arg(m_storeError)
             : QStringLiteral("账号数据文件异常，已阻止写入以免覆盖现有账号"));
     }
     return {};
@@ -672,7 +672,10 @@ bool UserAuth::save()
 {
     // Refuse to write when the existing file could not be read: overwriting it is
     // how every account would be silently replaced by whatever is in memory now.
-    if (!m_storeHealthy) return false;
+    if (!m_storeHealthy) {
+        m_storeError = "存储状态不健康，拒绝写入";
+        return false;
+    }
 
     QJsonArray arr;
     for (const UserInfo &u : m_users) {
@@ -696,25 +699,39 @@ bool UserAuth::save()
     }
     QJsonDocument doc(arr);
     const QString path = dataPath();
-    QDir().mkpath(QFileInfo(path).absolutePath());
+    if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
+        m_storeError = QString("无法创建目录：%1").arg(QFileInfo(path).absolutePath());
+        return false;
+    }
 
     // Keep the last good copy so a damaged file can still be recovered.
     if (QFile::exists(path)) {
         const QString backup = path + ".bak";
         QFile::remove(backup);
-        QFile::copy(path, backup);
+        if (!QFile::copy(path, backup)) {
+            m_storeError = QString("备份失败：无法复制 %1 到 %2").arg(path, backup);
+            // Continue anyway — backup is best-effort, not fatal.
+        }
     }
 
     // QSaveFile writes a temporary file and renames it into place, so an
     // interrupted or crashing write can no longer leave a half-written
     // users.json behind (which previously meant losing every account).
     QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly)) return false;
+    if (!file.open(QIODevice::WriteOnly)) {
+        m_storeError = QString("无法打开文件写入：%1 (error: %2)").arg(path).arg(file.errorString());
+        return false;
+    }
     if (file.write(doc.toJson(QJsonDocument::Indented)) < 0) {
+        m_storeError = QString("写入数据失败：%1").arg(file.errorString());
         file.cancelWriting();
         return false;
     }
-    return file.commit();
+    if (!file.commit()) {
+        m_storeError = QString("提交写入失败：%1").arg(file.errorString());
+        return false;
+    }
+    return true;
 }
 
 QString UserAuth::dataRoot()
@@ -734,15 +751,29 @@ QString UserAuth::dataRoot()
     if (fallback.isEmpty())
         fallback = QDir::tempPath() + "/PureRefCanvas";
 
-    const bool primaryWritable = ensureWritableDir(primary);
     const QDateTime primaryStore = storeMtime(primary);
     const QDateTime fallbackStore = storeMtime(fallback);
+
+    // If Documents already has a users.json, it's the established store —
+    // always prefer it, even if the probe says it's not writable right now.
+    // This prevents accidentally switching to fallback and making all
+    // existing accounts appear missing.
+    if (primaryStore.isValid()) {
+        resolved = primary;
+        return resolved;
+    }
+
+    const bool primaryWritable = ensureWritableDir(primary);
 
     // Prefer Documents, where the data has always lived. Only move to the fallback
     // when Documents cannot be written, or when Documents holds no store while the
     // fallback does - so accounts created during a fallback are never lost once the
     // original location becomes writable again.
-    if (primaryWritable && (primaryStore.isValid() || !fallbackStore.isValid()))
+    if (primaryWritable && !fallbackStore.isValid())
+        resolved = primary;
+    else if (fallbackStore.isValid())
+        resolved = fallback;
+    else if (primaryWritable)
         resolved = primary;
     else
         resolved = fallback;

@@ -752,7 +752,7 @@ void SettingsDialog::setupUI()
         l->addWidget(m_readerShelfBgEdit);
         l->addWidget(m_readerShelfBgBtn);
         l->addWidget(m_readerShelfBgClearBtn);
-        readerLayout->addWidget(makeRow("书架背景图片", "阅读工作区书架背景", w));
+        readerLayout->addWidget(makeRow("书库背景图片", "阅读工作区书库背景", w));
     }
     readerLayout->addWidget(makeSeparator());
 

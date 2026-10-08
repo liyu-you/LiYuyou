@@ -151,7 +151,7 @@ void NoteWidget::setupUI()
     // Editor page
     m_editorPage = new QWidget;
     m_editorPage->setObjectName("noteEditorPage");
-    m_editorPage->setStyleSheet("QWidget#noteEditorPage { background: #1a1a1a; }");
+    m_editorPage->setStyleSheet("QWidget#noteEditorPage { background: #f5f7fa; }");
     QVBoxLayout *editorLayout = new QVBoxLayout(m_editorPage);
     editorLayout->setContentsMargins(0, 0, 0, 0);
     editorLayout->setSpacing(0);
@@ -159,7 +159,7 @@ void NoteWidget::setupUI()
     // Top bar
     m_editorTopBar = new QWidget;
     m_editorTopBar->setFixedHeight(44);
-    m_editorTopBar->setStyleSheet("background: #16202d; border-bottom: 1px solid #2a475e;");
+    m_editorTopBar->setStyleSheet("background: #ffffff; border-bottom: 1px solid #e5e7eb;");
     QHBoxLayout *topLayout = new QHBoxLayout(m_editorTopBar);
     topLayout->setContentsMargins(12, 4, 12, 4);
     topLayout->setSpacing(8);
@@ -167,13 +167,13 @@ void NoteWidget::setupUI()
     m_backBtn = new QPushButton("返回");
     m_backBtn->setFixedHeight(30);
     m_backBtn->setCursor(Qt::PointingHandCursor);
-    m_backBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.06); color: #c7d5e0; border: 1px solid rgba(255,255,255,0.14); border-radius: 15px; padding: 2px 14px; font-size: 13px; } QPushButton:hover { background: rgba(42,71,94,0.8); color: #fff; border-color: #66c0f4; }");
+    m_backBtn->setStyleSheet("QPushButton { background: transparent; color: #5f6368; border: 1px solid #dadce0; border-radius: 15px; padding: 2px 13px; font-size: 13px; } QPushButton:hover { background: #f1f3f4; color: #202124; }");
     connect(m_backBtn, &QPushButton::clicked, this, &NoteWidget::backToGrid);
     topLayout->addWidget(m_backBtn);
 
     m_titleEdit = new QLineEdit;
     m_titleEdit->setPlaceholderText("笔记标题");
-    m_titleEdit->setStyleSheet("QLineEdit { background: transparent; color: #c7d5e0; border: none; font-size: 16px; font-weight: 600; padding: 4px 10px; } QLineEdit:focus { background: rgba(42,71,94,0.3); border-radius: 6px; }");
+    m_titleEdit->setStyleSheet("QLineEdit { background: transparent; color: #202124; border: none; font-size: 16px; font-weight: 600; padding: 4px 10px; border-radius: 6px; } QLineEdit:focus { background: #f1f3f4; }");
     connect(m_titleEdit, &QLineEdit::textChanged, this, &NoteWidget::onTitleChanged);
     topLayout->addWidget(m_titleEdit, 1);
 
@@ -181,14 +181,14 @@ void NoteWidget::setupUI()
     m_starBtn->setFixedHeight(30);
     m_starBtn->setCursor(Qt::PointingHandCursor);
     m_starBtn->setCheckable(true);
-    m_starBtn->setStyleSheet("QPushButton { background: transparent; color: #8f98a0; border: 1px solid transparent; border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: rgba(255,193,7,0.15); color: #ffc107; border-color: rgba(255,193,7,0.4); } QPushButton:checked { background: rgba(255,193,7,0.18); color: #ffc107; border-color: rgba(255,193,7,0.5); }");
+    m_starBtn->setStyleSheet("QPushButton { background: transparent; color: #5f6368; border: 1px solid transparent; border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: #fef7e0; color: #b45309; } QPushButton:checked { background: #fef7e0; color: #b45309; border-color: #fde293; }");
     connect(m_starBtn, &QPushButton::clicked, this, &NoteWidget::toggleStar);
     topLayout->addWidget(m_starBtn);
 
     m_deleteBtn = new QPushButton("删除");
     m_deleteBtn->setFixedHeight(30);
     m_deleteBtn->setCursor(Qt::PointingHandCursor);
-    m_deleteBtn->setStyleSheet("QPushButton { background: transparent; color: #8f98a0; border: 1px solid transparent; border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: rgba(255,85,85,0.18); color: #ff6b6b; border-color: rgba(255,85,85,0.45); }");
+    m_deleteBtn->setStyleSheet("QPushButton { background: transparent; color: #5f6368; border: 1px solid transparent; border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: #fce8e6; color: #c5221f; }");
     connect(m_deleteBtn, &QPushButton::clicked, this, &NoteWidget::deleteNote);
     topLayout->addWidget(m_deleteBtn);
 
@@ -196,7 +196,7 @@ void NoteWidget::setupUI()
     m_exportBtn->setFixedHeight(30);
     m_exportBtn->setCursor(Qt::PointingHandCursor);
     m_exportBtn->setToolTip("导出当前笔记");
-    m_exportBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.06); color: #c7d5e0; border: 1px solid rgba(255,255,255,0.14); border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: rgba(42,71,94,0.8); color: #fff; border-color: #66c0f4; }");
+    m_exportBtn->setStyleSheet("QPushButton { background: transparent; color: #5f6368; border: 1px solid #dadce0; border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: #f1f3f4; color: #202124; }");
     QMenu *exportMenu = new QMenu(m_exportBtn);
     exportMenu->setStyleSheet(kDarkMenuSS);
     exportMenu->addAction("导出 Markdown…", this, &NoteWidget::exportCurrentNote);
@@ -208,7 +208,7 @@ void NoteWidget::setupUI()
     m_copyBtn->setFixedHeight(30);
     m_copyBtn->setCursor(Qt::PointingHandCursor);
     m_copyBtn->setToolTip("复制当前笔记为 Markdown");
-    m_copyBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.06); color: #c7d5e0; border: 1px solid rgba(255,255,255,0.14); border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: rgba(42,71,94,0.8); color: #fff; border-color: #66c0f4; }");
+    m_copyBtn->setStyleSheet("QPushButton { background: transparent; color: #5f6368; border: 1px solid #dadce0; border-radius: 15px; padding: 2px 12px; font-size: 13px; } QPushButton:hover { background: #f1f3f4; color: #202124; }");
     connect(m_copyBtn, &QPushButton::clicked, this, &NoteWidget::copyCurrentMarkdown);
     topLayout->addWidget(m_copyBtn);
 
@@ -221,19 +221,20 @@ void NoteWidget::setupUI()
         QTextEdit {
             background-color: #ffffff;
             color: #202124;
-            border: none;
-            padding: 32px 72px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 32px 64px;
             font-size: 14px;
             font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
             selection-background-color: #1a73e8;
             selection-color: #ffffff;
         }
         QScrollBar:vertical { background: transparent; width: 10px; margin: 4px; }
-        QScrollBar::handle:vertical { background: rgba(42,71,94,0.5); border-radius: 5px; min-height: 30px; }
-        QScrollBar::handle:vertical:hover { background: #2a475e; }
+        QScrollBar::handle:vertical { background: #d1d5db; border-radius: 5px; min-height: 30px; }
+        QScrollBar::handle:vertical:hover { background: #9ca3af; }
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
     )");
-    m_editor->viewport()->setAutoFillBackground(false);
+    m_editor->viewport()->setAutoFillBackground(true);
     m_editor->installEventFilter(this);
     m_editor->viewport()->installEventFilter(this);   // task checkbox / anchor clicks
     m_editor->setContextMenuPolicy(Qt::CustomContextMenu);  // table context menu
@@ -306,7 +307,7 @@ void NoteWidget::setupUI()
     // Status bar
     m_statusLabel = new QLabel("字数：0  词数：0");
     m_statusLabel->setFixedHeight(28);
-    m_statusLabel->setStyleSheet("background: #16202d; color: #8f98a0; font-size: 12px; padding: 0 16px; border-top: 1px solid #2a475e;");
+    m_statusLabel->setStyleSheet("background: #ffffff; color: #5f6368; font-size: 12px; padding: 0 16px; border-top: 1px solid #e5e7eb;");
     editorLayout->addWidget(m_statusLabel);
 
     m_stack->addWidget(m_editorPage);
@@ -317,7 +318,29 @@ void NoteWidget::setupUI()
 
 void NoteWidget::setupSidebar()
 {
-    QVBoxLayout *sideLayout = new QVBoxLayout(m_sidebar);
+    // Wrap the whole sidebar in a scroll area so that on short windows the
+    // bottom actions (new note / journal / sort / export) are never clipped.
+    auto *outer = new QVBoxLayout(m_sidebar);
+    outer->setContentsMargins(0, 0, 0, 0);
+    auto *sideScroll = new QScrollArea;
+    sideScroll->setWidgetResizable(true);
+    sideScroll->setFrameShape(QFrame::NoFrame);
+    sideScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    sideScroll->setStyleSheet(R"(
+        QScrollArea { background: #ffffff; border: none; }
+        QScrollBar:vertical { background: transparent; width: 10px; }
+        QScrollBar::handle:vertical { background: #D1D5DB; border-radius: 5px;
+                                      min-height: 32px; margin: 2px; }
+        QScrollBar::handle:vertical:hover { background: #9CA3AF; }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+    )");
+    auto *sideContent = new QWidget;
+    sideContent->setStyleSheet("background: #ffffff;");
+    sideScroll->setWidget(sideContent);
+    outer->addWidget(sideScroll);
+
+    QVBoxLayout *sideLayout = new QVBoxLayout(sideContent);
     sideLayout->setContentsMargins(16, 20, 16, 20);
     sideLayout->setSpacing(18);
 
@@ -343,17 +366,17 @@ void NoteWidget::setupSidebar()
     {
         QWidget *s1 = new QWidget; s1->setStyleSheet("background:#F3F4F6; border-radius:10px;");
         QVBoxLayout *s1l = new QVBoxLayout(s1); s1l->setContentsMargins(12,12,12,12);
-        QLabel *l1 = new QLabel("0 篇");
-        l1->setAlignment(Qt::AlignCenter);
-        l1->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
-        s1l->addWidget(l1); statsRow->addWidget(s1,1);
+        m_totalCountLabel = new QLabel("0 篇");
+        m_totalCountLabel->setAlignment(Qt::AlignCenter);
+        m_totalCountLabel->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
+        s1l->addWidget(m_totalCountLabel); statsRow->addWidget(s1,1);
 
         QWidget *s2 = new QWidget; s2->setStyleSheet("background:#F3F4F6; border-radius:10px;");
         QVBoxLayout *s2l = new QVBoxLayout(s2); s2l->setContentsMargins(12,12,12,12);
-        QLabel *l2 = new QLabel("0 收藏");
-        l2->setAlignment(Qt::AlignCenter);
-        l2->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
-        s2l->addWidget(l2); statsRow->addWidget(s2,1);
+        m_starredCountLabel = new QLabel("0 收藏");
+        m_starredCountLabel->setAlignment(Qt::AlignCenter);
+        m_starredCountLabel->setStyleSheet("font-size:14px; font-weight:600; color:#111827;");
+        s2l->addWidget(m_starredCountLabel); statsRow->addWidget(s2,1);
     }
     sideLayout->addLayout(statsRow);
 
@@ -385,13 +408,42 @@ void NoteWidget::setupSidebar()
     sideLayout->addWidget(m_categoryList);
 
     // Folder label
+    // Folder label with an explicit "+" button for adding a custom folder
+    auto *folderHeader = new QHBoxLayout;
+    folderHeader->setContentsMargins(0, 0, 0, 0);
+    folderHeader->setSpacing(6);
     QLabel *folderLabel = new QLabel("文件夹");
     folderLabel->setStyleSheet("font-size:13px; font-weight:500; color:#6B7280;");
-    sideLayout->addWidget(folderLabel);
+    folderHeader->addWidget(folderLabel);
+    folderHeader->addStretch();
+    auto *addFolderBtn = new QPushButton("+");
+    addFolderBtn->setFixedSize(22, 22);
+    addFolderBtn->setCursor(Qt::PointingHandCursor);
+    addFolderBtn->setToolTip("新建文件夹");
+    addFolderBtn->setStyleSheet(
+        "QPushButton { background: transparent; color:#6B7280; border:none;"
+        " border-radius:11px; font-size:17px; font-weight:600; }"
+        "QPushButton:hover { background:#F3F4F6; color:#27500A; }");
+    connect(addFolderBtn, &QPushButton::clicked, this, &NoteWidget::newFolder);
+    folderHeader->addWidget(addFolderBtn);
+    sideLayout->addLayout(folderHeader);
 
-    // Folder list
+    // Folder list — cap its height so many folders scroll inside the list
+    // rather than stretching the whole sidebar.
     m_folderList = new QListWidget;
-    m_folderList->setStyleSheet("QListWidget { background:transparent; border:none; outline:none; } QListWidget::item { color:#6B7280; padding:6px 12px; border-radius:8px; font-size:13px; margin:1px 0; } QListWidget::item:selected { background:#EAF3DE; color:#27500A; font-weight:600; } QListWidget::item:hover:!selected { background:#F3F4F6; }");
+    m_folderList->setStyleSheet(R"(
+        QListWidget { background:transparent; border:none; outline:none; }
+        QListWidget::item { color:#6B7280; padding:6px 12px; border-radius:8px;
+                            font-size:13px; margin:1px 0; }
+        QListWidget::item:selected { background:#EAF3DE; color:#27500A; font-weight:600; }
+        QListWidget::item:hover:!selected { background:#F3F4F6; }
+        QScrollBar:vertical { background: transparent; width: 8px; }
+        QScrollBar::handle:vertical { background:#D1D5DB; border-radius:4px;
+                                      min-height:28px; margin:2px; }
+        QScrollBar::handle:vertical:hover { background:#9CA3AF; }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+    )");
+    m_folderList->setMaximumHeight(210);
     m_folderList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_folderList, &QListWidget::customContextMenuRequested, this, &NoteWidget::onFolderMenu);
     connect(m_folderList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *cur, QListWidgetItem *) {
@@ -401,7 +453,7 @@ void NoteWidget::setupSidebar()
         else m_currentCategory = text.trimmed();
         refreshCards();
     });
-    sideLayout->addWidget(m_folderList, 1);
+    sideLayout->addWidget(m_folderList);
 
     sideLayout->addStretch();
 
@@ -760,6 +812,16 @@ QWidget *NoteWidget::createCard(const NoteData &note)
 void NoteWidget::refreshCards()
 {
     if (!m_gridLayout) return;
+
+    // Update global stats (total notes / total starred), independent of filters.
+    int starred = 0;
+    for (const NoteData &n : m_notes)
+        if (n.starred) ++starred;
+    if (m_totalCountLabel)
+        m_totalCountLabel->setText(QString("%1 篇").arg(m_notes.size()));
+    if (m_starredCountLabel)
+        m_starredCountLabel->setText(QString("%1 收藏").arg(starred));
+
     // Clear existing cards
     QLayoutItem *child;
     while ((child = m_gridLayout->takeAt(0)) != nullptr) {
@@ -826,6 +888,98 @@ void NoteWidget::refreshCards()
         m_emptyLabel->raise();
     } else if (m_emptyLabel) {
         m_emptyLabel->hide();
+    }
+}
+
+// 卡片右键菜单：打开 / 收藏切换 / 复制全文 / 移动到文件夹 / 删除。
+// Material 卡片风格，与汉堡菜单统一；所有操作直接作用于对应 noteId，
+// 不依赖当前打开的笔记。
+void NoteWidget::showCardContextMenu(const QString &noteId, const QPoint &globalPos)
+{
+    auto it = std::find_if(m_notes.begin(), m_notes.end(),
+                           [&](const NoteData &n) { return n.id == noteId; });
+    if (it == m_notes.end()) return;
+
+    QMenu menu(this);
+    menu.setWindowFlags(menu.windowFlags() | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
+    menu.setStyleSheet(R"(
+        QMenu { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 10px;
+                padding: 6px; }
+        QMenu::item { padding: 7px 22px 7px 14px; border-radius: 6px;
+                      color: #202124; font-size: 13px; }
+        QMenu::item:selected { background: #f1f3f4; }
+        QMenu::item:disabled { color: #bdc1c6; }
+        QMenu::separator { height: 1px; background: #e8eaed; margin: 5px 8px; }
+        QMenu::icon { padding-left: 10px; }
+    )");
+
+    QAction *openAct = menu.addAction("打开");
+    openAct->setIcon(QIcon::fromTheme("document-open"));
+    QAction *starAct = menu.addAction(it->starred ? "取消收藏" : "收藏");
+
+    menu.addSeparator();
+
+    QAction *copyAct = menu.addAction("复制全文");
+
+    // Move-to-folder submenu
+    QMenu *moveMenu = menu.addMenu("移动到");
+    QAction *noFolderAct = moveMenu->addAction("未分类");
+    noFolderAct->setCheckable(true);
+    if (it->folder.isEmpty()) noFolderAct->setChecked(true);
+    moveMenu->addSeparator();
+    for (const QString &f : m_folders) {
+        QAction *fa = moveMenu->addAction(f);
+        fa->setCheckable(true);
+        if (it->folder == f) fa->setChecked(true);
+    }
+
+    menu.addSeparator();
+
+    QAction *delAct = menu.addAction("删除");
+
+    QAction *chosen = menu.exec(globalPos);
+    if (!chosen) return;
+
+    if (chosen == openAct) {
+        openNote(noteId);
+    } else if (chosen == starAct) {
+        it->starred = !it->starred;
+        it->updatedAt = QDateTime::currentDateTime();
+        saveNotes();
+        refreshCards();
+    } else if (chosen == copyAct) {
+        QTextDocument doc;
+        doc.setHtml(it->content);
+        QString plain = doc.toPlainText();
+        if (plain.trimmed().isEmpty()) plain = it->title;
+        QApplication::clipboard()->setText(plain);
+    } else if (chosen == delAct) {
+        auto box = QMessageBox(QMessageBox::Question, QStringLiteral("删除笔记"),
+                               QString("确定删除「%1」吗？此操作不可撤销。")
+                                   .arg(it->title.isEmpty() ? "无标题" : it->title),
+                               QMessageBox::NoButton, this);
+        QAbstractButton *yes = box.addButton("删除", QMessageBox::AcceptRole);
+        box.addButton("取消", QMessageBox::RejectRole);
+        // Style destructive button red
+        yes->setStyleSheet("QPushButton { background:#d93025; color:#fff; border:none;"
+                           " border-radius:6px; padding:6px 16px; }");
+        box.exec();
+        if (box.clickedButton() == yes) {
+            const bool deletingCurrent = (m_currentNoteId == noteId);
+            m_notes.erase(it);
+            saveNotes();
+            if (deletingCurrent) {
+                m_currentNoteId.clear();
+                m_stack->setCurrentIndex(0);
+            }
+            refreshCards();
+        }
+    } else if (moveMenu->actions().contains(chosen)) {
+        it->folder = (chosen == noFolderAct) ? QString() : chosen->text();
+        it->updatedAt = QDateTime::currentDateTime();
+        saveNotes();
+        refreshCards();
     }
 }
 
@@ -2701,14 +2855,31 @@ bool NoteWidget::eventFilter(QObject *obj, QEvent *event)
         if (handleEditorMousePress(me->position())) return true;
     }
 
+    // Card right-click → context menu
+    if (event->type() == QEvent::ContextMenu) {
+        QWidget *w = qobject_cast<QWidget*>(obj);
+        if (w && w->property("noteId").isValid()) {
+            const QString id = w->property("noteId").toString();
+            if (!id.isEmpty()) {
+                auto *ce = static_cast<QContextMenuEvent*>(event);
+                showCardContextMenu(id, ce->globalPos());
+                return true;
+            }
+        }
+    }
+
     // Card click detection
     if (event->type() == QEvent::MouseButtonPress) {
         QWidget *w = qobject_cast<QWidget*>(obj);
         if (w && w->property("noteId").isValid()) {
             QString id = w->property("noteId").toString();
             if (!id.isEmpty()) {
-                openNote(id);
-                return true;
+                // Right-button press is handled by ContextMenu; only open on left click.
+                auto *me = static_cast<QMouseEvent*>(event);
+                if (me->button() == Qt::LeftButton) {
+                    openNote(id);
+                    return true;
+                }
             }
         }
     }

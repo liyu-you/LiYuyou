@@ -24,6 +24,42 @@
 #include <QSharedMemory>
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <string>
+
+// Find a visible top-level window whose title starts with `prefix` and return
+// it. FindWindowW requires an EXACT title, but the main window title is
+// "里与由 - <page> [<user>]", so an exact match for "里与由" always failed and
+// the existing window was never raised when a second copy was launched.
+namespace {
+struct EnumFindData {
+    const wchar_t *prefix;
+    HWND hwnd = nullptr;
+};
+
+BOOL CALLBACK enumFindCb(HWND hwnd, LPARAM lp)
+{
+    auto *d = reinterpret_cast<EnumFindData*>(lp);
+    if (!IsWindowVisible(hwnd)) return TRUE;
+    const int len = GetWindowTextLengthW(hwnd);
+    if (len <= 0) return TRUE;
+    std::wstring title(static_cast<size_t>(len + 1), L'\0');
+    const int got = GetWindowTextW(hwnd, title.data(), len + 1);
+    title.resize(static_cast<size_t>(got));
+    const size_t plen = wcslen(d->prefix);
+    if (title.size() >= plen && title.compare(0, plen, d->prefix) == 0) {
+        d->hwnd = hwnd;
+        return FALSE; // found — stop enumerating
+    }
+    return TRUE;
+}
+
+HWND findMainWindow(const wchar_t *prefix)
+{
+    EnumFindData d{prefix, nullptr};
+    EnumWindows(enumFindCb, reinterpret_cast<LPARAM>(&d));
+    return d.hwnd;
+}
+} // namespace
 #endif
 
 // Steam-style loading window
@@ -373,9 +409,8 @@ int main(int argc, char *argv[])
         if (!sharedMem->create(1)) {
             // Another instance is running - activate it and exit
 #ifdef Q_OS_WIN
-            HWND hwnd = FindWindowW(nullptr, L"里与由");
-            if (hwnd) {
-                ShowWindow(hwnd, SW_RESTORE);
+            if (HWND hwnd = findMainWindow(L"里与由")) {
+                if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
                 SetForegroundWindow(hwnd);
             }
 #endif

@@ -307,7 +307,7 @@ void MusicPlayerWidget::setupUI()
     m_splitter->setStretchFactor(2, 0);
     m_sidebar->setMinimumWidth(0);
     m_sidebar->setMaximumWidth(16777215);
-    m_sidebar->hide();  // 新书架页自带浅色侧栏
+    m_sidebar->hide();  // 新书库页自带浅色侧栏
     m_splitter->setSizes({0, 900, 0});
     m_lyricsPanel->hide();
 
@@ -961,10 +961,16 @@ void MusicPlayerWidget::setupMusicShelfPage()
     )");
     connect(m_songCardList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *it){
         const QString path = it->data(SongPathRole).toString();
+        qDebug() << "songCardList doubleClicked path:" << path;
         const QList<SongInfo> songs = currentSongList();
         for (int i = 0; i < songs.size(); ++i) {
-            if (songs.at(i).path == path) { playSongAt(i); return; }
+            if (songs.at(i).path == path) {
+                qDebug() << "found at index:" << i;
+                playSongAt(i);
+                return;
+            }
         }
+        qDebug() << "path not found in currentSongList!";
     });
     cl->addWidget(m_songCardList, 1);
 
@@ -1402,6 +1408,9 @@ void MusicPlayerWidget::refreshSongTable()
         m_songTable->setItem(i, 2, artistItem);
         m_songTable->setItem(i, 3, albumItem);
         m_songTable->setItem(i, 4, durItem);
+        // Store path in the title item so double-click can look it up correctly
+        // even when search filter is active (row index ≠ currentSongList index).
+        titleItem->setData(Qt::UserRole, song.path);
         m_rowByPath.insert(song.path, i);
     }
     m_songTable->setUpdatesEnabled(true);
@@ -1521,7 +1530,18 @@ void MusicPlayerWidget::deletePlaylist()
 void MusicPlayerWidget::onSongDoubleClicked(int row, int col)
 {
     Q_UNUSED(col);
-    playSongAt(row);
+    // Look up the song path from the title item, then find its index in the
+    // actual current song list — row alone is wrong when search filter is on.
+    QTableWidgetItem *titleItem = m_songTable->item(row, 1);
+    if (!titleItem) return;
+    const QString path = titleItem->data(Qt::UserRole).toString();
+    const QList<SongInfo> songs = currentSongList();
+    for (int i = 0; i < songs.size(); ++i) {
+        if (songs.at(i).path == path) {
+            playSongAt(i);
+            return;
+        }
+    }
 }
 
 void MusicPlayerWidget::playAll()
@@ -1876,9 +1896,11 @@ void MusicPlayerWidget::playSong(const QString &path)
 void MusicPlayerWidget::playSongAt(int index)
 {
     QList<SongInfo> songs = currentSongList();
+    qDebug() << "playSongAt index:" << index << "songs.size:" << songs.size();
     if (index < 0 || index >= songs.size()) return;
     m_currentIndex = index;
     const SongInfo &song = songs[index];
+    qDebug() << "playSongAt playing:" << song.title << "path:" << song.path;
     if (song.isOnline || song.path.isEmpty()) {
         if (song.neteaseId > 0) {
             playOnlineSong(song);
@@ -1936,6 +1958,8 @@ void MusicPlayerWidget::playSongAt(int index)
     }
     m_currentSongPath = song.path;
     m_songPlayStartedAt = QDateTime::currentMSecsSinceEpoch();
+    // Update UI immediately — don't wait for trackStarted (which may fail to
+    // match the path due to CUE virtual path resolution).
     updateNowPlaying();
     updatePlayingRow();
     // Load lyrics deferred to avoid blocking playback start
