@@ -2304,6 +2304,11 @@ void ReaderWidget::setSpaceManager(SpaceManager *mgr)
     refreshShelf();
 }
 
+void ReaderWidget::setImmersiveMode(bool immersive)
+{
+    if (m_topBar) m_topBar->setVisible(!immersive);
+}
+
 void ReaderWidget::refreshShelf()
 {
     m_shelfGrid->clear();

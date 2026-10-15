@@ -177,6 +177,11 @@ private:
     void showSpaceMenu();
     void updateSpaceButton();
     void openSpaceManager();
+    void toggleImmersiveMode();
+    void enterImmersiveMode();
+    void exitImmersiveMode();
+    bool m_immersive = false;
+    bool m_wasMaximized = false;
 
     // Actions stored for menu/toolbar
     QList<QAction*> m_actions;

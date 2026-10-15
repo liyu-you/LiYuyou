@@ -833,6 +833,12 @@ void NoteWidget::setNoteSpace(const QString &noteId, const QString &spaceId)
     }
 }
 
+void NoteWidget::setImmersiveMode(bool immersive)
+{
+    if (m_sidebar) m_sidebar->setVisible(!immersive);
+    if (m_editorTopBar) m_editorTopBar->setVisible(!immersive);
+}
+
 void NoteWidget::refreshCards()
 {
     if (!m_gridLayout) return;

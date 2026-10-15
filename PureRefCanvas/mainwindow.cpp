@@ -1346,6 +1346,44 @@ void MainWindow::openSpaceManager()
     dlg.exec();
 }
 
+void MainWindow::toggleImmersiveMode()
+{
+    if (m_immersive) exitImmersiveMode();
+    else enterImmersiveMode();
+}
+
+void MainWindow::enterImmersiveMode()
+{
+    if (m_immersive) return;
+    m_immersive = true;
+    m_wasMaximized = isMaximized();
+
+    // Hide top navigation and left content browser
+    if (m_navToolBar) m_navToolBar->hide();
+    if (m_contentBrowser) m_contentBrowser->hide();
+
+    // Hide per-page toolbars / sidebars
+    if (m_noteWidget) m_noteWidget->setImmersiveMode(true);
+    if (m_readerWidget) m_readerWidget->setImmersiveMode(true);
+
+    showFullScreen();
+}
+
+void MainWindow::exitImmersiveMode()
+{
+    if (!m_immersive) return;
+    m_immersive = false;
+
+    if (m_navToolBar) m_navToolBar->show();
+    if (m_contentBrowser) m_contentBrowser->show();
+
+    if (m_noteWidget) m_noteWidget->setImmersiveMode(false);
+    if (m_readerWidget) m_readerWidget->setImmersiveMode(false);
+
+    if (m_wasMaximized) showMaximized();
+    else showNormal();
+}
+
 void MainWindow::setupPages()
 {
     // Shared library for all workspaces
@@ -1529,6 +1567,14 @@ void MainWindow::setupPages()
         m_musicWidget->setVolume(m_cfg.defaultVolume);
         m_musicWidget->setInitialPlayMode(m_cfg.defaultPlayMode);
     }
+
+    // Immersive mode: F11 toggles, Esc exits
+    auto *f11 = new QShortcut(QKeySequence("F11"), this);
+    connect(f11, &QShortcut::activated, this, &MainWindow::toggleImmersiveMode);
+    auto *esc = new QShortcut(QKeySequence("Esc"), this);
+    connect(esc, &QShortcut::activated, this, [this]() {
+        if (m_immersive) exitImmersiveMode();
+    });
 }
 
 // 折叠/展开当前页的左侧栏（ZCode 风格 Ctrl+8）：
