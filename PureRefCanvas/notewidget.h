@@ -66,6 +66,7 @@ public:
     void setNoteSpace(const QString &noteId, const QString &spaceId);
     void setImmersiveMode(bool immersive);
     QString currentNoteId() const { return m_currentNoteId; }
+    void backToGrid();
     void hideSidebar();
     QList<NoteData> allNotes() const { return m_notes; }
     void openNote(const QString &noteId);
@@ -170,7 +171,6 @@ private slots:
 
     // Note management
     void deleteNote();
-    void backToGrid();
     void onTitleChanged();
     void onSearchChanged(const QString &text);
     void onCategoryChanged(QListWidgetItem *item);

@@ -39,6 +39,7 @@ public:
     void setSpaceManager(SpaceManager *mgr);
     void setImmersiveMode(bool immersive);
     QString currentBookId() const { return m_currentBookId; }
+    void backToShelf();
 
 signals:
     void themeChanged(const QString &themeKey);           // light / dark / eye / parchment
@@ -52,7 +53,6 @@ signals:
 private slots:
     void refreshShelf();
     void openBook(QListWidgetItem *item);
-    void backToShelf();
     void prevChapter();
     void nextChapter();
     void showToc();

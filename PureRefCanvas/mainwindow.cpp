@@ -38,6 +38,7 @@
 #include <QMimeData>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
+#include <QAbstractAnimation>
 #include <QDir>
 #include <QPainter>
 #include <QPainterPath>
@@ -1231,6 +1232,17 @@ void MainWindow::updateSpaceButton()
     ).arg(bg, cur.color, bgHover));
 }
 
+static QString formatDuration(qint64 seconds)
+{
+    if (seconds < 60) return QStringLiteral("不足 1 分钟");
+    const int mins = static_cast<int>(seconds / 60);
+    if (mins < 60) return QStringLiteral("%1 分钟").arg(mins);
+    const int hours = mins / 60;
+    const int rem = mins % 60;
+    if (rem == 0) return QStringLiteral("%1 小时").arg(hours);
+    return QStringLiteral("%1小时 %2分").arg(hours).arg(rem);
+}
+
 void MainWindow::showSpaceMenu()
 {
     if (!m_spaceMgr) return;
@@ -1267,8 +1279,9 @@ void MainWindow::showSpaceMenu()
             if (isAll || b.spaceId == s.id) ++bookCount;
         for (const NoteData &n : allNotes)
             if (isAll || n.spaceId == s.id) ++noteCount;
-        const QString label = QString("%1  ·  %2书 %3笔记")
-            .arg(s.name).arg(bookCount).arg(noteCount);
+        const QString label = QString("%1  ·  %2书 %3笔记  ·  本周 %4")
+            .arg(s.name).arg(bookCount).arg(noteCount)
+            .arg(formatDuration(s.weekActiveSeconds));
 
         QAction *a = menu.addAction(QIcon(dot), label);
         a->setCheckable(true);
@@ -1460,6 +1473,9 @@ void MainWindow::onSpaceChanged(const QString &newId)
     restoreSpaceState(s);
     applySpaceEnvironment(s);
 
+    // Show the ritual welcome overlay
+    showSpaceWelcome(s);
+
     m_lastSpaceId = newId;
 }
 
@@ -1504,6 +1520,152 @@ void MainWindow::applySpaceEnvironment(const Space &s)
         central->setAutoFillBackground(false);
         central->setPalette(QPalette());
     }
+}
+
+void MainWindow::onFocusTick()
+{
+    if (!m_spaceMgr || !isActiveWindow()) return;
+    if (QApplication::activeModalWidget() != nullptr) return;
+    m_spaceMgr->recordActiveSeconds(m_spaceMgr->currentSpaceId(), 5);
+}
+
+void MainWindow::showSpaceWelcome(const Space &s)
+{
+    // Build a full-window overlay with a centered card.
+    QWidget *overlay = new QWidget(this);
+    overlay->setObjectName("spaceWelcomeOverlay");
+    overlay->setStyleSheet("background: rgba(255,255,255,0.82);");
+    overlay->setGeometry(rect());
+    overlay->setVisible(true);
+    overlay->raise();
+
+    // Fade-in
+    auto *eff = new QGraphicsOpacityEffect(overlay);
+    eff->setOpacity(0.0);
+    overlay->setGraphicsEffect(eff);
+    auto *anim = new QPropertyAnimation(eff, "opacity", overlay);
+    anim->setDuration(280);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+
+    // ----- Card -----
+    QWidget *card = new QWidget(overlay);
+    card->setObjectName("welcomeCard");
+    card->setFixedSize(400, 340);
+
+    QVBoxLayout *cardLay = new QVBoxLayout(card);
+    cardLay->setContentsMargins(36, 32, 36, 28);
+    cardLay->setSpacing(10);
+    cardLay->setAlignment(Qt::AlignCenter);
+
+    // Color dot
+    QLabel *dot = new QLabel;
+    dot->setFixedSize(28, 28);
+    dot->setStyleSheet(QString("background: %1; border-radius: 14px;").arg(s.color));
+    dot->setAlignment(Qt::AlignCenter);
+    QHBoxLayout *dotRow = new QHBoxLayout;
+    dotRow->addStretch();
+    dotRow->addWidget(dot);
+    dotRow->addStretch();
+    cardLay->addLayout(dotRow);
+
+    // Space name
+    QLabel *name = new QLabel(s.name);
+    name->setAlignment(Qt::AlignCenter);
+    name->setStyleSheet(QString("font-size: 26px; font-weight: 600; color: %1;").arg(s.color));
+    cardLay->addWidget(name);
+
+    // Last activity description
+    QString lastDesc = QStringLiteral("开始新的工作");
+    bool hasResume = false;
+    if (s.lastPage == 3 && !s.lastBookId.isEmpty() && m_readerWidget) {
+        for (const BookInfo &b : m_readerWidget->library()->books()) {
+            if (b.id == s.lastBookId) {
+                lastDesc = QStringLiteral("继续阅读《%1》").arg(b.title);
+                hasResume = true;
+                break;
+            }
+        }
+    } else if (s.lastPage == 1 && !s.lastNoteId.isEmpty() && m_noteWidget) {
+        for (const NoteData &n : m_noteWidget->allNotes()) {
+            if (n.id == s.lastNoteId) {
+                QString title = n.title.isEmpty() ? QStringLiteral("无标题笔记") : n.title;
+                lastDesc = QStringLiteral("继续编辑「%1」").arg(title);
+                hasResume = true;
+                break;
+            }
+        }
+    }
+    QLabel *last = new QLabel(lastDesc);
+    last->setAlignment(Qt::AlignCenter);
+    last->setStyleSheet("font-size: 14px; color: #5f6368;");
+    cardLay->addWidget(last);
+
+    // Weekly focus time
+    QLabel *focus = new QLabel(QStringLiteral("本周专注 · %1").arg(formatDuration(s.weekActiveSeconds)));
+    focus->setAlignment(Qt::AlignCenter);
+    focus->setStyleSheet("font-size: 12px; color: #9aa0a6; margin-top: 4px;");
+    cardLay->addWidget(focus);
+
+    cardLay->addSpacing(12);
+
+    // Buttons
+    QHBoxLayout *btnRow = new QHBoxLayout;
+    btnRow->setSpacing(10);
+    btnRow->addStretch();
+
+    QPushButton *primary = new QPushButton(hasResume ? QStringLiteral("继续上次") : QStringLiteral("进入空间"));
+    primary->setStyleSheet(QString(
+        "background: %1; color: #ffffff; border: none; border-radius: 20px; "
+        "padding: 10px 32px; font-size: 14px; font-weight: 500;").arg(s.color));
+    btnRow->addWidget(primary);
+
+    QPushButton *secondary = new QPushButton(QStringLiteral("回到列表"));
+    secondary->setStyleSheet(
+        "background: #f1f3f4; color: #3c4043; border: none; border-radius: 20px; "
+        "padding: 10px 24px; font-size: 14px;");
+    btnRow->addWidget(secondary);
+    btnRow->addStretch();
+    cardLay->addLayout(btnRow);
+
+    card->setStyleSheet(QString(R"(
+        QWidget#welcomeCard {
+            background: #ffffff;
+            border-radius: 20px;
+            border: 1px solid #e0e0e0;
+        }
+    )"));
+
+    // Center the card in the overlay
+    QVBoxLayout *ovLay = new QVBoxLayout(overlay);
+    ovLay->setContentsMargins(0, 0, 0, 0);
+    ovLay->addWidget(card, 0, Qt::AlignCenter);
+
+    auto closeOverlay = [overlay]() {
+        overlay->graphicsEffect()->setEnabled(false);
+        delete overlay;
+    };
+    connect(primary, &QPushButton::clicked, overlay, [closeOverlay, this, hasResume]() {
+        // State already restored by onSpaceChanged; just close.
+        // If "resume" wasn't found, stay on current page.
+        closeOverlay();
+    });
+    connect(secondary, &QPushButton::clicked, overlay, [this, s, closeOverlay]() {
+        // Go to the space's default list page (shelf for reader, grid for notes).
+        if (s.lastPage == 3 && m_readerWidget) m_readerWidget->backToShelf();
+        else if (s.lastPage == 1 && m_noteWidget) m_noteWidget->backToGrid();
+        else switchToPage(s.lastPage);
+        closeOverlay();
+    });
+
+    // Esc / Enter closes the overlay
+    auto *esc = new QShortcut(QKeySequence("Esc"), overlay);
+    connect(esc, &QShortcut::activated, overlay, closeOverlay);
+    auto *enter = new QShortcut(QKeySequence("Return"), overlay);
+    connect(enter, &QShortcut::activated, overlay, closeOverlay);
+    auto *enter2 = new QShortcut(QKeySequence("Enter"), overlay);
+    connect(enter2, &QShortcut::activated, overlay, closeOverlay);
 }
 
 void MainWindow::setupPages()
@@ -1701,6 +1863,13 @@ void MainWindow::setupPages()
     // Apply the current space's environment on startup
     if (m_spaceMgr)
         applySpaceEnvironment(m_spaceMgr->currentSpace());
+
+    // Focus timer: every 5s, if the window is active, count active time for
+    // the current space. Reading without input still counts (window is active).
+    m_focusTimer = new QTimer(this);
+    m_focusTimer->setInterval(5000);
+    connect(m_focusTimer, &QTimer::timeout, this, &MainWindow::onFocusTick);
+    m_focusTimer->start();
 }
 
 // 折叠/展开当前页的左侧栏（ZCode 风格 Ctrl+8）：

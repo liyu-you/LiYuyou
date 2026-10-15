@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QDir>
 #include <QUuid>
+#include <QDate>
 
 SpaceManager::SpaceManager(const QString &rootPath, QObject *parent)
     : QObject(parent), m_rootPath(rootPath)
@@ -79,6 +80,9 @@ bool SpaceManager::load()
                     s.lastNoteId = o.value("lastNoteId").toString();
                     s.bgImage = o.value("bgImage").toString();
                     s.bgColor = o.value("bgColor").toString();
+                    s.totalActiveSeconds = static_cast<qint64>(o.value("totalActiveSeconds").toDouble(0));
+                    s.weekActiveSeconds = static_cast<qint64>(o.value("weekActiveSeconds").toDouble(0));
+                    s.weekStart = o.value("weekStart").toString();
                     if (!s.id.isEmpty() && !s.name.isEmpty())
                         m_spaces.append(s);
                 }
@@ -115,6 +119,9 @@ bool SpaceManager::save()
         o["lastNoteId"] = s.lastNoteId;
         o["bgImage"] = s.bgImage;
         o["bgColor"] = s.bgColor;
+        o["totalActiveSeconds"] = static_cast<double>(s.totalActiveSeconds);
+        o["weekActiveSeconds"] = static_cast<double>(s.weekActiveSeconds);
+        o["weekStart"] = s.weekStart;
         arr.append(o);
     }
     root["spaces"] = arr;
@@ -223,6 +230,33 @@ void SpaceManager::setSpaceBackground(const QString &id, const QString &bgImage,
             s.bgColor = bgColor;
             save();
             emit spacesChanged();
+            return;
+        }
+    }
+}
+
+QString SpaceManager::currentWeekStart()
+{
+    QDate today = QDate::currentDate();
+    int dow = today.dayOfWeek();  // 1 = Monday
+    return today.addDays(-(dow - 1)).toString(Qt::ISODate);
+}
+
+void SpaceManager::recordActiveSeconds(const QString &id, int seconds)
+{
+    const QString thisWeek = currentWeekStart();
+    for (Space &s : m_spaces) {
+        if (s.id == id) {
+            // Auto-reset weekly counter when a new week starts
+            if (s.weekStart != thisWeek) {
+                s.weekStart = thisWeek;
+                s.weekActiveSeconds = 0;
+            }
+            s.totalActiveSeconds += seconds;
+            s.weekActiveSeconds += seconds;
+            // Throttle disk writes: save only every 30 accumulated seconds.
+            if (s.weekActiveSeconds % 30 < seconds)
+                save();
             return;
         }
     }

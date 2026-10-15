@@ -21,6 +21,10 @@ struct Space {
     // ---- Environment preset ----
     QString bgImage;            // custom background image path, empty = use global
     QString bgColor;            // custom background color, empty = use global
+    // ---- Focus tracking ----
+    qint64  totalActiveSeconds = 0;
+    qint64  weekActiveSeconds = 0;  // resets automatically on Monday
+    QString weekStart;              // ISO date "yyyy-MM-dd" of the current week's Monday
 };
 
 class SpaceManager : public QObject
@@ -56,6 +60,10 @@ public:
     // Environment preset: custom background for this space.
     void setSpaceBackground(const QString &id, const QString &bgImage,
                             const QString &bgColor);
+
+    // Focus tracking: add active seconds to the current space (auto-resets weekly).
+    void recordActiveSeconds(const QString &id, int seconds);
+    static QString currentWeekStart();  // Monday of current week, ISO date
 
 public slots:
     void setCurrentSpace(const QString &id);

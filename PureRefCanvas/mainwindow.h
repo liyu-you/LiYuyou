@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QTimer>
 
 #include "appsettings.h"
 #include "userauth.h"
@@ -189,6 +190,13 @@ private:
     void restoreSpaceState(const Space &s);
     void applySpaceEnvironment(const Space &s);
     QString m_lastSpaceId;
+
+    // Focus timer
+    QTimer *m_focusTimer = nullptr;
+    void onFocusTick();
+
+    // Space ritual overlay
+    void showSpaceWelcome(const Space &s);
 
     // Actions stored for menu/toolbar
     QList<QAction*> m_actions;
