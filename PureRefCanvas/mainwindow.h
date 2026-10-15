@@ -176,6 +176,7 @@ private:
     void setupSpaceSwitcher();
     void showSpaceMenu();
     void updateSpaceButton();
+    void openSpaceManager();
 
     // Actions stored for menu/toolbar
     QList<QAction*> m_actions;

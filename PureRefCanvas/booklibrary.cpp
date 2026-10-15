@@ -148,7 +148,7 @@ BookInfo BookLibrary::bookById(const QString &id) const
     return BookInfo();
 }
 
-QString BookLibrary::importBook(const QString &filePath)
+QString BookLibrary::importBook(const QString &filePath, const QString &spaceId)
 {
     QFileInfo fi(filePath);
     if (!fi.exists() || !fi.isFile()) return QString();
@@ -208,6 +208,7 @@ QString BookLibrary::importBook(const QString &filePath)
     book.author = author;
     book.filePath = "books/" + destName;
     book.coverColor = randomCoverColor();
+    book.spaceId = spaceId;
     book.progress = 0;
     book.totalChars = text.length();
     book.lastRead = QDateTime::currentDateTime();

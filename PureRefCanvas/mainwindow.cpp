@@ -1244,7 +1244,106 @@ void MainWindow::showSpaceMenu()
         if (!id.isEmpty()) m_spaceMgr->setCurrentSpace(id);
     });
 
+    QAction *mgrAct = menu.addAction("⚙  管理空间");
+    connect(mgrAct, &QAction::triggered, this, &MainWindow::openSpaceManager);
+
     menu.exec(m_spaceBtn->mapToGlobal(QPoint(0, m_spaceBtn->height() + 4)));
+}
+
+void MainWindow::openSpaceManager()
+{
+    if (!m_spaceMgr) return;
+
+    QDialog dlg(this);
+    dlg.setWindowTitle("管理空间");
+    dlg.setFixedSize(360, 320);
+    dlg.setStyleSheet(R"(
+        QDialog { background: #ffffff; }
+        QListWidget { border: 1px solid #dadce0; border-radius: 8px; padding: 4px;
+                      font-size: 13px; color: #202124; }
+        QListWidget::item { padding: 8px 12px; border-radius: 6px; }
+        QListWidget::item:selected { background: #e8f0fe; color: #1a73e8; }
+        QPushButton { border: none; border-radius: 16px; padding: 6px 18px;
+                      font-size: 13px; font-weight: 500; }
+    )");
+
+    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+    lay->setContentsMargins(16, 16, 16, 16);
+    lay->setSpacing(10);
+
+    QLabel *hint = new QLabel("选择一个空间进行重命名或删除（「全部」不可删除）。");
+    hint->setStyleSheet("color:#5f6368; font-size:12px;");
+    hint->setWordWrap(true);
+    lay->addWidget(hint);
+
+    QListWidget *list = new QListWidget;
+    for (const Space &s : m_spaceMgr->spaces()) {
+        QListWidgetItem *item = new QListWidgetItem(s.name);
+        item->setData(Qt::UserRole, s.id);
+        if (s.id == SpaceManager::kAllSpaceId) {
+            item->setForeground(QColor("#9aa0a6"));
+            item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+        }
+        list->addItem(item);
+    }
+    lay->addWidget(list);
+
+    QHBoxLayout *btnRow = new QHBoxLayout;
+    btnRow->addStretch();
+
+    QPushButton *renameBtn = new QPushButton("重命名");
+    renameBtn->setStyleSheet("background:#f1f3f4; color:#202124;");
+    QPushButton *deleteBtn = new QPushButton("删除");
+    deleteBtn->setStyleSheet("background:#fce8e6; color:#c5221f;");
+    QPushButton *closeBtn = new QPushButton("关闭");
+    closeBtn->setStyleSheet("background:#1a73e8; color:#ffffff;");
+
+    btnRow->addWidget(renameBtn);
+    btnRow->addWidget(deleteBtn);
+    btnRow->addWidget(closeBtn);
+    lay->addLayout(btnRow);
+
+    auto selectedId = [&]() -> QString {
+        QListWidgetItem *it = list->currentItem();
+        return it ? it->data(Qt::UserRole).toString() : QString();
+    };
+
+    connect(renameBtn, &QPushButton::clicked, &dlg, [&]() {
+        const QString id = selectedId();
+        if (id.isEmpty() || id == SpaceManager::kAllSpaceId) return;
+        const Space cur = m_spaceMgr->spaceById(id);
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            &dlg, "重命名空间", "新名称：", QLineEdit::Normal, cur.name, &ok);
+        if (ok && !name.trimmed().isEmpty()) {
+            m_spaceMgr->renameSpace(id, name.trimmed());
+            list->currentItem()->setText(name.trimmed());
+        }
+    });
+
+    connect(deleteBtn, &QPushButton::clicked, &dlg, [&]() {
+        const QString id = selectedId();
+        if (id.isEmpty() || id == SpaceManager::kAllSpaceId) return;
+        const Space cur = m_spaceMgr->spaceById(id);
+        if (QMessageBox::question(&dlg, "删除空间",
+                QString("确定删除空间「%1」？\n该空间内的书籍和笔记将移回「全部」，不会被删除。").arg(cur.name))
+            == QMessageBox::Yes) {
+            // Move all content in this space back to "全部"
+            if (m_readerWidget && m_readerWidget->library()) {
+                for (const BookInfo &b : m_readerWidget->library()->books())
+                    if (b.spaceId == id) m_readerWidget->library()->setBookSpace(b.id, QString());
+            }
+            if (m_noteWidget) {
+                for (const NoteData &n : m_noteWidget->allNotes())
+                    if (n.spaceId == id) m_noteWidget->setNoteSpace(n.id, QString());
+            }
+            m_spaceMgr->removeSpace(id);
+            list->takeItem(list->row(list->currentItem()));
+        }
+    });
+
+    connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    dlg.exec();
 }
 
 void MainWindow::setupPages()

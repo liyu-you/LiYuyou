@@ -1831,8 +1831,9 @@ void ReaderWidget::showToc()
 void ReaderWidget::importBook()
 {
     QStringList files = QFileDialog::getOpenFileNames(this, "导入书籍", QString(), "文本文件 (*.txt *.md);;所有文件 (*.*)");
+    const QString sid = (m_spaceMgr && !m_spaceMgr->isAllSpace()) ? m_spaceMgr->currentSpaceId() : QString();
     for (const QString &f : files) {
-        m_library->importBook(f);
+        m_library->importBook(f, sid);
     }
 }
 
@@ -1847,6 +1848,7 @@ void ReaderWidget::scanBookFolder()
     QDirIterator it(startDir, {"*.txt", "*.md", "*.TXT", "*.MD"},
                     QDir::Files, QDirIterator::Subdirectories);
     int added = 0, skipped = 0;
+    const QString sid = (m_spaceMgr && !m_spaceMgr->isAllSpace()) ? m_spaceMgr->currentSpaceId() : QString();
     while (it.hasNext()) {
         const QString f = it.next();
         // Skip files already in the library (by filePath match)
@@ -1857,7 +1859,7 @@ void ReaderWidget::scanBookFolder()
             }
         }
         if (known) { skipped++; continue; }
-        if (m_library && !m_library->importBook(f).isEmpty()) added++;
+        if (m_library && !m_library->importBook(f, sid).isEmpty()) added++;
     }
     QMessageBox::information(this, "扫描完成",
         QString("新增 %1 本，跳过 %2 本（已在书库）").arg(added).arg(skipped));
@@ -2314,6 +2316,14 @@ void ReaderWidget::refreshShelf()
         for (const BookInfo &b : books)
             if (b.spaceId == sid) filtered.append(b);
         books = filtered;
+    }
+
+    // If currently reading a book that no longer belongs to this space, back to shelf.
+    if (m_stack && m_stack->currentIndex() == ReaderPage && !m_lastReadBookId.isEmpty()) {
+        bool found = false;
+        for (const BookInfo &b : books)
+            if (b.id == m_lastReadBookId) { found = true; break; }
+        if (!found) backToShelf();
     }
 
     if (m_shelfTitle) m_shelfTitle->setText("书库");

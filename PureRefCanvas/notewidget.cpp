@@ -820,6 +820,19 @@ void NoteWidget::setSpaceManager(SpaceManager *mgr)
     refreshCards();
 }
 
+void NoteWidget::setNoteSpace(const QString &noteId, const QString &spaceId)
+{
+    for (NoteData &n : m_notes) {
+        if (n.id == noteId) {
+            n.spaceId = spaceId;
+            n.updatedAt = QDateTime::currentDateTime();
+            saveNotes();
+            refreshCards();
+            return;
+        }
+    }
+}
+
 void NoteWidget::refreshCards()
 {
     if (!m_gridLayout) return;
@@ -1059,6 +1072,8 @@ void NoteWidget::newNote()
     note.createdAt = QDateTime::currentDateTime();
     note.updatedAt = QDateTime::currentDateTime();
     note.folder = m_currentCategory == "all" || m_currentCategory == "starred" || m_currentCategory == "recent" ? "" : m_currentCategory;
+    if (m_spaceMgr && !m_spaceMgr->isAllSpace())
+        note.spaceId = m_spaceMgr->currentSpaceId();
     m_notes.prepend(note);
     saveNotes();
     openNote(note.id);
@@ -1085,6 +1100,8 @@ void NoteWidget::newNoteWithExcerpt(const QString &title, const QString &excerpt
     note.createdAt = QDateTime::currentDateTime();
     note.updatedAt = QDateTime::currentDateTime();
     note.folder = "";
+    if (m_spaceMgr && !m_spaceMgr->isAllSpace())
+        note.spaceId = m_spaceMgr->currentSpaceId();
     m_notes.prepend(note);
     saveNotes();
     openNote(note.id);

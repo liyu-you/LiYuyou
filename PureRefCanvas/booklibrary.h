@@ -63,7 +63,7 @@ public:
     QList<BookInfo> books() const { return m_books; }
     BookInfo bookById(const QString &id) const;
 
-    QString importBook(const QString &filePath);
+    QString importBook(const QString &filePath, const QString &spaceId = QString());
     bool removeBook(const QString &id);
     bool setBookSpace(const QString &id, const QString &spaceId);
     bool updateProgress(const QString &id, int pos);

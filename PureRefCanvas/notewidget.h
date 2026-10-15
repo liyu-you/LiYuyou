@@ -63,6 +63,7 @@ public:
     void changeEditorBackground();
     void clearEditorBackground();
     void setSpaceManager(class SpaceManager *mgr);
+    void setNoteSpace(const QString &noteId, const QString &spaceId);
     void hideSidebar();
     QList<NoteData> allNotes() const { return m_notes; }
     void openNote(const QString &noteId);
