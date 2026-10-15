@@ -38,6 +38,7 @@ public:
                              int fontSizePx, qreal lineSpacing, const QString &margin);
     void setSpaceManager(SpaceManager *mgr);
     void setImmersiveMode(bool immersive);
+    QString currentBookId() const { return m_currentBookId; }
 
 signals:
     void themeChanged(const QString &themeKey);           // light / dark / eye / parchment

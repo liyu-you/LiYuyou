@@ -74,6 +74,11 @@ bool SpaceManager::load()
                     s.color = o.value("color").toString("#1a73e8");
                     s.createdAt = QDateTime::fromString(
                         o.value("createdAt").toString(), Qt::ISODate);
+                    s.lastPage = o.value("lastPage").toInt(0);
+                    s.lastBookId = o.value("lastBookId").toString();
+                    s.lastNoteId = o.value("lastNoteId").toString();
+                    s.bgImage = o.value("bgImage").toString();
+                    s.bgColor = o.value("bgColor").toString();
                     if (!s.id.isEmpty() && !s.name.isEmpty())
                         m_spaces.append(s);
                 }
@@ -105,6 +110,11 @@ bool SpaceManager::save()
         o["name"] = s.name;
         o["color"] = s.color;
         o["createdAt"] = s.createdAt.toString(Qt::ISODate);
+        o["lastPage"] = s.lastPage;
+        o["lastBookId"] = s.lastBookId;
+        o["lastNoteId"] = s.lastNoteId;
+        o["bgImage"] = s.bgImage;
+        o["bgColor"] = s.bgColor;
         arr.append(o);
     }
     root["spaces"] = arr;
@@ -187,4 +197,33 @@ void SpaceManager::setCurrentSpace(const QString &id)
     m_currentId = id;
     save();
     emit currentSpaceChanged(m_currentId);
+}
+
+void SpaceManager::updateSpaceState(const QString &id, int lastPage,
+                                    const QString &lastBookId,
+                                    const QString &lastNoteId)
+{
+    for (Space &s : m_spaces) {
+        if (s.id == id) {
+            s.lastPage = lastPage;
+            s.lastBookId = lastBookId;
+            s.lastNoteId = lastNoteId;
+            save();
+            return;
+        }
+    }
+}
+
+void SpaceManager::setSpaceBackground(const QString &id, const QString &bgImage,
+                                      const QString &bgColor)
+{
+    for (Space &s : m_spaces) {
+        if (s.id == id) {
+            s.bgImage = bgImage;
+            s.bgColor = bgColor;
+            save();
+            emit spacesChanged();
+            return;
+        }
+    }
 }

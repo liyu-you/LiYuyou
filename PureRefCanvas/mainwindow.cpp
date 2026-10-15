@@ -654,10 +654,13 @@ MainWindow::MainWindow(QWidget *parent)
                                      QStandardPaths::DocumentsLocation) + "/PureRefCanvas";
         m_spaceMgr = new SpaceManager(dataRoot, this);
         m_spaceMgr->load();
+        m_lastSpaceId = m_spaceMgr->currentSpaceId();
         connect(m_spaceMgr, &SpaceManager::currentSpaceChanged,
                 this, &MainWindow::updateSpaceButton);
         connect(m_spaceMgr, &SpaceManager::currentSpaceChanged,
                 this, &MainWindow::updateNavButtons);
+        connect(m_spaceMgr, &SpaceManager::currentSpaceChanged,
+                this, &MainWindow::onSpaceChanged);
         connect(m_spaceMgr, &SpaceManager::spacesChanged,
                 this, &MainWindow::updateSpaceButton);
     }
@@ -1337,12 +1340,15 @@ void MainWindow::openSpaceManager()
 
     QPushButton *renameBtn = new QPushButton("重命名");
     renameBtn->setStyleSheet("background:#f1f3f4; color:#202124;");
+    QPushButton *bgBtn = new QPushButton("背景色");
+    bgBtn->setStyleSheet("background:#f1f3f4; color:#202124;");
     QPushButton *deleteBtn = new QPushButton("删除");
     deleteBtn->setStyleSheet("background:#fce8e6; color:#c5221f;");
     QPushButton *closeBtn = new QPushButton("关闭");
     closeBtn->setStyleSheet("background:#1a73e8; color:#ffffff;");
 
     btnRow->addWidget(renameBtn);
+    btnRow->addWidget(bgBtn);
     btnRow->addWidget(deleteBtn);
     btnRow->addWidget(closeBtn);
     lay->addLayout(btnRow);
@@ -1363,6 +1369,19 @@ void MainWindow::openSpaceManager()
             m_spaceMgr->renameSpace(id, name.trimmed());
             list->currentItem()->setText(name.trimmed());
         }
+    });
+
+    connect(bgBtn, &QPushButton::clicked, &dlg, [&]() {
+        const QString id = selectedId();
+        if (id.isEmpty() || id == SpaceManager::kAllSpaceId) return;
+        const Space cur = m_spaceMgr->spaceById(id);
+        QColor initial = cur.bgColor.isEmpty() ? QColor("#fafafa") : QColor(cur.bgColor);
+        QColor c = QColorDialog::getColor(initial, &dlg, "选择空间背景色");
+        if (!c.isValid()) return;
+        m_spaceMgr->setSpaceBackground(id, QString(), c.name());
+        // Apply immediately if this is the current space
+        if (m_spaceMgr->currentSpaceId() == id)
+            applySpaceEnvironment(m_spaceMgr->currentSpace());
     });
 
     connect(deleteBtn, &QPushButton::clicked, &dlg, [&]() {
@@ -1426,6 +1445,65 @@ void MainWindow::exitImmersiveMode()
 
     if (m_wasMaximized) showMaximized();
     else showNormal();
+}
+
+// ===== Space state memory + environment =====
+
+void MainWindow::onSpaceChanged(const QString &newId)
+{
+    // Save state of the space we're leaving
+    if (!m_lastSpaceId.isEmpty())
+        saveCurrentSpaceState();
+
+    // Restore state + environment of the space we're entering
+    const Space s = m_spaceMgr->spaceById(newId);
+    restoreSpaceState(s);
+    applySpaceEnvironment(s);
+
+    m_lastSpaceId = newId;
+}
+
+void MainWindow::saveCurrentSpaceState()
+{
+    if (!m_spaceMgr || m_lastSpaceId.isEmpty() || !m_stack) return;
+    const int page = m_stack->currentIndex();
+    QString bookId, noteId;
+    if (page == 3 && m_readerWidget) bookId = m_readerWidget->currentBookId();
+    if (page == 1 && m_noteWidget) noteId = m_noteWidget->currentNoteId();
+    m_spaceMgr->updateSpaceState(m_lastSpaceId, page, bookId, noteId);
+}
+
+void MainWindow::restoreSpaceState(const Space &s)
+{
+    if (!m_stack) return;
+    // Switch to the remembered page (clamp to valid range)
+    const int page = qBound(0, s.lastPage, m_stack->count() - 1);
+    switchToPage(page);
+
+    // Restore the exact book / note the user was viewing
+    if (page == 3 && m_readerWidget && !s.lastBookId.isEmpty())
+        m_readerWidget->openBookById(s.lastBookId);
+    if (page == 1 && m_noteWidget && !s.lastNoteId.isEmpty())
+        m_noteWidget->openNote(s.lastNoteId);
+}
+
+void MainWindow::applySpaceEnvironment(const Space &s)
+{
+    // Custom background color for this space (tints the main content area).
+    // Empty = fall back to global theme.
+    QWidget *central = centralWidget();
+    if (!central) return;
+
+    if (!s.bgColor.isEmpty()) {
+        central->setAutoFillBackground(true);
+        QPalette pal = central->palette();
+        pal.setColor(QPalette::Window, QColor(s.bgColor));
+        central->setPalette(pal);
+    } else {
+        // Reset to default (global theme handles it)
+        central->setAutoFillBackground(false);
+        central->setPalette(QPalette());
+    }
 }
 
 void MainWindow::setupPages()
@@ -1619,6 +1697,10 @@ void MainWindow::setupPages()
     connect(esc, &QShortcut::activated, this, [this]() {
         if (m_immersive) exitImmersiveMode();
     });
+
+    // Apply the current space's environment on startup
+    if (m_spaceMgr)
+        applySpaceEnvironment(m_spaceMgr->currentSpace());
 }
 
 // 折叠/展开当前页的左侧栏（ZCode 风格 Ctrl+8）：
@@ -2354,6 +2436,7 @@ bool MainWindow::maybeSave()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    saveCurrentSpaceState();
     saveSettings();
     if (m_trayCtl && m_trayCtl->handleCloseRequest(m_cfg.closeBehavior)) {
         event->ignore();

@@ -183,6 +183,13 @@ private:
     bool m_immersive = false;
     bool m_wasMaximized = false;
 
+    // Space state memory + environment
+    void onSpaceChanged(const QString &newId);
+    void saveCurrentSpaceState();
+    void restoreSpaceState(const Space &s);
+    void applySpaceEnvironment(const Space &s);
+    QString m_lastSpaceId;
+
     // Actions stored for menu/toolbar
     QList<QAction*> m_actions;
 };

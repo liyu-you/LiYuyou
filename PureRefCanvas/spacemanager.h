@@ -14,6 +14,13 @@ struct Space {
     QString name;
     QString color;       // hex, e.g. "#1a73e8"
     QDateTime createdAt;
+    // ---- State memory: where the user was when they left this space ----
+    int     lastPage = 0;       // page index in m_stack (0=canvas,1=note,...)
+    QString lastBookId;         // book being read, empty if none
+    QString lastNoteId;         // note being edited, empty if none
+    // ---- Environment preset ----
+    QString bgImage;            // custom background image path, empty = use global
+    QString bgColor;            // custom background color, empty = use global
 };
 
 class SpaceManager : public QObject
@@ -42,6 +49,13 @@ public:
     bool renameSpace(const QString &id, const QString &name);
     // Cannot remove the built-in "全部" space. Returns false on failure.
     bool removeSpace(const QString &id);
+
+    // State memory: persist where the user was in this space.
+    void updateSpaceState(const QString &id, int lastPage,
+                          const QString &lastBookId, const QString &lastNoteId);
+    // Environment preset: custom background for this space.
+    void setSpaceBackground(const QString &id, const QString &bgImage,
+                            const QString &bgColor);
 
 public slots:
     void setCurrentSpace(const QString &id);
