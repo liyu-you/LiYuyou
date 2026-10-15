@@ -198,6 +198,11 @@ private:
     // Space ritual overlay
     void showSpaceWelcome(const Space &s);
 
+    // Per-space canvas
+    QString canvasAutosavePath(const QString &spaceId) const;
+    void saveCanvasToSpace(const QString &spaceId);
+    void loadCanvasForSpace(const QString &spaceId);
+
     // Actions stored for menu/toolbar
     QList<QAction*> m_actions;
 };

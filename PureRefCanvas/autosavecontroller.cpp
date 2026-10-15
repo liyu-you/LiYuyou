@@ -3,10 +3,12 @@
 
 #include <QTimer>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QSettings>
 #include <QDate>
+#include <QDateTime>
 
 namespace {
 // Atomic write: QSaveFile writes to a temp file and renames into place, so an
@@ -58,7 +60,9 @@ void AutoSaveController::doAutoSave()
     if (m_hooks.canvasDirty && m_hooks.canvasDirty()) {
         const QByteArray state = m_hooks.canvasState ? m_hooks.canvasState() : QByteArray();
         if (!state.isEmpty()) {
-            const QString path = UserAuth::dataRoot() + "/autosave.prc";
+            const QString path = m_hooks.canvasPath
+                ? m_hooks.canvasPath()
+                : (UserAuth::dataRoot() + "/autosave.prc");
             QDir().mkpath(QFileInfo(path).absolutePath());
             if (writeAtomically(path, state) && m_hooks.canvasSaved)
                 m_hooks.canvasSaved();
@@ -116,4 +120,50 @@ void AutoSaveController::maybeGenerateWeeklyReport()
 void AutoSaveController::generateWeeklyReportIfDue()
 {
     maybeGenerateWeeklyReport();
+}
+
+int AutoSaveController::recoverPendingSaves()
+{
+    int recovered = 0;
+    const QString root = UserAuth::dataRoot();
+
+    // Canvas: autosave.prc is the only automatic backup (manual saves go to a
+    // user-chosen file), so restoring it can only add back lost work.
+    const QString canvasPath = root + "/autosave.prc";
+    QFile canvasFile(canvasPath);
+    if (canvasFile.exists() && canvasFile.open(QIODevice::ReadOnly)) {
+        const QByteArray state = canvasFile.readAll();
+        canvasFile.close();
+        if (!state.isEmpty() && m_hooks.confirmRestore && m_hooks.restoreCanvas
+            && m_hooks.confirmRestore(QStringLiteral("检测到上次未保存的画布内容，要恢复吗？"))) {
+            if (m_hooks.restoreCanvas(state)) {
+                ++recovered;
+                if (m_hooks.showStatus)
+                    m_hooks.showStatus(QStringLiteral("已恢复未保存的画布内容"));
+            }
+        }
+        // Consumed either way: stale content must not resurface on next start.
+        canvasFile.remove();
+    }
+
+    // Note: the autosave holds raw HTML with no note id, so it is restored as a
+    // brand-new note — never merged into an existing one, nothing can be lost.
+    const QString notePath = root + "/autosave_note.html";
+    QFile noteFile(notePath);
+    if (noteFile.exists() && noteFile.open(QIODevice::ReadOnly)) {
+        const QByteArray html = noteFile.readAll();
+        noteFile.close();
+        if (!html.isEmpty() && m_hooks.confirmRestore && m_hooks.restoreNoteAsNew
+            && m_hooks.confirmRestore(QStringLiteral("检测到上次未保存的笔记内容，要恢复为新笔记吗？"))) {
+            m_hooks.restoreNoteAsNew(
+                QStringLiteral("自动恢复 ") + QDateTime::currentDateTime().toString("MM-dd HH:mm"),
+                QString::fromUtf8(html));
+            ++recovered;
+            if (m_hooks.showStatus)
+                m_hooks.showStatus(QStringLiteral("已恢复未保存的笔记内容"));
+        }
+        noteFile.remove();
+    }
+
+    return recovered;
 }

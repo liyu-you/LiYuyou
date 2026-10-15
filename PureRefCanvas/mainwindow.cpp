@@ -893,6 +893,10 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
             return qobject_cast<CanvasScene*>(m_canvasView->scene())->saveState();
         };
         h.canvasSaved  = [this] { m_canvasDirty = false; };
+        h.canvasPath   = [this]() -> QString {
+            const QString sid = m_spaceMgr ? m_spaceMgr->currentSpaceId() : QString();
+            return canvasAutosavePath(sid);
+        };
         h.noteModified = [this] { return m_noteWidget && m_noteWidget->isModified(); };
         h.noteHtml     = [this] { return m_noteWidget ? m_noteWidget->toHtml().toUtf8() : QByteArray(); };
         h.confirmRestore = [this](const QString &what) -> bool {
@@ -939,7 +943,14 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
         // appear over the shown main window, not under the still-visible
         // loading splash during construction.
         QTimer::singleShot(1000, this, [this]() {
-            if (m_autosave) m_autosave->recoverPendingSaves();
+            if (!m_autosave) return;
+            if (m_spaceMgr && !m_spaceMgr->isAllSpace()) {
+                // Non-default space: per-space canvases are always persisted on
+                // switch/close, so load directly (no crash-restore prompt).
+                loadCanvasForSpace(m_spaceMgr->currentSpaceId());
+            } else {
+                m_autosave->recoverPendingSaves();
+            }
         });
     }
 
@@ -1232,6 +1243,17 @@ void MainWindow::updateSpaceButton()
     ).arg(bg, cur.color, bgHover));
 }
 
+static bool writeAtomically(const QString &path, const QByteArray &data)
+{
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    if (file.write(data) != data.size()) {
+        file.cancelWriting();
+        return false;
+    }
+    return file.commit();
+}
+
 static QString formatDuration(qint64 seconds)
 {
     if (seconds < 60) return QStringLiteral("不足 1 分钟");
@@ -1413,6 +1435,8 @@ void MainWindow::openSpaceManager()
                 for (const NoteData &n : m_noteWidget->allNotes())
                     if (n.spaceId == id) m_noteWidget->setNoteSpace(n.id, QString());
             }
+            // Delete the space's independent canvas file
+            QFile::remove(canvasAutosavePath(id));
             m_spaceMgr->removeSpace(id);
             list->takeItem(list->row(list->currentItem()));
         }
@@ -1464,9 +1488,14 @@ void MainWindow::exitImmersiveMode()
 
 void MainWindow::onSpaceChanged(const QString &newId)
 {
-    // Save state of the space we're leaving
-    if (!m_lastSpaceId.isEmpty())
+    // Save state of the space we're leaving (including its canvas)
+    if (!m_lastSpaceId.isEmpty()) {
         saveCurrentSpaceState();
+        saveCanvasToSpace(m_lastSpaceId);
+    }
+
+    // Load the canvas belonging to the space we're entering
+    loadCanvasForSpace(newId);
 
     // Restore state + environment of the space we're entering
     const Space s = m_spaceMgr->spaceById(newId);
@@ -1527,6 +1556,42 @@ void MainWindow::onFocusTick()
     if (!m_spaceMgr || !isActiveWindow()) return;
     if (QApplication::activeModalWidget() != nullptr) return;
     m_spaceMgr->recordActiveSeconds(m_spaceMgr->currentSpaceId(), 5);
+}
+
+// ===== Per-space canvas =====
+
+QString MainWindow::canvasAutosavePath(const QString &spaceId) const
+{
+    const QString root = UserAuth::dataRoot();
+    if (spaceId.isEmpty() || spaceId == SpaceManager::kAllSpaceId)
+        return root + "/autosave.prc";
+    return root + "/autosave_" + spaceId + ".prc";
+}
+
+void MainWindow::saveCanvasToSpace(const QString &spaceId)
+{
+    CanvasScene *s = canvasScene();
+    if (!s) return;
+    const QByteArray state = s->saveState();
+    if (state.isEmpty()) return;
+    const QString path = canvasAutosavePath(spaceId);
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    writeAtomically(path, state);
+}
+
+void MainWindow::loadCanvasForSpace(const QString &spaceId)
+{
+    CanvasScene *s = canvasScene();
+    if (!s) return;
+    s->clearAll();
+    const QString path = canvasAutosavePath(spaceId);
+    QFile f(path);
+    if (f.exists() && f.open(QIODevice::ReadOnly)) {
+        s->loadState(f.readAll());
+        f.close();
+    }
+    m_canvasDirty = false;
+    m_canvasFilePath.clear();  // per-space canvas is autosave-managed
 }
 
 void MainWindow::showSpaceWelcome(const Space &s)
@@ -2059,17 +2124,6 @@ void MainWindow::openImages()
 
 // Atomic file write: QSaveFile writes a temporary and renames it into place, so a
 // crash mid-save can no longer leave a truncated canvas or note behind.
-static bool writeAtomically(const QString &path, const QByteArray &data)
-{
-    QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly)) return false;
-    if (file.write(data) != data.size()) {
-        file.cancelWriting();
-        return false;
-    }
-    return file.commit();
-}
-
 void MainWindow::saveCurrent()
 {
     if (currentPage() == CanvasPage) {
@@ -2606,6 +2660,8 @@ bool MainWindow::maybeSave()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     saveCurrentSpaceState();
+    if (m_spaceMgr)
+        saveCanvasToSpace(m_spaceMgr->currentSpaceId());
     saveSettings();
     if (m_trayCtl && m_trayCtl->handleCloseRequest(m_cfg.closeBehavior)) {
         event->ignore();

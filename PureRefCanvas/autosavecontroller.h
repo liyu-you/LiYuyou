@@ -34,10 +34,21 @@ public:
         std::function<bool()>      canvasDirty;     // is there unsaved canvas work?
         std::function<QByteArray()> canvasState;    // serialized .prc bytes
         std::function<void()>     canvasSaved;    // clear the dirty flag
+        // Optional: per-space canvas autosave path. Defaults to autosave.prc.
+        std::function<QString()>  canvasPath;
 
         // Note autosave
         std::function<bool()>      noteModified;   // is the note doc dirty?
         std::function<QByteArray()> noteHtml;      // toHtml().toUtf8()
+
+        // Crash recovery (recoverPendingSaves): apply a leftover autosave file.
+        // confirmRestore asks the user (restore / discard); restoreCanvas applies
+        // serialized .prc bytes and returns false if the state was rejected;
+        // restoreNoteAsNew files the orphaned note HTML as a brand-new note so it
+        // can never overwrite an existing one.
+        std::function<bool(const QString &what)> confirmRestore;
+        std::function<bool(const QByteArray &)>  restoreCanvas;
+        std::function<void(const QString &title, const QString &html)> restoreNoteAsNew;
 
         // Weekly report: counts + a "create a new note" sink
         std::function<int()>       countNotes;
@@ -63,6 +74,12 @@ public:
     // Call once on startup. Emits the weekly-report note if we have not
     // already generated one for the current ISO week.
     void generateWeeklyReportIfDue();
+
+    // Consume leftover autosave files from a previous session (autosave.prc,
+    // autosave_note.html). The user is asked before anything is applied; a
+    // declined file is discarded, a missing/absent hook leaves the file alone.
+    // Returns how many items were restored. Call after the widgets are wired.
+    int recoverPendingSaves();
 
 private:
     void doAutoSave();
