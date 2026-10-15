@@ -656,9 +656,39 @@ MainWindow::MainWindow(QWidget *parent)
         m_spaceMgr->load();
         connect(m_spaceMgr, &SpaceManager::currentSpaceChanged,
                 this, &MainWindow::updateSpaceButton);
+        connect(m_spaceMgr, &SpaceManager::currentSpaceChanged,
+                this, &MainWindow::updateNavButtons);
         connect(m_spaceMgr, &SpaceManager::spacesChanged,
                 this, &MainWindow::updateSpaceButton);
     }
+
+    // Space shortcuts: Ctrl+1~9 jump to Nth space, Ctrl+Left/Right cycle.
+    for (int i = 0; i < 9; ++i) {
+        auto *sc = new QShortcut(QKeySequence(Qt::CTRL | (Qt::Key_1 + i)), this);
+        connect(sc, &QShortcut::activated, this, [this, i]() {
+            if (!m_spaceMgr) return;
+            const auto list = m_spaceMgr->spaces();
+            if (i < list.size()) m_spaceMgr->setCurrentSpace(list[i].id);
+        });
+    }
+    auto *spaceNext = new QShortcut(QKeySequence("Ctrl+Right"), this);
+    connect(spaceNext, &QShortcut::activated, this, [this]() {
+        if (!m_spaceMgr) return;
+        const auto list = m_spaceMgr->spaces();
+        int idx = -1;
+        for (int i = 0; i < list.size(); ++i)
+            if (list[i].id == m_spaceMgr->currentSpaceId()) { idx = i; break; }
+        if (idx >= 0) m_spaceMgr->setCurrentSpace(list[(idx + 1) % list.size()].id);
+    });
+    auto *spacePrev = new QShortcut(QKeySequence("Ctrl+Left"), this);
+    connect(spacePrev, &QShortcut::activated, this, [this]() {
+        if (!m_spaceMgr) return;
+        const auto list = m_spaceMgr->spaces();
+        int idx = -1;
+        for (int i = 0; i < list.size(); ++i)
+            if (list[i].id == m_spaceMgr->currentSpaceId()) { idx = i; break; }
+        if (idx >= 0) m_spaceMgr->setCurrentSpace(list[(idx - 1 + list.size()) % list.size()].id);
+    });
 
     setupNavigation();
     createStatusBar();
@@ -1213,6 +1243,9 @@ void MainWindow::showSpaceMenu()
     menu.setAttribute(Qt::WA_TranslucentBackground);
 
     const QString curId = m_spaceMgr->currentSpaceId();
+    const auto allBooks = m_readerWidget ? m_readerWidget->library()->books() : QList<BookInfo>{};
+    const auto allNotes = m_noteWidget ? m_noteWidget->allNotes() : QList<NoteData>{};
+
     for (const Space &s : m_spaceMgr->spaces()) {
         QColor c(s.color);
         QPixmap dot(12, 12);
@@ -1223,7 +1256,18 @@ void MainWindow::showSpaceMenu()
         p.setPen(Qt::NoPen);
         p.drawEllipse(0, 0, 12, 12);
         p.end();
-        QAction *a = menu.addAction(QIcon(dot), s.name);
+
+        // Count content in this space (empty spaceId = "全部").
+        int bookCount = 0, noteCount = 0;
+        const bool isAll = (s.id == SpaceManager::kAllSpaceId);
+        for (const BookInfo &b : allBooks)
+            if (isAll || b.spaceId == s.id) ++bookCount;
+        for (const NoteData &n : allNotes)
+            if (isAll || n.spaceId == s.id) ++noteCount;
+        const QString label = QString("%1  ·  %2书 %3笔记")
+            .arg(s.name).arg(bookCount).arg(noteCount);
+
+        QAction *a = menu.addAction(QIcon(dot), label);
         a->setCheckable(true);
         a->setChecked(s.id == curId);
         connect(a, &QAction::triggered, this, [this, id = s.id]() {
@@ -1626,14 +1670,25 @@ void MainWindow::switchToPage(int index)
 
 void MainWindow::updateNavButtons()
 {
+    // Accent color follows the current space (default Google blue for "全部").
+    QColor accent = QColor("#1a73e8");
+    if (m_spaceMgr && !m_spaceMgr->isAllSpace())
+        accent = QColor(m_spaceMgr->currentSpace().color);
+    const QString accentHex = accent.name();
+    // Light tint: 12% accent over white — same ratio as #e8f0fe for #1a73e8.
+    const QString tint = QString("rgba(%1,%2,%3,0.12)")
+        .arg(accent.red()).arg(accent.green()).arg(accent.blue());
+    const QString tintPressed = QString("rgba(%1,%2,%3,0.20)")
+        .arg(accent.red()).arg(accent.green()).arg(accent.blue());
+
     int cur = m_stack->currentIndex();
     for (int i = 0; i < m_navButtons.size(); ++i) {
         bool selected = (i == cur);
         m_navButtons[i]->setProperty("selected", selected);
-        m_navButtons[i]->setStyleSheet(selected ? R"(
+        m_navButtons[i]->setStyleSheet(selected ? QString(R"(
             QPushButton {
-                background: #e8f0fe;
-                color: #1a73e8;
+                background: %1;
+                color: %2;
                 border: none;
                 border-radius: 16px;
                 padding: 6px 18px;
@@ -1642,10 +1697,10 @@ void MainWindow::updateNavButtons()
                 qproperty-alignment: AlignCenter;
             }
             QPushButton:pressed {
-                background: #d2e3fc;
-                color: #1a73e8;
+                background: %3;
+                color: %2;
             }
-        )" : R"(
+        )").arg(tint, accentHex, tintPressed) : R"(
             QPushButton {
                 background: transparent;
                 color: #5f6368;
