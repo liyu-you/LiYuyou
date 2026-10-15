@@ -37,6 +37,7 @@ struct BookInfo {
     QString author;
     QString filePath;      // relative to library root
     QString coverColor;    // gradient color for cover
+    QString spaceId;       // empty = belongs to "全部" (every space)
     int progress;          // current character position
     int totalChars;
     QList<int> bookmarks;  // character positions
@@ -64,6 +65,7 @@ public:
 
     QString importBook(const QString &filePath);
     bool removeBook(const QString &id);
+    bool setBookSpace(const QString &id, const QString &spaceId);
     bool updateProgress(const QString &id, int pos);
     bool toggleBookmark(const QString &id, int pos);
     bool hasBookmark(const QString &id, int pos) const;

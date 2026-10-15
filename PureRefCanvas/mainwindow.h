@@ -5,6 +5,7 @@
 
 #include "appsettings.h"
 #include "userauth.h"
+#include "spacemanager.h"
 
 class QStackedWidget;
 class QPushButton;
@@ -168,6 +169,13 @@ private:
 
     // System tray is delegated to a dedicated controller.
     TrayController *m_trayCtl = nullptr;
+
+    // Spaces (top-level theme containers). Owned by MainWindow.
+    SpaceManager *m_spaceMgr = nullptr;
+    QToolButton *m_spaceBtn = nullptr;  // capsule showing current space name
+    void setupSpaceSwitcher();
+    void showSpaceMenu();
+    void updateSpaceButton();
 
     // Actions stored for menu/toolbar
     QList<QAction*> m_actions;

@@ -648,6 +648,18 @@ MainWindow::MainWindow(QWidget *parent)
 
     loadSettings();
 
+    // Spaces — top-level theme containers. Lives next to users.json.
+    {
+        const QString dataRoot = QStandardPaths::writableLocation(
+                                     QStandardPaths::DocumentsLocation) + "/PureRefCanvas";
+        m_spaceMgr = new SpaceManager(dataRoot, this);
+        m_spaceMgr->load();
+        connect(m_spaceMgr, &SpaceManager::currentSpaceChanged,
+                this, &MainWindow::updateSpaceButton);
+        connect(m_spaceMgr, &SpaceManager::spacesChanged,
+                this, &MainWindow::updateSpaceButton);
+    }
+
     setupNavigation();
     createStatusBar();
     statusBar()->hide();
@@ -849,6 +861,24 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
         h.canvasSaved  = [this] { m_canvasDirty = false; };
         h.noteModified = [this] { return m_noteWidget && m_noteWidget->isModified(); };
         h.noteHtml     = [this] { return m_noteWidget ? m_noteWidget->toHtml().toUtf8() : QByteArray(); };
+        h.confirmRestore = [this](const QString &what) -> bool {
+            QMessageBox box(QMessageBox::Question, QStringLiteral("恢复未保存内容"), what,
+                            QMessageBox::NoButton, this);
+            QPushButton *restoreBtn = box.addButton(QStringLiteral("恢复"), QMessageBox::AcceptRole);
+            box.addButton(QStringLiteral("放弃"), QMessageBox::RejectRole);
+            box.exec();
+            return box.clickedButton() == restoreBtn;
+        };
+        h.restoreCanvas = [this](const QByteArray &state) -> bool {
+            CanvasScene *s = canvasScene();
+            if (!s || !s->loadState(state)) return false;
+            m_canvasDirty = true;  // recovered state has no file on disk yet
+            return true;
+        };
+        h.restoreNoteAsNew = [this](const QString &title, const QString &html) {
+            if (m_noteWidget)
+                m_noteWidget->createNoteWithContent(title, html, QStringLiteral("恢复"));
+        };
         h.countNotes   = [this] { return m_noteWidget ? m_noteWidget->allNotes().size() : 0; };
         h.countSongs   = [this] { return m_musicWidget ? m_musicWidget->currentSongList().size() : 0; };
         h.countMaterials = [this]() -> int {
@@ -871,6 +901,12 @@ connect(saveSc, &QShortcut::activated, this, [this]() {
         m_autosave->setEnabled(m_cfg.autoSave);
         m_autosave->start();
         m_autosave->generateWeeklyReportIfDue();
+        // Crash recovery runs after the event loop starts: the prompts must
+        // appear over the shown main window, not under the still-visible
+        // loading splash during construction.
+        QTimer::singleShot(1000, this, [this]() {
+            if (m_autosave) m_autosave->recoverPendingSaves();
+        });
     }
 
     // Startup restore
@@ -1036,10 +1072,15 @@ void MainWindow::setupNavigation()
     }
     connect(m_brandBtn, &QToolButton::clicked, this, &MainWindow::toggleSidebar);
     brandLayout->addWidget(m_brandBtn);
-    // Brand name
-    QLabel *brandName = new QLabel("里与由");
-    brandName->setStyleSheet("color: #1F2933; font-size: 14px; font-weight: 500; letter-spacing: 1px;");
-    brandLayout->addWidget(brandName);
+    // Space switcher — replaces the static brand name with the current space
+    // (a capsule button; click opens the space list / new-space dialog).
+    m_spaceBtn = new QToolButton(brandWidget);
+    m_spaceBtn->setCursor(Qt::PointingHandCursor);
+    m_spaceBtn->setToolTip("切换空间");
+    m_spaceBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_spaceBtn->setPopupMode(QToolButton::InstantPopup);
+    brandLayout->addWidget(m_spaceBtn);
+    setupSpaceSwitcher();
     navLayout->addWidget(brandWidget);
 
     // Separator after brand
@@ -1132,6 +1173,80 @@ void MainWindow::setupNavigation()
     navToolBar->addWidget(navContainer);
 }
 
+void MainWindow::setupSpaceSwitcher()
+{
+    connect(m_spaceBtn, &QToolButton::clicked, this, &MainWindow::showSpaceMenu);
+    updateSpaceButton();
+}
+
+void MainWindow::updateSpaceButton()
+{
+    if (!m_spaceBtn || !m_spaceMgr) return;
+    const Space cur = m_spaceMgr->currentSpace();
+    const QString name = cur.name.isEmpty() ? QStringLiteral("全部") : cur.name;
+    m_spaceBtn->setText(name + "  ▾");
+
+    QColor c(cur.color.isEmpty() ? "#5f6368" : cur.color);
+    const QString bg = QString("rgba(%1,%2,%3,0.12)")
+                           .arg(c.red()).arg(c.green()).arg(c.blue());
+    const QString bgHover = QString("rgba(%1,%2,%3,0.20)")
+                                .arg(c.red()).arg(c.green()).arg(c.blue());
+    m_spaceBtn->setStyleSheet(QString(
+        "QToolButton { background: %1; color: %2; border: none; border-radius: 16px;"
+        " padding: 6px 14px; font-size: 13px; font-weight: 600; }"
+        "QToolButton:hover { background: %3; }"
+    ).arg(bg, cur.color, bgHover));
+}
+
+void MainWindow::showSpaceMenu()
+{
+    if (!m_spaceMgr) return;
+    QMenu menu;
+    menu.setStyleSheet(R"(
+        QMenu { background: #ffffff; color: #202124; border: 1px solid #dadce0;
+                border-radius: 12px; padding: 8px; font-size: 13px; }
+        QMenu::item { padding: 8px 28px 8px 16px; border-radius: 8px; }
+        QMenu::item:selected { background: #e8f0fe; color: #1a73e8; }
+        QMenu::separator { height: 1px; background: #e0e0e0; margin: 6px 8px; }
+    )");
+    menu.setWindowFlag(Qt::FramelessWindowHint, true);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
+
+    const QString curId = m_spaceMgr->currentSpaceId();
+    for (const Space &s : m_spaceMgr->spaces()) {
+        QColor c(s.color);
+        QPixmap dot(12, 12);
+        dot.fill(Qt::transparent);
+        QPainter p(&dot);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setBrush(c);
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(0, 0, 12, 12);
+        p.end();
+        QAction *a = menu.addAction(QIcon(dot), s.name);
+        a->setCheckable(true);
+        a->setChecked(s.id == curId);
+        connect(a, &QAction::triggered, this, [this, id = s.id]() {
+            m_spaceMgr->setCurrentSpace(id);
+        });
+    }
+
+    menu.addSeparator();
+    QAction *newAct = menu.addAction("＋  新建空间");
+    connect(newAct, &QAction::triggered, this, [this]() {
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            this, "新建空间", "空间名称：", QLineEdit::Normal, "", &ok);
+        if (!ok || name.trimmed().isEmpty()) return;
+        const QStringList colors = SpaceManager::presetColors();
+        const QString color = colors.at(m_spaceMgr->spaces().size() % colors.size());
+        const QString id = m_spaceMgr->addSpace(name.trimmed(), color);
+        if (!id.isEmpty()) m_spaceMgr->setCurrentSpace(id);
+    });
+
+    menu.exec(m_spaceBtn->mapToGlobal(QPoint(0, m_spaceBtn->height() + 4)));
+}
+
 void MainWindow::setupPages()
 {
     // Shared library for all workspaces
@@ -1176,6 +1291,7 @@ void MainWindow::setupPages()
     // ===== Note page =====
     QString noteRoot = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/PureRefNotes";
     m_noteWidget = new NoteWidget(noteRoot, this);
+    m_noteWidget->setSpaceManager(m_spaceMgr);
     if (!m_cfg.noteBgPath.isEmpty())
         m_noteWidget->setBackgroundImage(m_cfg.noteBgPath);
     connect(m_noteWidget, &NoteWidget::modificationChanged, this, &MainWindow::onNoteModified);
@@ -1210,6 +1326,7 @@ void MainWindow::setupPages()
         ? QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/PureRefBooks"
         : m_cfg.booksDir;
     m_readerWidget = new ReaderWidget(bookRoot, this);
+    m_readerWidget->setSpaceManager(m_spaceMgr);
     if (!m_cfg.readerShelfBgPath.isEmpty())
         m_readerWidget->setShelfBackground(m_cfg.readerShelfBgPath);
     if (!m_cfg.readerBgPath.isEmpty())

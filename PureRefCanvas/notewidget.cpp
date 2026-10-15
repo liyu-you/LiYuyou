@@ -1,4 +1,5 @@
 #include "notewidget.h"
+#include "spacemanager.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -809,6 +810,16 @@ QWidget *NoteWidget::createCard(const NoteData &note)
     return card;
 }
 
+void NoteWidget::setSpaceManager(SpaceManager *mgr)
+{
+    if (m_spaceMgr == mgr) return;
+    m_spaceMgr = mgr;
+    if (mgr)
+        connect(mgr, &SpaceManager::currentSpaceChanged,
+                this, &NoteWidget::refreshCards);
+    refreshCards();
+}
+
 void NoteWidget::refreshCards()
 {
     if (!m_gridLayout) return;
@@ -838,6 +849,10 @@ void NoteWidget::refreshCards()
         if (m_currentCategory == "starred" && !note.starred) continue;
         if (m_currentCategory != "all" && m_currentCategory != "starred" && m_currentCategory != "recent") {
             if (note.folder != m_currentCategory) continue;
+        }
+        // Space filter (empty spaceId = belongs to "全部")
+        if (m_spaceMgr && !m_spaceMgr->isAllSpace()) {
+            if (note.spaceId != m_spaceMgr->currentSpaceId()) continue;
         }
         // Search filter
         if (!search.isEmpty()) {
@@ -923,7 +938,7 @@ void NoteWidget::showCardContextMenu(const QString &noteId, const QPoint &global
     QAction *copyAct = menu.addAction("复制全文");
 
     // Move-to-folder submenu
-    QMenu *moveMenu = menu.addMenu("移动到");
+    QMenu *moveMenu = menu.addMenu("移动到文件夹");
     QAction *noFolderAct = moveMenu->addAction("未分类");
     noFolderAct->setCheckable(true);
     if (it->folder.isEmpty()) noFolderAct->setChecked(true);
@@ -932,6 +947,20 @@ void NoteWidget::showCardContextMenu(const QString &noteId, const QPoint &global
         QAction *fa = moveMenu->addAction(f);
         fa->setCheckable(true);
         if (it->folder == f) fa->setChecked(true);
+    }
+
+    // Move-to-space submenu
+    QMenu *spaceMenu = nullptr;
+    if (m_spaceMgr) {
+        spaceMenu = menu.addMenu("移动到空间");
+        for (const Space &s : m_spaceMgr->spaces()) {
+            QAction *sa = spaceMenu->addAction(s.name);
+            sa->setCheckable(true);
+            sa->setData(s.id);
+            const bool isAll = (s.id == SpaceManager::kAllSpaceId);
+            if ((isAll && it->spaceId.isEmpty()) || it->spaceId == s.id)
+                sa->setChecked(true);
+        }
     }
 
     menu.addSeparator();
@@ -977,6 +1006,12 @@ void NoteWidget::showCardContextMenu(const QString &noteId, const QPoint &global
         }
     } else if (moveMenu->actions().contains(chosen)) {
         it->folder = (chosen == noFolderAct) ? QString() : chosen->text();
+        it->updatedAt = QDateTime::currentDateTime();
+        saveNotes();
+        refreshCards();
+    } else if (spaceMenu && spaceMenu->actions().contains(chosen)) {
+        const QString sid = chosen->data().toString();
+        it->spaceId = (sid == SpaceManager::kAllSpaceId) ? QString() : sid;
         it->updatedAt = QDateTime::currentDateTime();
         saveNotes();
         refreshCards();
@@ -2548,8 +2583,45 @@ void NoteWidget::loadNotes()
         m_folders = {"工作", "学习", "生活"};
         return;
     }
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    const QByteArray raw = file.readAll();
     file.close();
+    QJsonDocument doc = QJsonDocument::fromJson(raw);
+
+    // A non-empty file that parses to neither object nor array is damaged. Never
+    // continue with an empty list: the next saveNotes() would wipe every note.
+    // Recover from the last good copy, else quarantine the file and stop writing.
+    if (!raw.isEmpty() && !doc.isObject() && !doc.isArray()) {
+        QByteArray backup;
+        const QString backupPath = path + ".bak";
+        {
+            QFile bf(backupPath);
+            if (bf.open(QIODevice::ReadOnly)) backup = bf.readAll();
+        }
+        const QJsonDocument backupDoc = QJsonDocument::fromJson(backup);
+        if (!backup.isEmpty() && (backupDoc.isObject() || backupDoc.isArray())) {
+            doc = backupDoc;
+            // Repair in place so the main file and the backup agree again.
+            QSaveFile repair(path);
+            if (repair.open(QIODevice::WriteOnly)) {
+                repair.write(backup);
+                repair.commit();
+            }
+            QMessageBox::information(this, QStringLiteral("笔记恢复"),
+                QStringLiteral("notes.json 损坏，已自动从备份恢复。"));
+        } else {
+            const QString quarantine = path + ".corrupt-"
+                + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
+            const bool moved = QFile::rename(path, quarantine);
+            m_notesStoreHealthy = false;
+            QMessageBox::warning(this, QStringLiteral("笔记数据异常"),
+                moved
+                    ? QStringLiteral("notes.json 已损坏，原文件被隔离为 %1。\n为避免覆盖丢失数据，本次会话将不写入笔记，请重启前手动检查该文件。")
+                          .arg(QFileInfo(quarantine).fileName())
+                    : QStringLiteral("notes.json 已损坏且无法隔离（%1）。\n为避免覆盖丢失数据，本次会话将不写入笔记。").arg(path));
+            m_folders = {"工作", "学习", "生活"};
+            return;
+        }
+    }
 
     // New format: { "notes": [...], "folders": [...] }
     if (doc.isObject()) {
@@ -2581,12 +2653,16 @@ void NoteWidget::loadNotesFromArray(const QJsonArray &arr)
         note.updatedAt = QDateTime::fromString(obj["updatedAt"].toString(), Qt::ISODate);
         note.starred = obj["starred"].toBool(false);
         note.folder = obj["folder"].toString("");
+        note.spaceId = obj["spaceId"].toString("");
         m_notes.append(note);
     }
 }
 
 void NoteWidget::saveNotes()
 {
+    // The store was quarantined at startup: writing the (possibly empty) in-memory
+    // list would replace the user's notes with blanks. Only reading is safe.
+    if (!m_notesStoreHealthy) return;
     QDir().mkpath(m_libraryRoot);
     QString path = m_libraryRoot + "/notes.json";
     QJsonArray arr;
@@ -2599,6 +2675,7 @@ void NoteWidget::saveNotes()
         obj["updatedAt"] = note.updatedAt.toString(Qt::ISODate);
         obj["starred"] = note.starred;
         obj["folder"] = note.folder;
+        obj["spaceId"] = note.spaceId;
         arr.append(obj);
     }
     QJsonObject root;
@@ -2606,6 +2683,12 @@ void NoteWidget::saveNotes()
     QJsonArray foldersArr;
     for (const QString &f : m_folders) foldersArr.append(f);
     root["folders"] = foldersArr;
+    // Keep the last good copy so a damaged notes.json can be recovered from .bak.
+    if (QFile::exists(path)) {
+        const QString backup = path + ".bak";
+        QFile::remove(backup);
+        QFile::copy(path, backup);
+    }
     // Atomic write (temp file + rename) so a crash can't truncate notes.json.
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) return;

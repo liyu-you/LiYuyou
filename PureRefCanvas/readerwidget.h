@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QColor>
 #include "booklibrary.h"
+#include "spacemanager.h"
 
 class QStackedWidget;
 class QListWidget;
@@ -35,6 +36,7 @@ public:
     void backToShelfPublic();
     void applyReaderSettings(const QString &themeKey, const QString &fontFamily,
                              int fontSizePx, qreal lineSpacing, const QString &margin);
+    void setSpaceManager(SpaceManager *mgr);
 
 signals:
     void themeChanged(const QString &themeKey);           // light / dark / eye / parchment
@@ -148,6 +150,7 @@ private:
     enum Page { ShelfPage, ReaderPage };
 
     BookLibrary *m_library = nullptr;
+    SpaceManager *m_spaceMgr = nullptr;
     QStackedWidget *m_stack = nullptr;
 
     // Shelf

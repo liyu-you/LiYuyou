@@ -39,6 +39,7 @@ struct NoteData {
     QDateTime updatedAt;
     bool starred = false;
     QString folder;
+    QString spaceId; // empty = belongs to "全部" (every space)
 };
 
 class NoteWidget : public QWidget
@@ -61,6 +62,7 @@ public:
     void setEditorBackground(const QString &path);
     void changeEditorBackground();
     void clearEditorBackground();
+    void setSpaceManager(class SpaceManager *mgr);
     void hideSidebar();
     QList<NoteData> allNotes() const { return m_notes; }
     void openNote(const QString &noteId);
@@ -264,7 +266,11 @@ private:
     // Data
     int m_sidebarWidth = 220;   // 侧栏折叠前宽度（toggleSidebar 恢复用）
     QString m_libraryRoot;
+    // False once notes.json was found unreadable and quarantined: saveNotes then
+    // refuses to write, so an in-memory empty list can never overwrite the file.
+    bool m_notesStoreHealthy = true;
     QList<NoteData> m_notes;
+    class SpaceManager *m_spaceMgr = nullptr;
     QStringList m_folders;          // 自定义文件夹（持久化）
     QString m_currentNoteId;
     QString m_currentCategory = "all";

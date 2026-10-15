@@ -1095,10 +1095,12 @@ void ReaderWidget::onReadTick()
 {
     if (m_currentBookId.isEmpty()) { m_readClock->stop(); return; }
     m_library->addReadingSeconds(m_currentBookId, 1);
-    // Flush to disk periodically so a crash loses at most ~15s.
+    // Flush periodically so a crash loses at most ~15s. Persist the position too
+    // (updateProgress saves as well): otherwise a crash reopens the book at where
+    // it was on the last back-to-shelf, not where the user was actually reading.
     if (++m_readFlushCount >= 15) {
         m_readFlushCount = 0;
-        m_library->save();
+        m_library->updateProgress(m_currentBookId, topCharPos());
     }
 }
 
@@ -1903,6 +1905,17 @@ void ReaderWidget::onShelfItemMenu(const QPoint &pos)
         QString id = item->data(Qt::UserRole).toString();
         menu.addAction("打开阅读", this, [this, item]() { openBook(item); });
         menu.addAction("更改封面图片", this, [this, id]() { changeBookCover(id); });
+        // Move to space
+        if (m_spaceMgr) {
+            QMenu *spaceMenu = menu.addMenu("移动到空间");
+            for (const Space &s : m_spaceMgr->spaces()) {
+                QAction *sa = spaceMenu->addAction(s.name);
+                const QString targetId = (s.id == SpaceManager::kAllSpaceId) ? QString() : s.id;
+                connect(sa, &QAction::triggered, this, [this, id, targetId]() {
+                    m_library->setBookSpace(id, targetId);
+                });
+            }
+        }
         QAction *delAct = menu.addAction("删除书籍", this, [this, id]() {
             if (QMessageBox::question(this, "确认删除", "确定从书库删除这本书？") == QMessageBox::Yes)
                 m_library->removeBook(id);
@@ -2279,10 +2292,29 @@ QPixmap ReaderWidget::generateCover(const BookInfo &book) const
     return pix;
 }
 
+void ReaderWidget::setSpaceManager(SpaceManager *mgr)
+{
+    if (m_spaceMgr == mgr) return;
+    m_spaceMgr = mgr;
+    if (mgr)
+        connect(mgr, &SpaceManager::currentSpaceChanged,
+                this, &ReaderWidget::refreshShelf);
+    refreshShelf();
+}
+
 void ReaderWidget::refreshShelf()
 {
     m_shelfGrid->clear();
     auto books = m_library->books();
+
+    // Filter by current space (empty spaceId = belongs to "全部").
+    if (m_spaceMgr && !m_spaceMgr->isAllSpace()) {
+        const QString sid = m_spaceMgr->currentSpaceId();
+        QList<BookInfo> filtered;
+        for (const BookInfo &b : books)
+            if (b.spaceId == sid) filtered.append(b);
+        books = filtered;
+    }
 
     if (m_shelfTitle) m_shelfTitle->setText("书库");
     if (m_shelfCountLabel) m_shelfCountLabel->setText(QString("%1 本书").arg(books.size()));

@@ -13,6 +13,24 @@
 #include <QStringDecoder>
 #include <QRandomGenerator>
 #include <QHash>
+#include <QSaveFile>
+
+namespace {
+// QSaveFile writes to a temp file and renames into place, so a crash or power
+// loss mid-write can never leave a truncated library.json / annotations.json /
+// notes.json behind (which previously meant losing all books, annotations and
+// reading notes at once).
+bool writeJsonAtomic(const QString &path, const QJsonDocument &doc)
+{
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    if (file.write(doc.toJson(QJsonDocument::Compact)) < 0) {
+        file.cancelWriting();
+        return false;
+    }
+    return file.commit();
+}
+}
 
 BookLibrary::BookLibrary(const QString &rootPath, QObject *parent)
     : QObject(parent), m_rootPath(rootPath)
@@ -71,6 +89,7 @@ bool BookLibrary::load()
         book.author = obj["author"].toString();
         book.filePath = obj["filePath"].toString();
         book.coverColor = obj["coverColor"].toString();
+        book.spaceId = obj["spaceId"].toString();
         book.progress = obj["progress"].toInt();
         book.totalChars = obj["totalChars"].toInt();
         book.lastRead = QDateTime::fromString(obj["lastRead"].toString(), Qt::ISODate);
@@ -103,6 +122,7 @@ bool BookLibrary::save()
         obj["author"] = book.author;
         obj["filePath"] = book.filePath;
         obj["coverColor"] = book.coverColor;
+        obj["spaceId"] = book.spaceId;
         obj["progress"] = book.progress;
         obj["totalChars"] = book.totalChars;
         obj["lastRead"] = book.lastRead.toString(Qt::ISODate);
@@ -118,10 +138,7 @@ bool BookLibrary::save()
     }
     root["books"] = arr;
 
-    QFile file(metadataPath());
-    if (!file.open(QIODevice::WriteOnly)) return false;
-    file.write(QJsonDocument(root).toJson());
-    return true;
+    return writeJsonAtomic(metadataPath(), QJsonDocument(root));
 }
 
 BookInfo BookLibrary::bookById(const QString &id) const
@@ -213,6 +230,19 @@ bool BookLibrary::removeBook(const QString &id)
             save();
             saveAnnotations();
             saveNotes();
+            emit libraryChanged();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BookLibrary::setBookSpace(const QString &id, const QString &spaceId)
+{
+    for (auto &book : m_books) {
+        if (book.id == id) {
+            book.spaceId = spaceId;
+            save();
             emit libraryChanged();
             return true;
         }
@@ -400,10 +430,7 @@ bool BookLibrary::saveAnnotations() const
         }
         root[it.key()] = arr;
     }
-    QFile file(annotationsPath());
-    if (!file.open(QIODevice::WriteOnly)) return false;
-    file.write(QJsonDocument(root).toJson());
-    return true;
+    return writeJsonAtomic(annotationsPath(), QJsonDocument(root));
 }
 
 // ========== Reading notes ==========
@@ -484,10 +511,7 @@ bool BookLibrary::saveNotes() const
         }
         root[it.key()] = arr;
     }
-    QFile file(notesPath());
-    if (!file.open(QIODevice::WriteOnly)) return false;
-    file.write(QJsonDocument(root).toJson());
-    return true;
+    return writeJsonAtomic(notesPath(), QJsonDocument(root));
 }
 
 QString BookLibrary::loadBookText(const QString &id) const

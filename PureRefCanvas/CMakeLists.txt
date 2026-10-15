@@ -29,6 +29,7 @@ qt_add_executable(PureRefCanvas
     traycontroller.h traycontroller.cpp
     traymenustyle.h
     logger.h logger.cpp
+    spacemanager.h spacemanager.cpp
     lyricspanel.h lyricspanel.cpp
     canvasview.h canvasview.cpp
     canvasscene.h canvasscene.cpp
