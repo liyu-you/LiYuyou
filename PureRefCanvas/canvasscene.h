@@ -66,6 +66,10 @@ public:
                          ImageItem *imgB, const QPointF &ptB);
     QList<LinkItem *> links() const { return m_links; }
 
+    // 链接线默认粗细（工具栏粗细选择器写入；新链接采用）
+    void setLinkWidth(qreal w) { m_linkWidth = w; }
+    qreal linkWidth() const { return m_linkWidth; }
+
     // 由 ImageItem::itemChange 在图片位置变化后调用，刷新吸附到该图的链接
     void refreshLinksFor(QGraphicsItem *moved);
 
@@ -85,6 +89,7 @@ private:
     Tool m_currentTool = SelectTool;
     QColor m_annoColor = QColor(255, 50, 50);
     qreal m_annoWidth = 2.0;
+    qreal m_linkWidth = 2.5;   // 链接线默认粗细（1.5 太细，2.5 为标准）
     bool m_backgroundSuppressed = false;
 
     // Encoded PNG bytes per QPixmap::cacheKey(), so saving a canvas does not

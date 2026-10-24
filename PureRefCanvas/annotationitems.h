@@ -112,7 +112,7 @@ private:
     bool m_draggingEndpoint = false;
     EndPoint m_dragEnd = EndA;
     QColor m_color = QColor(170, 176, 182);
-    qreal m_width = 1.5;
+    qreal m_width = 2.5;
     static constexpr qreal ENDPOINT_R = 6.0;
     static constexpr qreal ARROW_LEN = 9.0;
     static constexpr qreal ARROW_W = 4.5;

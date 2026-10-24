@@ -88,7 +88,7 @@ int main(int argc, char **argv)
         CHECK(!link.isAnchored(LinkItem::EndA));
         CHECK(!link.isAnchored(LinkItem::EndB));
         CHECK(link.color() == QColor(170, 176, 182));   // 默认灰色
-        CHECK(link.width() == 1.5);
+        CHECK(link.width() == 2.5);                     // 默认标准粗细
 
         link.setFreePoint(LinkItem::EndA, QPointF(0, 0));
         CHECK(near(link.edgePointA(), QPointF(0, 0)));
@@ -154,6 +154,33 @@ int main(int argc, char **argv)
         CHECK(!link->isAnchored(LinkItem::EndA));
         CHECK(near(link->edgePointA(), QPointF(400, 50)));   // 停在最后边缘
         CHECK(scene.imageItems().isEmpty());
+    }
+
+    // ---- 场景默认粗细：新链接采用，选中链接可实时改 ----
+    {
+        CanvasScene scene;
+        CHECK(scene.linkWidth() == 2.5);
+        ImageItem *img = scene.addImage(makePix(100, 100), QPointF(0, 0));
+        LinkItem *l1 = scene.createLink(img, img->sceneContentCenter(),
+                                        nullptr, QPointF(500, 50));
+        CHECK(l1->width() == 2.5);
+
+        // 改默认粗细 → 只影响之后新建的链接
+        scene.setLinkWidth(5.0);
+        CHECK(scene.linkWidth() == 5.0);
+        LinkItem *l2 = scene.createLink(nullptr, QPointF(0, 600),
+                                        nullptr, QPointF(500, 600));
+        CHECK(l2->width() == 5.0);
+        CHECK(l1->width() == 2.5);   // 旧链接不受影响
+
+        // 选中链接后改粗细 → 实时生效（模拟工具栏 applyLinkWidth）
+        l1->setSelected(true);
+        const QList<QGraphicsItem *> sel = scene.selectedItems();
+        for (QGraphicsItem *it : sel) {
+            if (auto *link = dynamic_cast<LinkItem *>(it))
+                link->setWidth(4.0);
+        }
+        CHECK(l1->width() == 4.0);
     }
 
     // ---- 垂直锚点：上下排列时线端落在上下边 ----

@@ -8,6 +8,7 @@
 class QTimer;
 class QToolButton;
 class QLabel;
+class QComboBox;
 class CanvasScene;
 class ArrowItem;
 class PenItem;
@@ -117,6 +118,7 @@ private:
     // Link-line tool state（链接线：点两张图/空白处连线）
     QWidget *m_toolBar = nullptr;
     QToolButton *m_linkBtn = nullptr;
+    QComboBox *m_linkWidthCombo = nullptr;   // 链接线粗细选择（新线默认 + 选中线实时改）
     bool m_linkToolActive = false;
     bool m_linkPending = false;          // 已选起点，等待第二击
     QPointF m_linkStartPt;               // 起点（锚图为图片中心）
@@ -125,6 +127,8 @@ private:
     void createToolBar();
     void setLinkToolActive(bool on);
     void clearLinkState();
+    void applyLinkWidth(int index);    // 粗细选择：设默认 + 应用到选中链接
+    void syncLinkWidthCombo();         // 选中链接时回显其粗细
 
     static constexpr qreal MIN_ZOOM = 0.05;
     static constexpr qreal MAX_ZOOM = 20.0;

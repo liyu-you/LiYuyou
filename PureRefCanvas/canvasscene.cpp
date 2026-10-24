@@ -405,10 +405,10 @@ PenItem *CanvasScene::createPen()
 LinkItem *CanvasScene::createLink(ImageItem *imgA, const QPointF &ptA,
                                   ImageItem *imgB, const QPointF &ptB)
 {
-    // 参考关联线：流程图式灰色曲线箭头（默认灰色，细线）
+    // 参考关联线：流程图式灰色曲线箭头（默认灰色，粗细取场景链接线宽度）
     LinkItem *link = new LinkItem(ptA, ptB, imgA, imgB);
     link->setColor(QColor(170, 176, 182));
-    link->setWidth(1.5);
+    link->setWidth(m_linkWidth);
     link->setZValue(++m_nextZ);
     addItem(link);
     m_links.append(link);

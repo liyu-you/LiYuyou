@@ -15,6 +15,7 @@
 #include <QScrollBar>
 #include <QApplication>
 #include <QToolButton>
+#include <QComboBox>
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QGraphicsRectItem>
@@ -383,9 +384,80 @@ void CanvasView::createToolBar()
         "QToolButton:hover { background: rgba(102,192,244,0.18); color: #66c0f4; }"
         "QToolButton:checked { background: rgba(102,192,244,0.35); color: #ffffff; }");
     lay->addWidget(m_linkBtn);
+
+    // 链接线粗细选择：细 / 标准 / 粗 / 特粗（新链接默认粗细；选中链接实时改）
+    QLabel *widthLabel = new QLabel(m_toolBar);
+    widthLabel->setText(QStringLiteral("粗细"));
+    widthLabel->setStyleSheet("color: #c7d5e0; font-size: 12px; border: none;");
+    lay->addWidget(widthLabel);
+
+    m_linkWidthCombo = new QComboBox(m_toolBar);
+    m_linkWidthCombo->setCursor(Qt::PointingHandCursor);
+    m_linkWidthCombo->setStyleSheet(
+        "QComboBox { background: rgba(18,28,40,0.9); color: #c7d5e0;"
+        " border: 1px solid rgba(102,192,244,0.35); border-radius: 4px;"
+        " padding: 1px 6px; min-width: 56px; font-size: 12px; }"
+        "QComboBox:hover { border-color: #66c0f4; }"
+        "QComboBox QAbstractItemView { background: #121c28; color: #c7d5e0;"
+        " selection-background-color: rgba(102,192,244,0.35);"
+        " outline: none; }");
+    m_linkWidthCombo->addItem(QStringLiteral("细"),   1.5);
+    m_linkWidthCombo->addItem(QStringLiteral("标准"), 2.5);
+    m_linkWidthCombo->addItem(QStringLiteral("粗"),   4.0);
+    m_linkWidthCombo->addItem(QStringLiteral("特粗"), 6.0);
+    m_linkWidthCombo->setCurrentIndex(1);   // 默认标准
+    m_linkWidthCombo->setToolTip(QStringLiteral("链接线粗细：影响新画的线；选中链接时可直接改其粗细"));
+    lay->addWidget(m_linkWidthCombo);
     m_toolBar->adjustSize();
 
     connect(m_linkBtn, &QToolButton::toggled, this, &CanvasView::setLinkToolActive);
+    connect(m_linkWidthCombo, &QComboBox::currentIndexChanged,
+            this, &CanvasView::applyLinkWidth);
+    connect(m_canvasScene, &QGraphicsScene::selectionChanged,
+            this, &CanvasView::syncLinkWidthCombo);
+}
+
+void CanvasView::applyLinkWidth(int index)
+{
+    if (!m_linkWidthCombo || index < 0)
+        return;
+    const qreal w = m_linkWidthCombo->itemData(index).toDouble();
+    if (w <= 0.0)
+        return;
+    m_canvasScene->setLinkWidth(w);
+    // 选中的链接实时改粗细（不要求处于链接工具模式）
+    const QList<QGraphicsItem *> selected = m_canvasScene->selectedItems();
+    for (QGraphicsItem *it : selected) {
+        if (auto *link = dynamic_cast<LinkItem *>(it))
+            link->setWidth(w);
+    }
+}
+
+void CanvasView::syncLinkWidthCombo()
+{
+    // 选中链接时把粗细框回显为其宽度；多根选中且宽度不一致则不动
+    qreal w = -1.0;
+    bool any = false;
+    const QList<QGraphicsItem *> selected = m_canvasScene->selectedItems();
+    for (QGraphicsItem *it : selected) {
+        if (auto *link = dynamic_cast<LinkItem *>(it)) {
+            if (!any) {
+                w = link->width();
+                any = true;
+            } else if (qAbs(link->width() - w) > 0.01) {
+                return;
+            }
+        }
+    }
+    if (!any)
+        return;
+    for (int i = 0; i < m_linkWidthCombo->count(); ++i) {
+        if (qAbs(m_linkWidthCombo->itemData(i).toDouble() - w) < 0.01) {
+            const QSignalBlocker blocker(m_linkWidthCombo);
+            m_linkWidthCombo->setCurrentIndex(i);
+            return;
+        }
+    }
 }
 
 void CanvasView::setLinkToolActive(bool on)
