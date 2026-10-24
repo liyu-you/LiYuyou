@@ -197,6 +197,37 @@ int main(int argc, char **argv)
         CHECK(l2->width() == 1.5);
     }
 
+    // ---- linksForImage：图片右键菜单的作用范围 ----
+    {
+        CanvasScene scene;
+        ImageItem *i0 = scene.addImage(makePix(100, 100), QPointF(0, 0));
+        ImageItem *i1 = scene.addImage(makePix(100, 100), QPointF(400, 0));
+        LinkItem *l1 = scene.createLink(i0, i0->sceneContentCenter(),
+                                        i1, i1->sceneContentCenter());
+        LinkItem *l2 = scene.createLink(i0, i0->sceneContentCenter(),
+                                        nullptr, QPointF(0, 500));
+        LinkItem *l3 = scene.createLink(nullptr, QPointF(0, 700),
+                                        nullptr, QPointF(500, 700));
+        // i0 吸附了 l1（A 端）和 l2（A 端）
+        CHECK(scene.linksForImage(i0).size() == 2);
+        CHECK(scene.linksForImage(i0).contains(l1));
+        CHECK(scene.linksForImage(i0).contains(l2));
+        // i1 只吸附 l1（B 端）
+        CHECK(scene.linksForImage(i1).size() == 1);
+        CHECK(scene.linksForImage(i1).contains(l1));
+        // 自由链接 l3 不属于任何图片
+        CHECK(!scene.linksForImage(i0).contains(l3));
+        CHECK(!scene.linksForImage(i1).contains(l3));
+
+        // 模拟图片右键菜单「粗」：吸附该图的链接全部变粗
+        const QList<LinkItem *> targets = scene.linksForImage(i0);
+        for (LinkItem *l : targets)
+            l->setWidth(4.0);
+        CHECK(l1->width() == 4.0);
+        CHECK(l2->width() == 4.0);
+        CHECK(l3->width() == 2.5);   // 未吸附 i0 的链接不受影响
+    }
+
     // ---- 垂直锚点：上下排列时线端落在上下边 ----
     {
         CanvasScene scene;

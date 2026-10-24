@@ -1,5 +1,6 @@
 #include "imageitem.h"
 #include "canvasscene.h"
+#include "annotationitems.h"
 
 #include <QGraphicsSceneMouseEvent>
 #include <QPainter>
@@ -302,6 +303,33 @@ void ImageItem::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
     QMenu menu;
     menu.addAction("置于顶层", this, &ImageItem::bringToFront);
     menu.addAction("置于底层", this, &ImageItem::sendToBack);
+
+    // 线条粗细：作用于吸附到本图的全部链接（无链接时不显示）
+    if (auto *cs = dynamic_cast<CanvasScene *>(scene())) {
+        QList<LinkItem *> attached = cs->linksForImage(this);
+        if (!attached.isEmpty()) {
+            QMenu *widthMenu = menu.addMenu(QStringLiteral("线条粗细"));
+            for (const auto &preset : LinkItem::widthPresets()) {
+                bool allMatch = true;
+                for (LinkItem *l : attached) {
+                    if (qAbs(l->width() - preset.second) > 0.01) {
+                        allMatch = false;
+                        break;
+                    }
+                }
+                const QList<LinkItem *> targets = attached;
+                const qreal w = preset.second;
+                QAction *act = widthMenu->addAction(preset.first, [cs, targets, w]() {
+                    cs->setLinkWidth(w);
+                    for (LinkItem *l : targets)
+                        l->setWidth(w);
+                });
+                act->setCheckable(true);
+                act->setChecked(allMatch);
+            }
+        }
+    }
+
     menu.addSeparator();
     QAction *lockAct = menu.addAction(m_locked ? "解锁 (Ctrl+L)" : "锁定 (Ctrl+L)");
     menu.addSeparator();

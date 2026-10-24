@@ -402,6 +402,18 @@ PenItem *CanvasScene::createPen()
     return pen;
 }
 
+QList<LinkItem *> CanvasScene::linksForImage(const ImageItem *img) const
+{
+    QList<LinkItem *> result;
+    for (LinkItem *l : m_links) {
+        if (l->anchorItem(LinkItem::EndA) == img ||
+            l->anchorItem(LinkItem::EndB) == img) {
+            result.append(l);
+        }
+    }
+    return result;
+}
+
 void CanvasScene::setLinkWidth(qreal w)
 {
     if (qAbs(m_linkWidth - w) < 0.01)

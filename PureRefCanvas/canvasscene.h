@@ -66,6 +66,9 @@ public:
                          ImageItem *imgB, const QPointF &ptB);
     QList<LinkItem *> links() const { return m_links; }
 
+    // 吸附到指定图片的全部链接（图片右键「线条粗细」用）
+    QList<LinkItem *> linksForImage(const ImageItem *img) const;
+
     // 链接线默认粗细（工具栏粗细选择器/右键菜单写入；新链接采用）
     void setLinkWidth(qreal w);
     qreal linkWidth() const { return m_linkWidth; }
