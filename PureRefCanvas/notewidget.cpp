@@ -820,6 +820,18 @@ void NoteWidget::setSpaceManager(SpaceManager *mgr)
     refreshCards();
 }
 
+void NoteWidget::setDesktopStickyHandlers(
+    std::function<void(const QString &noteId)> pinToggle,
+    std::function<bool(const QString &noteId)> isPinned,
+    std::function<void(const QString &noteId)> noteRemoved,
+    std::function<void(const QString &noteId)> noteChanged)
+{
+    m_pinToggle = std::move(pinToggle);
+    m_isPinned = std::move(isPinned);
+    m_noteRemoved = std::move(noteRemoved);
+    m_noteChanged = std::move(noteChanged);
+}
+
 void NoteWidget::setNoteSpace(const QString &noteId, const QString &spaceId)
 {
     for (NoteData &n : m_notes) {
@@ -984,6 +996,11 @@ void NoteWidget::showCardContextMenu(const QString &noteId, const QPoint &global
 
     menu.addSeparator();
 
+    const bool pinned = m_isPinned && m_isPinned(noteId);
+    QAction *pinAct = menu.addAction(pinned ? "取消桌面便签" : "设为桌面便签");
+
+    menu.addSeparator();
+
     QAction *delAct = menu.addAction("删除");
 
     QAction *chosen = menu.exec(globalPos);
@@ -996,6 +1013,8 @@ void NoteWidget::showCardContextMenu(const QString &noteId, const QPoint &global
         it->updatedAt = QDateTime::currentDateTime();
         saveNotes();
         refreshCards();
+    } else if (chosen == pinAct) {
+        if (m_pinToggle) m_pinToggle(noteId);
     } else if (chosen == copyAct) {
         QTextDocument doc;
         doc.setHtml(it->content);
@@ -1017,6 +1036,7 @@ void NoteWidget::showCardContextMenu(const QString &noteId, const QPoint &global
             const bool deletingCurrent = (m_currentNoteId == noteId);
             m_notes.erase(it);
             saveNotes();
+            if (m_noteRemoved) m_noteRemoved(noteId);   // 关闭该笔记的桌面便签
             if (deletingCurrent) {
                 m_currentNoteId.clear();
                 m_stack->setCurrentIndex(0);
@@ -1162,9 +1182,11 @@ void NoteWidget::deleteNote()
 {
     if (m_currentNoteId.isEmpty()) return;
     if (QMessageBox::question(this, "删除笔记", "确定删除这篇笔记吗？") != QMessageBox::Yes) return;
+    const QString deletedId = m_currentNoteId;
     m_notes.removeIf([this](const NoteData &n) { return n.id == m_currentNoteId; });
     m_currentNoteId.clear();
     saveNotes();
+    if (m_noteRemoved) m_noteRemoved(deletedId);   // 关闭该笔记的桌面便签
     m_stack->setCurrentIndex(0);
     refreshCards();
 }
@@ -2779,8 +2801,9 @@ void NoteWidget::saveCurrentNote()
         it->title = m_titleEdit->text();
         it->content = m_editor->toHtml();
         it->updatedAt = QDateTime::currentDateTime();
+        saveNotes();
+        if (m_noteChanged) m_noteChanged(m_currentNoteId);   // 刷新桌面便签正文
     }
-    saveNotes();
     m_modified = false;
 }
 

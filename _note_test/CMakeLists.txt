@@ -14,6 +14,7 @@ qt_add_executable(notetest
     notetest.cpp
     ${SRC}/notewidget.h ${SRC}/notewidget.cpp
     ${SRC}/spacemanager.h ${SRC}/spacemanager.cpp
+    ${SRC}/desktopsticky.h ${SRC}/desktopsticky.cpp
 )
 target_include_directories(notetest PRIVATE ${SRC})
 target_link_libraries(notetest PRIVATE Qt6::Widgets Qt6::PrintSupport)

@@ -25,10 +25,12 @@
 #include <QJsonArray>
 #include <QMetaObject>
 #include <QTemporaryDir>
+#include <QTextBrowser>
 #include <cstdio>
 #include <cstdlib>
 
 #include "notewidget.h"
+#include "desktopsticky.h"
 
 static int g_failed = 0;
 static int g_passed = 0;
@@ -629,6 +631,108 @@ int main(int argc, char **argv)
         CHECK(invoke(wc, "showWordCount")); // 槽可达且弹窗可自动关闭
         pump(200);
         delete wc;
+    }
+
+    // ---- 桌面便签：序列化/解析纯函数 ----
+    {
+        // 空/损坏/非数组 → 空列表
+        CHECK(parseStickyStates(QJsonDocument()).isEmpty());
+        CHECK(parseStickyStates(QJsonDocument::fromJson("not json{{{")).isEmpty());
+        CHECK(parseStickyStates(QJsonDocument::fromJson(R"({"a":1})")).isEmpty());
+
+        // 跳过空 id 与异常几何（w/h 越界），正常条目保留
+        const QList<StickyState> bad = parseStickyStates(QJsonDocument::fromJson(
+            R"([{"id":"a","x":0,"y":0,"w":10,"h":10},
+                {"id":"b","x":1,"y":2,"w":300,"h":200},
+                {"id":"","x":0,"y":0,"w":300,"h":200}])"));
+        CHECK(bad.size() == 1);
+        CHECK(bad.first().noteId == "b");
+        CHECK(bad.first().x == 1 && bad.first().y == 2);
+        CHECK(bad.first().w == 300 && bad.first().h == 200);
+
+        // 往返：序列化 → 解析 → 字段一致
+        QList<StickyState> states;
+        states.append({QStringLiteral("n1"), 10, 20, 260, 200});
+        states.append({QStringLiteral("n2"), -50, 300, 400, 300});
+        const QList<StickyState> rt =
+            parseStickyStates(QJsonDocument(serializeStickyStates(states)));
+        CHECK(rt.size() == 2);
+        CHECK(rt[0].noteId == "n1" && rt[0].x == 10 && rt[0].y == 20 && rt[0].w == 260);
+        CHECK(rt[1].noteId == "n2" && rt[1].x == -50 && rt[1].w == 400 && rt[1].h == 300);
+        CHECK(parseStickyStates(QJsonDocument(serializeStickyStates({}))).isEmpty());
+
+        // 缺省 w/h 时回落到默认尺寸（手写精简状态文件仍可恢复）
+        const QList<StickyState> def =
+            parseStickyStates(QJsonDocument::fromJson(R"([{"id":"n9","x":5,"y":6}])"));
+        CHECK(def.size() == 1);
+        CHECK(def.first().w == 260 && def.first().h == 200);
+    }
+
+    // ---- 桌面便签：管理器 smoke（置顶/取消/落盘/恢复/同步/删除联动） ----
+    {
+        const QString sroot = scratch + "/stickies";
+        QDir(scratch).mkpath(sroot);
+        const QString stateFile = sroot + "/desktop_stickies.json";
+
+        NoteData note;
+        note.id = "n1";
+        note.title = "便签测试";
+        note.content = "<p>桌面参考正文</p>";
+        const auto getter = [&]() -> QList<NoteData> { return {note}; };
+
+        DesktopStickyManager mgr(stateFile, getter);
+        CHECK(!mgr.isPinned("n1"));
+        CHECK(mgr.stickyCount() == 0);
+
+        // 置顶 → 出现便签窗口，标题/正文来自笔记
+        mgr.toggle("n1");
+        CHECK(mgr.isPinned("n1"));
+        CHECK(mgr.stickyCount() == 1);
+        DesktopSticky *st = mgr.windowFor("n1");
+        CHECK(st != nullptr);
+        CHECK(st && st->windowTitle() == "便签测试");
+        CHECK(st && st->findChild<QTextBrowser *>()
+                     && st->findChild<QTextBrowser *>()->toPlainText().contains("桌面参考正文"));
+
+        // 再次置顶 = 取消
+        mgr.toggle("n1");
+        CHECK(!mgr.isPinned("n1"));
+        CHECK(mgr.stickyCount() == 0);
+
+        // 置顶 → 状态落盘 → 新管理器 restoreAll 恢复
+        mgr.toggle("n1");
+        mgr.saveState();
+        CHECK(QFile::exists(stateFile));
+        DesktopStickyManager mgr2(stateFile, getter);
+        mgr2.restoreAll();
+        CHECK(mgr2.stickyCount() == 1);
+        CHECK(mgr2.isPinned("n1"));
+
+        // 同步：笔记内容变更后便签正文刷新
+        note.content = "<p>更新后的正文</p>";
+        mgr2.syncNote("n1");
+        DesktopSticky *st2 = mgr2.windowFor("n1");
+        CHECK(st2 && st2->findChild<QTextBrowser *>()
+                     && st2->findChild<QTextBrowser *>()->toPlainText().contains("更新后的正文"));
+
+        // 删除联动：笔记被删除 → 便签关闭
+        mgr2.noteRemoved("n1");
+        CHECK(mgr2.stickyCount() == 0);
+        CHECK(!mgr2.isPinned("n1"));
+
+        // 恢复时跳过已不存在的笔记（gone 不存在于 getter 结果）
+        {
+            QFile f(stateFile);
+            CHECK(f.open(QIODevice::WriteOnly));
+            f.write(R"([{"id":"n1","x":0,"y":0,"w":300,"h":200},
+                        {"id":"gone","x":0,"y":0,"w":300,"h":200}])");
+            f.close();
+        }
+        DesktopStickyManager mgr3(stateFile, getter);
+        mgr3.restoreAll();
+        CHECK(mgr3.stickyCount() == 1);
+        CHECK(mgr3.windowFor("n1") != nullptr);
+        CHECK(mgr3.windowFor("gone") == nullptr);
     }
 
     printf("\n=== %d passed, %d failed ===\n", g_passed, g_failed);

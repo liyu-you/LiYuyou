@@ -8,6 +8,7 @@
 #include "canvasscene.h"
 #include "canvasview.h"
 #include "notewidget.h"
+#include "desktopsticky.h"
 #include "imageitem.h"
 #include "imageformats.h"
 
@@ -1785,6 +1786,19 @@ void MainWindow::setupPages()
     // (mainstream note apps keep a navigation sidebar on the note page).
     m_stack->addWidget(m_noteWidget);
     qApp->processEvents();
+
+    // ===== 桌面便签：把笔记置顶到桌面作可拖动参考 =====
+    m_stickyMgr = new DesktopStickyManager(
+        noteRoot + "/desktop_stickies.json",
+        [this]() { return m_noteWidget ? m_noteWidget->allNotes() : QList<NoteData>{}; },
+        this);
+    m_noteWidget->setDesktopStickyHandlers(
+        [this](const QString &id) { if (m_stickyMgr) m_stickyMgr->toggle(id); },
+        [this](const QString &id) { return m_stickyMgr && m_stickyMgr->isPinned(id); },
+        [this](const QString &id) { if (m_stickyMgr) m_stickyMgr->noteRemoved(id); },
+        [this](const QString &id) { if (m_stickyMgr) m_stickyMgr->syncNote(id); });
+    m_stickyMgr->restoreAll();   // 恢复上次退出时仍在桌面的便签
+    connect(qApp, &QCoreApplication::aboutToQuit, m_stickyMgr, &DesktopStickyManager::saveState);
 
     // ===== Material library page =====
     m_materialWidget = new MaterialWidget(matRoot, this);

@@ -18,6 +18,7 @@ class CanvasScene;
 class CanvasView;
 class NoteWidget;
 class MaterialWidget;
+class DesktopStickyManager;
 class ReaderWidget;
 class MusicPlayerWidget;
 class QLabel;
@@ -127,6 +128,7 @@ private:
     MaterialWidget *m_materialWidget;
     ReaderWidget *m_readerWidget;
     MusicPlayerWidget *m_musicWidget;
+    DesktopStickyManager *m_stickyMgr = nullptr;   // 桌面便签（笔记置顶为桌面参考）
 
     QLabel *m_zoomLabel;
     QLabel *m_itemCountLabel;

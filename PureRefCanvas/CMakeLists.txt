@@ -37,6 +37,7 @@ qt_add_executable(PureRefCanvas
     imageformats.h
     imageio.h
     notewidget.h notewidget.cpp
+    desktopsticky.h desktopsticky.cpp
     flashcardstore.h flashcardstore.cpp
     gardenview.h gardenview.cpp
     materiallibrary.h materiallibrary.cpp

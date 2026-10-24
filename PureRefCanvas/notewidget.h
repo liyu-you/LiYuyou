@@ -83,6 +83,17 @@ public:
     void openNote(const QString &noteId);
     QString htmlToMarkdown(const QString &html) const;
 
+    // 桌面便签联动（由 MainWindow 注入；std::function 避免头文件依赖）：
+    //   pinToggle   卡片右键「设为/取消桌面便签」→ 管理器 toggle(noteId)
+    //   isPinned    菜单项动态文案（设为 ⇄ 取消）
+    //   noteRemoved 笔记删除后同步关闭对应便签
+    //   noteChanged 当前笔记保存后刷新便签正文
+    void setDesktopStickyHandlers(
+        std::function<void(const QString &noteId)> pinToggle,
+        std::function<bool(const QString &noteId)> isPinned,
+        std::function<void(const QString &noteId)> noteRemoved,
+        std::function<void(const QString &noteId)> noteChanged);
+
 private:
     QPixmap m_bgPixmap;
     QString m_bgPath;
@@ -277,6 +288,12 @@ private:
     QListWidget *m_wikiPopup = nullptr;    // [[...]] autocompleter popup
     QString m_wikiPrefix;                   // partial text after [[ being typed
     QLabel *m_statusLabel;
+
+    // Desktop sticky-note callbacks（桌面便签，MainWindow 注入）
+    std::function<void(const QString &)> m_pinToggle;
+    std::function<bool(const QString &)> m_isPinned;
+    std::function<void(const QString &)> m_noteRemoved;
+    std::function<void(const QString &)> m_noteChanged;
 
     // Data
     int m_sidebarWidth = 220;   // 侧栏折叠前宽度（toggleSidebar 恢复用）
