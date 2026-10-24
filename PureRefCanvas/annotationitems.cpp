@@ -6,6 +6,10 @@
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsSceneHoverEvent>
+#include <QGraphicsSceneContextMenuEvent>
+#include <QMenu>
+#include <QAction>
+#include "canvasscene.h"
 #include <QCursor>
 #include <QtMath>
 
@@ -328,6 +332,76 @@ void LinkItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
         setCursor(Qt::SizeAllCursor);
     }
     QGraphicsItem::hoverMoveEvent(event);
+}
+
+QVector<QPair<QString, qreal>> LinkItem::widthPresets()
+{
+    // 右键菜单与工具栏粗细选择共用同一组预设
+    return {
+        { QStringLiteral("细"),   1.5 },
+        { QStringLiteral("标准"), 2.5 },
+        { QStringLiteral("粗"),   4.0 },
+        { QStringLiteral("特粗"), 6.0 },
+    };
+}
+
+void LinkItem::applyWidth(LinkItem *anchor, qreal w)
+{
+    if (!anchor || w <= 0.0)
+        return;
+    // 目标：右键时若本线已在多选内，应用到全部选中链接；否则只应用本线
+    QList<LinkItem *> targets;
+    if (anchor->isSelected() && anchor->scene()) {
+        const QList<QGraphicsItem *> selected = anchor->scene()->selectedItems();
+        for (QGraphicsItem *it : selected) {
+            if (auto *l = dynamic_cast<LinkItem *>(it))
+                targets.append(l);
+        }
+    }
+    if (targets.isEmpty())
+        targets.append(anchor);
+    // 同步场景默认粗细（之后新画的线也采用）
+    if (auto *cs = dynamic_cast<CanvasScene *>(anchor->scene()))
+        cs->setLinkWidth(w);
+    for (LinkItem *l : targets)
+        l->setWidth(w);
+}
+
+void LinkItem::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
+{
+    if (!isSelected()) {
+        if (scene())
+            scene()->clearSelection();
+        setSelected(true);
+    }
+
+    QList<LinkItem *> targets;
+    const QList<QGraphicsItem *> selected = scene()->selectedItems();
+    for (QGraphicsItem *it : selected) {
+        if (auto *l = dynamic_cast<LinkItem *>(it))
+            targets.append(l);
+    }
+    if (targets.isEmpty())
+        targets.append(this);
+
+    QMenu menu;
+    QMenu *widthMenu = menu.addMenu(QStringLiteral("线条粗细"));
+    for (const auto &preset : widthPresets()) {
+        bool allMatch = true;
+        for (LinkItem *l : targets) {
+            if (qAbs(l->width() - preset.second) > 0.01) {
+                allMatch = false;
+                break;
+            }
+        }
+        const qreal w = preset.second;
+        // QGraphicsItem 不是 QObject，用 QMenu::addAction 的仿函数重载（内部自行连接）
+        QAction *act = widthMenu->addAction(preset.first, [this, w]() { applyWidth(this, w); });
+        act->setCheckable(true);
+        act->setChecked(allMatch);
+    }
+    menu.exec(event->screenPos());
+    event->accept();
 }
 
 QVariant LinkItem::itemChange(GraphicsItemChange change, const QVariant &value)

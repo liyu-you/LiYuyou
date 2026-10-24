@@ -401,10 +401,8 @@ void CanvasView::createToolBar()
         "QComboBox QAbstractItemView { background: #121c28; color: #c7d5e0;"
         " selection-background-color: rgba(102,192,244,0.35);"
         " outline: none; }");
-    m_linkWidthCombo->addItem(QStringLiteral("细"),   1.5);
-    m_linkWidthCombo->addItem(QStringLiteral("标准"), 2.5);
-    m_linkWidthCombo->addItem(QStringLiteral("粗"),   4.0);
-    m_linkWidthCombo->addItem(QStringLiteral("特粗"), 6.0);
+    for (const auto &preset : LinkItem::widthPresets())
+        m_linkWidthCombo->addItem(preset.first, preset.second);
     m_linkWidthCombo->setCurrentIndex(1);   // 默认标准
     m_linkWidthCombo->setToolTip(QStringLiteral("链接线粗细：影响新画的线；选中链接时可直接改其粗细"));
     lay->addWidget(m_linkWidthCombo);
@@ -415,6 +413,18 @@ void CanvasView::createToolBar()
             this, &CanvasView::applyLinkWidth);
     connect(m_canvasScene, &QGraphicsScene::selectionChanged,
             this, &CanvasView::syncLinkWidthCombo);
+    // 右键菜单改粗细时同步工具栏选择器
+    connect(m_canvasScene, &CanvasScene::linkWidthChanged, this, [this](qreal w) {
+        if (!m_linkWidthCombo)
+            return;
+        for (int i = 0; i < m_linkWidthCombo->count(); ++i) {
+            if (qAbs(m_linkWidthCombo->itemData(i).toDouble() - w) < 0.01) {
+                const QSignalBlocker blocker(m_linkWidthCombo);
+                m_linkWidthCombo->setCurrentIndex(i);
+                return;
+            }
+        }
+    });
 }
 
 void CanvasView::applyLinkWidth(int index)

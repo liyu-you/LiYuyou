@@ -66,8 +66,8 @@ public:
                          ImageItem *imgB, const QPointF &ptB);
     QList<LinkItem *> links() const { return m_links; }
 
-    // 链接线默认粗细（工具栏粗细选择器写入；新链接采用）
-    void setLinkWidth(qreal w) { m_linkWidth = w; }
+    // 链接线默认粗细（工具栏粗细选择器/右键菜单写入；新链接采用）
+    void setLinkWidth(qreal w);
     qreal linkWidth() const { return m_linkWidth; }
 
     // 由 ImageItem::itemChange 在图片位置变化后调用，刷新吸附到该图的链接
@@ -77,6 +77,7 @@ signals:
     void itemCountChanged(int count);
     void selectionChangedInfo(int count);
     void toolChanged(Tool tool);
+    void linkWidthChanged(qreal width);
 
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;

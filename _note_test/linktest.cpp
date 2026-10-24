@@ -173,14 +173,28 @@ int main(int argc, char **argv)
         CHECK(l2->width() == 5.0);
         CHECK(l1->width() == 2.5);   // 旧链接不受影响
 
-        // 选中链接后改粗细 → 实时生效（模拟工具栏 applyLinkWidth）
+        // 粗细预设：右键菜单与工具栏共用同一组（4 档）
+        CHECK(LinkItem::widthPresets().size() == 4);
+
+        // 选中链接后 applyWidth（右键菜单同款）→ 实时改并同步场景默认
         l1->setSelected(true);
-        const QList<QGraphicsItem *> sel = scene.selectedItems();
-        for (QGraphicsItem *it : sel) {
-            if (auto *link = dynamic_cast<LinkItem *>(it))
-                link->setWidth(4.0);
-        }
+        LinkItem::applyWidth(l1, 4.0);
         CHECK(l1->width() == 4.0);
+        CHECK(scene.linkWidth() == 4.0);
+
+        // 未选中的链接 applyWidth → 只改自身
+        l1->setSelected(false);
+        LinkItem::applyWidth(l2, 6.0);
+        CHECK(l2->width() == 6.0);
+        CHECK(scene.linkWidth() == 6.0);
+        CHECK(l1->width() == 4.0);
+
+        // 多选时 applyWidth → 批量应用到全部选中链接
+        l1->setSelected(true);
+        l2->setSelected(true);
+        LinkItem::applyWidth(l1, 1.5);
+        CHECK(l1->width() == 1.5);
+        CHECK(l2->width() == 1.5);
     }
 
     // ---- 垂直锚点：上下排列时线端落在上下边 ----

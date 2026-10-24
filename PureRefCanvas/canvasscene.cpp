@@ -402,6 +402,14 @@ PenItem *CanvasScene::createPen()
     return pen;
 }
 
+void CanvasScene::setLinkWidth(qreal w)
+{
+    if (qAbs(m_linkWidth - w) < 0.01)
+        return;
+    m_linkWidth = w;
+    emit linkWidthChanged(w);
+}
+
 LinkItem *CanvasScene::createLink(ImageItem *imgA, const QPointF &ptA,
                                   ImageItem *imgB, const QPointF &ptB)
 {

@@ -7,6 +7,8 @@
 #include <QPointF>
 #include <QColor>
 #include <QPointer>
+#include <QVector>
+#include <QPair>
 
 class ImageItem;
 
@@ -92,6 +94,10 @@ public:
     static QPainterPath makeConnector(const QPointF &a, Edge eA,
                                       const QPointF &b, Edge eB);
 
+    // 粗细预设（右键菜单与工具栏共用）；applyWidth：设场景默认 + 应用到选中链接
+    static QVector<QPair<QString, qreal>> widthPresets();
+    static void applyWidth(LinkItem *anchor, qreal w);
+
     QPainterPath arrowPath() const;   // B 端箭头三角形（测试可检查）
 
 protected:
@@ -99,6 +105,7 @@ protected:
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
     void hoverMoveEvent(QGraphicsSceneHoverEvent *event) override;
+    void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) override;
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
 private:
