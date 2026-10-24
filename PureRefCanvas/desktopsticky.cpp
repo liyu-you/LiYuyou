@@ -10,6 +10,7 @@
 #include <QPushButton>
 #include <QTextBrowser>
 #include <QSizeGrip>
+#include <QStyle>
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QScreen>
@@ -31,6 +32,7 @@ QJsonArray serializeStickyStates(const QList<StickyState> &states)
         o.insert("y", s.y);
         o.insert("w", s.w);
         o.insert("h", s.h);
+        o.insert("transparent", s.transparent);
         arr.append(o);
     }
     return arr;
@@ -61,6 +63,7 @@ QList<StickyState> parseStickyStates(const QJsonDocument &doc)
         s.y = o.value("y").toInt(0);
         s.w = w;
         s.h = h;
+        s.transparent = o.value("transparent").toBool(false);
         out.append(s);
     }
     return out;
@@ -107,7 +110,21 @@ DesktopSticky::DesktopSticky(const NoteData &note, QWidget *parent)
     )");
     connect(m_closeBtn, &QPushButton::clicked, this, &DesktopSticky::close);
 
+    // 「透/回」：透明模式切换（背景全透明，只显示文字）
+    m_transparentBtn = new QPushButton(QStringLiteral("透"), titleBar);
+    m_transparentBtn->setCursor(Qt::PointingHandCursor);
+    m_transparentBtn->setFixedSize(22, 22);
+    m_transparentBtn->setFocusPolicy(Qt::NoFocus);
+    m_transparentBtn->setToolTip(QStringLiteral("透明模式：背景全透明，只显示文字"));
+    m_transparentBtn->setStyleSheet(R"(
+        QPushButton { background: transparent; border: none; color: #b8a85a;
+                      font-size: 12px; border-radius: 11px; }
+        QPushButton:hover { background: rgba(0,0,0,0.08); color: #8a7a35; }
+    )");
+    connect(m_transparentBtn, &QPushButton::clicked, this, &DesktopSticky::toggleTransparentMode);
+
     titleLay->addWidget(m_titleLabel, 1);
+    titleLay->addWidget(m_transparentBtn);
     titleLay->addWidget(m_closeBtn);
 
     // ---- 正文：只读富文本 ----
@@ -160,7 +177,71 @@ StickyState DesktopSticky::state() const
     s.y = g.y();
     s.w = g.width();
     s.h = g.height();
+    s.transparent = m_transparentMode;
     return s;
+}
+
+void DesktopSticky::toggleTransparentMode()
+{
+    setTransparentMode(!m_transparentMode);
+}
+
+void DesktopSticky::setTransparentMode(bool on)
+{
+    if (m_transparentMode == on)
+        return;
+    m_transparentMode = on;
+
+    if (on) {
+        // 背景/边框全透明，只留文字；控件缩小为半透明锚点（可 hover 恢复）
+        setStyleSheet(QStringLiteral("DesktopSticky { background: transparent; }"));
+        m_body->setStyleSheet(QStringLiteral(
+            "QTextBrowser { background: transparent; border: none; padding: 2px;"
+            " color: #3d3d3d; font-size: 13px; }"));
+        m_grip->hide();
+        m_transparentBtn->setText(QStringLiteral("回"));
+        m_transparentBtn->setToolTip(QStringLiteral("恢复不透明"));
+        m_transparentBtn->setStyleSheet(R"(
+            QPushButton { background: transparent; border: none;
+                          color: rgba(0,0,0,0.20); font-size: 12px; border-radius: 11px; }
+            QPushButton:hover { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.7); }
+        )");
+        m_closeBtn->setStyleSheet(R"(
+            QPushButton { background: transparent; border: none;
+                          color: rgba(0,0,0,0.15); font-size: 17px; border-radius: 11px; }
+            QPushButton:hover { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.8); }
+        )");
+        m_titleLabel->setStyleSheet(QStringLiteral(
+            "color: #3d3d3d; font-weight: 600; font-size: 14px; background: transparent;"));
+    } else {
+        // 恢复便利贴样式
+        setStyleSheet(R"(
+            DesktopSticky { background: rgba(255, 248, 190, 0.96); border-radius: 12px; }
+        )");
+        m_body->setStyleSheet(R"(
+            QTextBrowser { background: rgba(255,255,255,0.35); border: 1px solid rgba(0,0,0,0.05);
+                           border-radius: 8px; padding: 6px; color: #4a3f22; font-size: 13px; }
+        )");
+        m_grip->show();
+        m_transparentBtn->setText(QStringLiteral("透"));
+        m_transparentBtn->setToolTip(QStringLiteral("透明模式：背景全透明，只显示文字"));
+        m_transparentBtn->setStyleSheet(R"(
+            QPushButton { background: transparent; border: none; color: #b8a85a;
+                          font-size: 12px; border-radius: 11px; }
+            QPushButton:hover { background: rgba(0,0,0,0.08); color: #8a7a35; }
+        )");
+        m_closeBtn->setStyleSheet(R"(
+            QPushButton { background: transparent; border: none; color: #b8a85a;
+                          font-size: 17px; border-radius: 11px; }
+            QPushButton:hover { background: #e57373; color: #ffffff; }
+        )");
+        m_titleLabel->setStyleSheet(QStringLiteral(
+            "color: #4d3f1f; font-weight: 600; font-size: 14px; background: transparent;"));
+    }
+    // 顶层样式切换后强制刷新
+    style()->unpolish(this);
+    style()->polish(this);
+    update();
 }
 
 void DesktopSticky::mousePressEvent(QMouseEvent *event)
@@ -300,6 +381,7 @@ void DesktopStickyManager::restoreAll()
             continue;   // 该笔记已不存在，不恢复
         DesktopSticky *sticky = new DesktopSticky(**it);
         sticky->setGeometry(st.x, st.y, st.w, st.h);
+        sticky->setTransparentMode(st.transparent);
         // 显示器被拔掉后几何可能落在屏幕外：钳回主屏可用区域
         if (!avail.intersects(sticky->frameGeometry()))
             sticky->move(avail.center() - sticky->rect().center());

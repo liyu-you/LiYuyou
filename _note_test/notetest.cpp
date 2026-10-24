@@ -650,22 +650,26 @@ int main(int argc, char **argv)
         CHECK(bad.first().x == 1 && bad.first().y == 2);
         CHECK(bad.first().w == 300 && bad.first().h == 200);
 
-        // 往返：序列化 → 解析 → 字段一致
+        // 往返：序列化 → 解析 → 字段一致（含透明模式）
         QList<StickyState> states;
         states.append({QStringLiteral("n1"), 10, 20, 260, 200});
         states.append({QStringLiteral("n2"), -50, 300, 400, 300});
+        states.append({QStringLiteral("n3"), 0, 0, 300, 200, true});
         const QList<StickyState> rt =
             parseStickyStates(QJsonDocument(serializeStickyStates(states)));
-        CHECK(rt.size() == 2);
+        CHECK(rt.size() == 3);
         CHECK(rt[0].noteId == "n1" && rt[0].x == 10 && rt[0].y == 20 && rt[0].w == 260);
+        CHECK(rt[0].transparent == false);
         CHECK(rt[1].noteId == "n2" && rt[1].x == -50 && rt[1].w == 400 && rt[1].h == 300);
+        CHECK(rt[2].noteId == "n3" && rt[2].transparent == true);
         CHECK(parseStickyStates(QJsonDocument(serializeStickyStates({}))).isEmpty());
 
-        // 缺省 w/h 时回落到默认尺寸（手写精简状态文件仍可恢复）
+        // 缺省 w/h 与 transparent 时回落默认（手写精简状态文件仍可恢复）
         const QList<StickyState> def =
             parseStickyStates(QJsonDocument::fromJson(R"([{"id":"n9","x":5,"y":6}])"));
         CHECK(def.size() == 1);
         CHECK(def.first().w == 260 && def.first().h == 200);
+        CHECK(def.first().transparent == false);
     }
 
     // ---- 桌面便签：管理器 smoke（置顶/取消/落盘/恢复/同步/删除联动） ----
@@ -699,14 +703,23 @@ int main(int argc, char **argv)
         CHECK(!mgr.isPinned("n1"));
         CHECK(mgr.stickyCount() == 0);
 
-        // 置顶 → 状态落盘 → 新管理器 restoreAll 恢复
+        // 置顶 → 开启透明模式 → 状态落盘 → 新管理器恢复（透明状态一并还原）
         mgr.toggle("n1");
+        DesktopSticky *stTrans = mgr.windowFor("n1");
+        CHECK(stTrans != nullptr);
+        stTrans->setTransparentMode(true);
+        CHECK(stTrans && stTrans->transparentMode());
         mgr.saveState();
         CHECK(QFile::exists(stateFile));
         DesktopStickyManager mgr2(stateFile, getter);
         mgr2.restoreAll();
         CHECK(mgr2.stickyCount() == 1);
         CHECK(mgr2.isPinned("n1"));
+        CHECK(mgr2.windowFor("n1") && mgr2.windowFor("n1")->transparentMode());
+
+        // 透明模式可恢复
+        mgr2.windowFor("n1")->setTransparentMode(false);
+        CHECK(mgr2.windowFor("n1")->transparentMode() == false);
 
         // 同步：笔记内容变更后便签正文刷新
         note.content = "<p>更新后的正文</p>";

@@ -14,7 +14,7 @@ class QTextBrowser;
 class QSizeGrip;
 class NoteData;
 
-// 桌面便签的持久化状态：笔记 id + 窗口几何（虚拟桌面坐标）。
+// 桌面便签的持久化状态：笔记 id + 窗口几何（虚拟桌面坐标）+ 透明模式。
 // 纯数据 + 纯函数（序列化/解析），便于无头测试（_note_test）。
 struct StickyState {
     QString noteId;
@@ -22,6 +22,7 @@ struct StickyState {
     int y = 0;
     int w = 260;   // 默认尺寸与 DesktopSticky::resize 保持一致
     int h = 200;
+    bool transparent = false;   // 透明模式：背景全透明，只显示文字
 };
 
 // 序列化为 JSON 数组：[{"id":…, "x":…, "y":…, "w":…, "h":…}, …]
@@ -41,7 +42,11 @@ public:
 
     QString noteId() const { return m_noteId; }
     void updateNote(const NoteData &note);   // 笔记被编辑后刷新标题与正文
-    StickyState state() const;               // 当前几何（供持久化）
+    StickyState state() const;               // 当前几何 + 透明模式（供持久化）
+
+    // 透明模式：背景全透明、只显示文字（标题/正文）；按钮缩小为半透明锚点。
+    bool transparentMode() const { return m_transparentMode; }
+    void setTransparentMode(bool on);
 
 signals:
     void closed(const QString &noteId);      // 关闭时发出（× 按钮或 toggle 取消）
@@ -53,12 +58,16 @@ protected:
     void closeEvent(QCloseEvent *event) override;        // 先发 closed 再放行
 
 private:
+    void toggleTransparentMode();            // 标题栏「透/回」按钮
+
     QLabel *m_titleLabel = nullptr;
     QPushButton *m_closeBtn = nullptr;
+    QPushButton *m_transparentBtn = nullptr; // 「透」进入透明模式 / 「回」恢复
     QTextBrowser *m_body = nullptr;
     QSizeGrip *m_grip = nullptr;
     QString m_noteId;
     bool m_dragging = false;
+    bool m_transparentMode = false;
     QPoint m_dragOffset;   // 按下时 全局坐标 - 窗口左上角
 };
 
