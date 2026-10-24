@@ -42,6 +42,17 @@ struct NoteData {
     QString spaceId; // empty = belongs to "全部" (every space)
 };
 
+// 文本统计结果（供右键「字数统计」使用，纯函数便于无头测试）。
+// 口径与主流编辑器一致：字数 = 汉字数 + 英文单词数；标点计入字符数。
+struct TextStats {
+    qint64 chars = 0;    // 字符数（不含空白）
+    qint64 cjkChars = 0; // 汉字数
+    qint64 words = 0;    // 英文单词数
+    qint64 lines = 0;    // 段落/行数
+    qint64 total() const { return cjkChars + words; }
+};
+TextStats countTextStats(const QString &text);
+
 class NoteWidget : public QWidget
 {
     Q_OBJECT
@@ -153,6 +164,7 @@ private slots:
     void tableSplitCell();
     void tableToggleHeaderShading();
     void showEditorContextMenu(const QPoint &pos);
+    void showWordCount();  // 右键菜单「字数统计」
 
     // Insert & export
     void insertDateTime(int format);

@@ -13,6 +13,8 @@ build.ninja
 /_auth_test/build/
 /_ui_test/build/
 /_tray_test/build/
+/PureRefCanvas/build_local/
+/_note_test/build_local/
 
 # ---- Qt 自动生成的构建目录内容 ----
 .qt/

@@ -8,11 +8,12 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets PrintSupport)
 
-set(SRC "C:/Users/LiyuYou/Desktop/Q/PureRefCanvas")
+set(SRC "C:/Users/Liyuyou/Desktop/lyy/Q/PureRefCanvas")
 
 qt_add_executable(notetest
     notetest.cpp
     ${SRC}/notewidget.h ${SRC}/notewidget.cpp
+    ${SRC}/spacemanager.h ${SRC}/spacemanager.cpp
 )
 target_include_directories(notetest PRIVATE ${SRC})
 target_link_libraries(notetest PRIVATE Qt6::Widgets Qt6::PrintSupport)
@@ -21,6 +22,7 @@ target_link_libraries(notetest PRIVATE Qt6::Widgets Qt6::PrintSupport)
 qt_add_executable(edshot
     edshot.cpp
     ${SRC}/notewidget.h ${SRC}/notewidget.cpp
+    ${SRC}/spacemanager.h ${SRC}/spacemanager.cpp
 )
 target_include_directories(edshot PRIVATE ${SRC})
 target_link_libraries(edshot PRIVATE Qt6::Widgets Qt6::PrintSupport)

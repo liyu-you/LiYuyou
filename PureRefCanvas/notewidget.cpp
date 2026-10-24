@@ -2187,7 +2187,59 @@ void NoteWidget::showEditorContextMenu(const QPoint &pos)
     menu.addAction("插入图片", this, &NoteWidget::insertImage);
     menu.addAction("插入表格", this, &NoteWidget::insertTableDialog);
     menu.addAction("查找/替换", this, [this]() { openFindBar(false); });
+    menu.addSeparator();
+    menu.addAction("字数统计", this, &NoteWidget::showWordCount);
     menu.exec(m_editor->viewport()->mapToGlobal(pos));
+}
+
+// ========== Word count (右键菜单「字数统计」) ==========
+
+// 纯函数统计：字符数（不含空白）、汉字数、英文单词数与段落数。
+// 汉字按“字”计、不并入英文单词；连续字母/数字串记为一个单词；标点结束单词。
+TextStats countTextStats(const QString &text)
+{
+    TextStats s;
+    if (text.isEmpty())
+        return s;
+    s.lines = 1 + text.count(QLatin1Char('\n'));
+    bool inWord = false;
+    for (const QChar c : text) {
+        if (c.isSpace()) {           // 空白（含换行）不计数，并结束当前单词
+            inWord = false;
+            continue;
+        }
+        ++s.chars;
+        if (c.script() == QChar::Script_Han) {
+            ++s.cjkChars;
+            inWord = false;
+        } else if (c.isLetterOrNumber()) {
+            if (!inWord) { ++s.words; inWord = true; }
+        } else {
+            inWord = false;          // 标点/符号
+        }
+    }
+    return s;
+}
+
+void NoteWidget::showWordCount()
+{
+    saveCurrentNote();  // 统计前先落盘，保证与编辑器最新内容一致
+    const TextStats full = countTextStats(m_editor->toPlainText());
+
+    // 选中文字：selectedText() 用 U+2029 作段分隔，转回 '\n' 再统计。
+    const QTextCursor cur = m_editor->textCursor();
+    const bool hasSel = cur.hasSelection();
+    const QString selText =
+        cur.selectedText().replace(QChar(0x2029), QChar('\n'));
+
+    QString msg = QStringLiteral("全文：%1 字 · %2 字符 · %3 段")
+                      .arg(full.total()).arg(full.chars).arg(full.lines);
+    if (hasSel) {
+        const TextStats sel = countTextStats(selText);
+        msg += QStringLiteral("\n选中：%1 字 · %2 字符")
+                   .arg(sel.total()).arg(sel.chars);
+    }
+    QMessageBox::information(this, QStringLiteral("字数统计"), msg);
 }
 
 // ========== Insert date & time ==========

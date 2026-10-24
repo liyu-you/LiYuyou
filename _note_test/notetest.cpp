@@ -19,6 +19,7 @@
 #include <QRegularExpression>
 #include <QFile>
 #include <QDir>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -49,6 +50,21 @@ static void pump(int ms)
     QEventLoop loop;
     QTimer::singleShot(ms, &loop, &QEventLoop::quit);
     loop.exec();
+}
+
+// loadNotes() shows a modal QMessageBox when it quarantines a corrupt store or
+// recovers from .bak. Offscreen has no user, so auto-close the box as soon as
+// it appears (polling stops once one dialog was dismissed or the window ends).
+static void autoDismissModals(int windowMs)
+{
+    auto *t = new QTimer(qApp);
+    t->setInterval(30);
+    QObject::connect(t, &QTimer::timeout, t, []{
+        if (QWidget *mw = QApplication::activeModalWidget())
+            mw->close();
+    });
+    QTimer::singleShot(windowMs, t, [t]{ t->stop(); t->deleteLater(); });
+    t->start();
 }
 
 static QLineEdit *findEdit(NoteWidget *w) { return w->findChild<QLineEdit *>("noteFindEdit"); }
@@ -504,6 +520,115 @@ int main(int argc, char **argv)
             if (n.content.contains("round trip body")) found = true;
         CHECK(found);
         Q_UNUSED(firstId);
+    }
+
+    // ---- Corrupt notes.json: quarantined, not silently wiped; writes refused ----
+    {
+        const QString croot = scratch + "/notes_corrupt";
+        QDir(scratch).mkpath(croot);
+        const QString store = croot + "/notes.json";
+        const QByteArray broken = "this is definitely not json {{{";
+        {
+            QFile f(store);
+            CHECK(f.open(QIODevice::WriteOnly));
+            CHECK(f.write(broken) == broken.size());
+        }
+
+        autoDismissModals(1500); // loadNotes pops the warning dialog (offscreen)
+        NoteWidget *w = new NoteWidget(croot);
+        pump(400);
+
+        CHECK(!QFile::exists(store)); // moved aside, not left in place
+        QString quarantined;
+        const QFileInfoList quarantinedFiles =
+            QDir(croot).entryInfoList(QStringList{"notes.json.corrupt-*"}, QDir::Files);
+        if (quarantinedFiles.size() == 1) quarantined = quarantinedFiles.first().absoluteFilePath();
+        CHECK(!quarantined.isEmpty());
+        { // original bytes preserved verbatim in the quarantine copy
+            QFile q(quarantined);
+            CHECK(q.open(QIODevice::ReadOnly));
+            CHECK(q.readAll() == broken);
+        }
+        // Any save path (createNoteWithContent -> saveNotes, destructor) must
+        // not resurrect the store with the empty in-memory list.
+        w->createNoteWithContent("t", "<p>x</p>", "恢复");
+        pump(50);
+        delete w;
+        CHECK(!QFile::exists(store));
+    }
+
+    // ---- Corrupt notes.json with a good .bak: recovered and repaired ----
+    {
+        const QString broot = scratch + "/notes_bak";
+        QDir(scratch).mkpath(broot);
+        const QString store = broot + "/notes.json";
+        const QByteArray good =
+            "{\"notes\":[{\"id\":\"n1\",\"title\":\"bak note\",\"content\":\"<p>restored body</p>\","
+            "\"createdAt\":\"2026-01-01T08:00:00\",\"updatedAt\":\"2026-01-01T08:00:00\"}],"
+            "\"folders\":[\"工作\"]}";
+        {
+            QFile f(store + ".bak");
+            CHECK(f.open(QIODevice::WriteOnly));
+            CHECK(f.write(good) == good.size());
+        }
+        {
+            QFile f(store);
+            CHECK(f.open(QIODevice::WriteOnly));
+            CHECK(f.write("corrupt{{{"));
+        }
+
+        autoDismissModals(1500); // loadNotes pops the "recovered" info dialog
+        NoteWidget w(broot);
+        pump(400);
+
+        CHECK(w.allNotes().size() == 1);
+        CHECK(w.allNotes().first().content.contains("restored body"));
+        CHECK(QFile::exists(store)); // repaired in place from the backup
+        QFile f(store);
+        CHECK(f.open(QIODevice::ReadOnly));
+        CHECK(QJsonDocument::fromJson(f.readAll()).isObject());
+    }
+
+    // ---- 字数统计：countTextStats 纯函数（空/英文/中文/混合/多段/空白/标点/数字）----
+    {
+        const TextStats e = countTextStats(QString());
+        CHECK(e.chars == 0 && e.cjkChars == 0 && e.words == 0 && e.lines == 0 && e.total() == 0);
+
+        const TextStats en = countTextStats(QStringLiteral("Hello world"));
+        CHECK(en.chars == 10 && en.words == 2 && en.cjkChars == 0 && en.lines == 1 && en.total() == 2);
+
+        const TextStats cn = countTextStats(QStringLiteral("你好，世界"));
+        CHECK(cn.chars == 5 && cn.cjkChars == 4 && cn.words == 0 && cn.lines == 1 && cn.total() == 4);
+
+        const TextStats mix = countTextStats(QStringLiteral("你好world 世界"));
+        CHECK(mix.chars == 9 && mix.cjkChars == 4 && mix.words == 1 && mix.total() == 5);
+
+        const TextStats ml = countTextStats(QStringLiteral("a\nb\nc"));
+        CHECK(ml.chars == 3 && ml.words == 3 && ml.lines == 3);
+
+        const TextStats sp = countTextStats(QStringLiteral("   "));
+        CHECK(sp.chars == 0 && sp.words == 0 && sp.lines == 1);
+
+        const TextStats punct = countTextStats(QStringLiteral("！？"));
+        CHECK(punct.chars == 2 && punct.cjkChars == 0 && punct.words == 0);
+
+        // 数字串记一个单词；汉字不并入英文单词
+        const TextStats num = countTextStats(QStringLiteral("Qt6 123 abc"));
+        CHECK(num.chars == 9 && num.words == 3 && num.cjkChars == 0);
+    }
+
+    // ---- 字数统计：showWordCount 槽可达（弹窗自动关闭，不崩溃）----
+    {
+        const QString wcRoot = scratch + "/notes_wordcount";
+        QDir(scratch).mkpath(wcRoot);
+        NoteWidget *wc = new NoteWidget(wcRoot);
+        const QString wcId = wc->createNoteWithContent("字数", "<p>你好世界 hello</p>", "测试");
+        wc->openNote(wcId);
+        pump(100);
+        autoDismissModals(1000);
+        CHECK(invoke(wc, "showWordCount")); // 槽可达且弹窗可自动关闭
+        pump(200);
+        delete wc;
     }
 
     printf("\n=== %d passed, %d failed ===\n", g_passed, g_failed);
