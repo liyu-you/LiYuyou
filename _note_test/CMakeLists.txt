@@ -24,6 +24,7 @@ qt_add_executable(linktest
     linktest.cpp
     ${SRC}/canvasscene.h ${SRC}/canvasscene.cpp
     ${SRC}/imageitem.h ${SRC}/imageitem.cpp
+    ${SRC}/canvasview.h ${SRC}/canvasview.cpp
     ${SRC}/annotationitems.h ${SRC}/annotationitems.cpp
 )
 target_include_directories(linktest PRIVATE ${SRC})

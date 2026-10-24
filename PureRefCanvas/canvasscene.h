@@ -16,7 +16,7 @@ class CanvasScene : public QGraphicsScene
 {
     Q_OBJECT
 public:
-    enum Tool { SelectTool, ArrowTool, TextTool, RectTool, PenTool, LinkTool };
+    enum Tool { SelectTool, ArrowTool, TextTool, RectTool, PenTool };
 
     explicit CanvasScene(QObject *parent = nullptr);
 
@@ -81,6 +81,8 @@ signals:
     void selectionChangedInfo(int count);
     void toolChanged(Tool tool);
     void linkWidthChanged(qreal width);
+    // 图片右键「创建链接」：请求视图从该图开始一次链接（等待第二击）
+    void linkStartRequested(ImageItem *img);
 
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;

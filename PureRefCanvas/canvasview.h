@@ -114,16 +114,12 @@ private:
     PenItem *m_currentPen = nullptr;
     QGraphicsRectItem *m_currentRect = nullptr;
 
-    // Link-line tool state（链接线：点两张图/空白处连线）
-    QWidget *m_toolBar = nullptr;
-    QToolButton *m_linkBtn = nullptr;
-    bool m_linkToolActive = false;
+    // 链接线待选状态（图片右键「创建链接」启动：点第二张图/空白处完成，Esc 取消）
     bool m_linkPending = false;          // 已选起点，等待第二击
     QPointF m_linkStartPt;               // 起点（锚图为图片中心）
-    ImageItem *m_linkStartImg = nullptr; // 起点锚图（可为空 = 自由点）
+    ImageItem *m_linkStartImg = nullptr; // 起点锚图
     QGraphicsPathItem *m_linkPreview = nullptr; // 虚线预览（置顶、不拦截鼠标）
-    void createToolBar();
-    void setLinkToolActive(bool on);
+    void startLinkFrom(ImageItem *img);  // 从图片开始一次链接
     void clearLinkState();
 
     static constexpr qreal MIN_ZOOM = 0.05;

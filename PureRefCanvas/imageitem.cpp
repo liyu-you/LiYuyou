@@ -304,8 +304,12 @@ void ImageItem::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
     menu.addAction("置于顶层", this, &ImageItem::bringToFront);
     menu.addAction("置于底层", this, &ImageItem::sendToBack);
 
-    // 线条粗细：作用于吸附到本图的全部链接（无链接时不显示）
+    QAction *linkAct = nullptr;
     if (auto *cs = dynamic_cast<CanvasScene *>(scene())) {
+        // 创建链接：进入一次性待选状态，再点击第二张图（或空白处）完成
+        linkAct = menu.addAction(QStringLiteral("创建链接"));
+
+        // 线条粗细：作用于吸附到本图的全部链接（无链接时不显示）
         QList<LinkItem *> attached = cs->linksForImage(this);
         if (!attached.isEmpty()) {
             QMenu *widthMenu = menu.addMenu(QStringLiteral("线条粗细"));
@@ -341,7 +345,10 @@ void ImageItem::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
     QAction *clearAllAct = menu.addAction("清除全部图片");
 
     QAction *chosen = menu.exec(event->screenPos());
-    if (chosen == lockAct) {
+    if (chosen == linkAct) {
+        if (auto *cs = dynamic_cast<CanvasScene *>(scene()))
+            emit cs->linkStartRequested(this);
+    } else if (chosen == lockAct) {
         setLocked(!m_locked);
     } else if (chosen == resetAct) {
         setRotation(0);

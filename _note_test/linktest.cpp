@@ -10,9 +10,12 @@
 #include <QColor>
 #include <QTransform>
 #include <QPainterPath>
+#include <QMouseEvent>
+#include <QKeyEvent>
 #include <cstdio>
 
 #include "canvasscene.h"
+#include "canvasview.h"
 #include "imageitem.h"
 #include "annotationitems.h"
 
@@ -195,6 +198,47 @@ int main(int argc, char **argv)
         LinkItem::applyWidth(l1, 1.5);
         CHECK(l1->width() == 1.5);
         CHECK(l2->width() == 1.5);
+    }
+
+    // ---- 图片右键「创建链接」：视图待选第二端（点击完成 / Esc 取消） ----
+    {
+        CanvasScene scene;
+        CanvasView view(&scene);
+        view.resize(1200, 800);
+        ImageItem *i0 = scene.addImage(makePix(100, 100), QPointF(0, 0));
+        ImageItem *i1 = scene.addImage(makePix(100, 100), QPointF(400, 0));
+
+        auto sendClick = [&view](const QPointF &scenePt) {
+            const QPoint local = view.mapFromScene(scenePt);
+            QMouseEvent press(QEvent::MouseButtonPress, local, Qt::LeftButton,
+                              Qt::LeftButton, Qt::NoModifier);
+            // 鼠标事件必须投递给视口部件，QGraphicsView 才会收到 mousePressEvent
+            QApplication::sendEvent(view.viewport(), &press);
+        };
+
+        // 模拟右键菜单「创建链接」：直接发场景信号
+        emit scene.linkStartRequested(i0);
+        // 第二击落在第二张图 → 完成双锚定链接
+        sendClick(i1->sceneContentCenter());
+        CHECK(scene.links().size() == 1);
+        CHECK(scene.links().first()->anchorItem(LinkItem::EndA) == i0);
+        CHECK(scene.links().first()->anchorItem(LinkItem::EndB) == i1);
+
+        // 再次启动后 Esc 取消 → 不产生链接
+        emit scene.linkStartRequested(i0);
+        QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+        QApplication::sendEvent(&view, &esc);
+        CHECK(scene.links().size() == 1);
+        // 取消后点击空白处 → 走选择模式，不产生链接
+        sendClick(QPointF(700, 500));
+        CHECK(scene.links().size() == 1);
+
+        // 第二击落在空白处 → 自由端链接
+        emit scene.linkStartRequested(i0);
+        sendClick(QPointF(700, 500));
+        CHECK(scene.links().size() == 2);
+        CHECK(scene.links().last()->anchorItem(LinkItem::EndA) == i0);
+        CHECK(!scene.links().last()->isAnchored(LinkItem::EndB));
     }
 
     // ---- linksForImage：图片右键菜单的作用范围 ----
