@@ -18,7 +18,7 @@
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QGraphicsRectItem>
-#include <QGraphicsLineItem>
+#include <QGraphicsPathItem>
 #include <QTimer>
 #include <QShowEvent>
 #include <QtMath>
@@ -633,9 +633,9 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
             m_linkPending = true;
             m_linkStartImg = img;
             m_linkStartPt = img ? img->sceneContentCenter() : scenePos;
-            m_linkPreview = m_canvasScene->addLine(
-                QLineF(m_linkStartPt, m_linkStartPt),
-                QPen(QColor(255, 255, 255), 1.5, Qt::DashLine));
+            m_linkPreview = m_canvasScene->addPath(
+                QPainterPath(),
+                QPen(QColor(170, 176, 182), 1.5, Qt::DashLine));
             m_linkPreview->setZValue(1e9);   // 预览置顶
             m_linkPreview->setAcceptedMouseButtons(Qt::NoButton);
             m_linkPreview->setFlag(QGraphicsItem::ItemIsSelectable, false);
@@ -718,7 +718,11 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
 void CanvasView::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_linkToolActive && m_linkPending && m_linkPreview) {
-        m_linkPreview->setLine(QLineF(m_linkStartPt, mapToScene(event->pos())));
+        const QPointF cur = mapToScene(event->pos());
+        // 预览走与正式线相同的贝塞尔构造（两端按自由点处理）
+        const LinkItem::Edge eA = LinkItem::dominantEdge(m_linkStartPt, cur);
+        const LinkItem::Edge eB = LinkItem::dominantEdge(cur, m_linkStartPt);
+        m_linkPreview->setPath(LinkItem::makeConnector(m_linkStartPt, eA, cur, eB));
         event->accept();
         return;
     }

@@ -85,7 +85,7 @@ void PenItem::addPoint(const QPointF &p)
     setPath(m_path);
 }
 
-// ========== LinkItem：参考链接线 ==========
+// ========== LinkItem：曲线箭头参考链接 ==========
 
 LinkItem::LinkItem(const QPointF &a, const QPointF &b, ImageItem *imgA, ImageItem *imgB,
                    QGraphicsItem *parent)
@@ -99,12 +99,12 @@ LinkItem::LinkItem(const QPointF &a, const QPointF &b, ImageItem *imgA, ImageIte
     refreshGeometry();
 }
 
-QPointF LinkItem::pointA() const
+QPointF LinkItem::centerA() const
 {
     return m_a ? m_a->sceneContentCenter() : m_freeA;
 }
 
-QPointF LinkItem::pointB() const
+QPointF LinkItem::centerB() const
 {
     return m_b ? m_b->sceneContentCenter() : m_freeB;
 }
@@ -122,30 +122,128 @@ void LinkItem::setAnchor(EndPoint e, ImageItem *img)
     refreshGeometry();
 }
 
+LinkItem::Edge LinkItem::dominantEdge(const QPointF &from, const QPointF &to)
+{
+    const qreal dx = to.x() - from.x(), dy = to.y() - from.y();
+    if (qAbs(dx) >= qAbs(dy))
+        return dx >= 0 ? RightEdge : LeftEdge;
+    return dy >= 0 ? BottomEdge : TopEdge;
+}
+
+QPointF LinkItem::edgeNormal(Edge e)
+{
+    switch (e) {
+    case RightEdge:  return QPointF(1, 0);
+    case LeftEdge:   return QPointF(-1, 0);
+    case BottomEdge: return QPointF(0, 1);
+    case TopEdge:    return QPointF(0, -1);
+    }
+    return QPointF();
+}
+
+LinkItem::Edge LinkItem::rayEdge(const QRectF &r, const QPointF &from, const QPointF &to,
+                                 QPointF &hit)
+{
+    // 矩形射线：求中心→外部点首先命中的边（Liang-Barsky 简化）
+    const qreal dx = to.x() - from.x(), dy = to.y() - from.y();
+    qreal t = 1e30;
+    Edge edge = LeftEdge;
+    if (dx > 1e-9) {
+        const qreal tt = (r.right() - from.x()) / dx;
+        if (tt < t) { t = tt; edge = RightEdge; }
+    }
+    if (dx < -1e-9) {
+        const qreal tt = (r.left() - from.x()) / dx;
+        if (tt < t) { t = tt; edge = LeftEdge; }
+    }
+    if (dy > 1e-9) {
+        const qreal tt = (r.bottom() - from.y()) / dy;
+        if (tt < t) { t = tt; edge = BottomEdge; }
+    }
+    if (dy < -1e-9) {
+        const qreal tt = (r.top() - from.y()) / dy;
+        if (tt < t) { t = tt; edge = TopEdge; }
+    }
+    t = qBound(0.0, t, 1.0);
+    hit = from + (to - from) * t;
+    return edge;
+}
+
+QPainterPath LinkItem::makeConnector(const QPointF &a, Edge eA,
+                                     const QPointF &b, Edge eB)
+{
+    // 三次贝塞尔：控制点沿各自边法线方向，长度夹取，得到流程图式平滑连线
+    const QPointF nA = edgeNormal(eA);
+    const QPointF nB = edgeNormal(eB);
+    const qreal dist = QLineF(a, b).length();
+    const qreal k = qBound(20.0, dist * 0.5, 90.0);
+    QPainterPath p(a);
+    p.cubicTo(a + nA * k, b + nB * k, b);
+    return p;
+}
+
 void LinkItem::refreshGeometry()
 {
-    // 同步自由点回退值：锚定期间始终记录最新端点，锚图任何方式被删除后
-    // 端点回退到最后已知位置，而不是创建时的旧坐标。
-    if (m_a) m_freeA = m_a->sceneContentCenter();
-    if (m_b) m_freeB = m_b->sceneContentCenter();
+    const QPointF cA = centerA();
+    const QPointF cB = centerB();
+    Edge eA, eB;
+
+    if (m_a) {
+        // 边缘点在图片自身坐标系中求（天然处理旋转/缩放）
+        const QRectF local(0, 0, m_a->imageSize().width(), m_a->imageSize().height());
+        QPointF hitL;
+        eA = rayEdge(local, m_a->mapFromScene(cA), m_a->mapFromScene(cB), hitL);
+        m_edgeA = m_a->mapToScene(hitL);
+    } else {
+        m_edgeA = m_freeA;
+        eA = dominantEdge(cA, cB);
+    }
+
+    if (m_b) {
+        const QRectF local(0, 0, m_b->imageSize().width(), m_b->imageSize().height());
+        QPointF hitL;
+        eB = rayEdge(local, m_b->mapFromScene(cB), m_b->mapFromScene(cA), hitL);
+        m_edgeB = m_b->mapToScene(hitL);
+    } else {
+        m_edgeB = m_freeB;
+        eB = dominantEdge(cB, cA);
+    }
+
+    // 自由点回退值：吸附期间记录边缘点，锚图任何方式删除后线停在最后边缘
+    if (m_a) m_freeA = m_edgeA;
+    if (m_b) m_freeB = m_edgeB;
+
+    m_path = makeConnector(m_edgeA, eA, m_edgeB, eB);
     prepareGeometryChange();
     update();
 }
 
 QRectF LinkItem::boundingRect() const
 {
-    const qreal extra = m_width + ENDPOINT_R + 4;
-    return QRectF(pointA(), pointB()).normalized().adjusted(-extra, -extra, extra, extra);
+    return m_path.boundingRect().adjusted(-(ARROW_LEN + 2), -(ARROW_LEN + 2),
+                                          ARROW_LEN + 2, ARROW_LEN + 2);
 }
 
 QPainterPath LinkItem::shape() const
 {
-    // 细线拾取形状：点击只有 2px 线附近才命中，不遮挡其下的图片
-    QPainterPath path(pointA());
-    path.lineTo(pointB());
+    // 细线拾取：点击只有曲线附近才命中，不遮挡其下的图片；箭头三角形也可点
     QPainterPathStroker stroker;
-    stroker.setWidth(m_width + 6);
-    return stroker.createStroke(path);
+    stroker.setWidth(m_width + 8);
+    return stroker.createStroke(m_path).united(arrowPath());
+}
+
+QPainterPath LinkItem::arrowPath() const
+{
+    // 箭头方向 = 曲线末端切线（angleAtPercent 与 QLineF 同约定：0=右，顺时针）
+    const qreal angle = qDegreesToRadians(m_path.angleAtPercent(1.0));
+    const QPointF dir(qCos(angle), qSin(angle));
+    const QPointF perp(-dir.y(), dir.x());
+    const QPointF base = m_edgeB - dir * ARROW_LEN;
+    QPainterPath arrow(m_edgeB);
+    arrow.lineTo(base + perp * ARROW_W);
+    arrow.lineTo(base - perp * ARROW_W);
+    arrow.closeSubpath();
+    return arrow;
 }
 
 void LinkItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
@@ -155,17 +253,15 @@ void LinkItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, 
     painter->setRenderHint(QPainter::Antialiasing, true);
 
     QPen pen(m_color, m_width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-    painter->setPen(pen);
-    painter->setBrush(Qt::NoBrush);
-    const QPointF a = pointA();
-    const QPointF b = pointB();
-    painter->drawLine(a, b);
+    painter->strokePath(m_path, pen);
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(m_color);
+    painter->drawPath(arrowPath());
 
     if (isSelected()) {
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(m_color);
-        painter->drawEllipse(a, ENDPOINT_R, ENDPOINT_R);
-        painter->drawEllipse(b, ENDPOINT_R, ENDPOINT_R);
+        painter->drawEllipse(m_edgeA, ENDPOINT_R, ENDPOINT_R);
+        painter->drawEllipse(m_edgeB, ENDPOINT_R, ENDPOINT_R);
     }
 }
 
@@ -173,24 +269,19 @@ void LinkItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
         const QPointF sp = event->scenePos();
-        const qreal dA = (sp - pointA()).manhattanLength();
-        const qreal dB = (sp - pointB()).manhattanLength();
+        const qreal dA = (sp - m_edgeA).manhattanLength();
+        const qreal dB = (sp - m_edgeB).manhattanLength();
         if (dA <= ENDPOINT_R + 4 || dB <= ENDPOINT_R + 4) {
-            // 点中端点：进入端点拖动（吸附端先解除为自由点，便于改绑）
+            // 点中端点：端点拖动（吸附端先解除为自由点，便于改绑）
             m_draggingEndpoint = true;
             m_dragEnd = (dA <= dB) ? EndA : EndB;
             if (isAnchored(m_dragEnd))
-                setFreePoint(m_dragEnd, point(m_dragEnd));
+                setFreePoint(m_dragEnd, m_dragEnd == EndA ? m_edgeA : m_edgeB);
             setSelected(true);
             event->accept();
             return;
         }
     }
-    m_draggingEndpoint = false;
-    m_moved = false;
-    m_dragStart = event->scenePos();
-    m_dragFreeA = m_freeA;
-    m_dragFreeB = m_freeB;
     QGraphicsItem::mousePressEvent(event);   // ItemIsMovable：整线拖动
 }
 
@@ -208,7 +299,7 @@ void LinkItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     if (m_draggingEndpoint) {
         m_draggingEndpoint = false;
-        // 松手处若命中图片 → 吸附到该图中心
+        // 松手处若命中图片 → 吸附
         if (scene()) {
             const QList<QGraphicsItem *> hits =
                 scene()->items(event->scenePos(), Qt::IntersectsItemShape);
@@ -230,8 +321,8 @@ void LinkItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 void LinkItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
 {
     const QPointF sp = event->scenePos();
-    if ((sp - pointA()).manhattanLength() <= ENDPOINT_R + 4 ||
-        (sp - pointB()).manhattanLength() <= ENDPOINT_R + 4) {
+    if ((sp - m_edgeA).manhattanLength() <= ENDPOINT_R + 4 ||
+        (sp - m_edgeB).manhattanLength() <= ENDPOINT_R + 4) {
         setCursor(Qt::CrossCursor);
     } else {
         setCursor(Qt::SizeAllCursor);
@@ -242,13 +333,13 @@ void LinkItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
 QVariant LinkItem::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     if (change == ItemPositionChange && scene()) {
-        // 整线拖动：item 保持原点，把位移施加到自由端点（吸附端由图片中心决定）
+        // 整线拖动：item 保持原点，位移施加到自由端点（吸附端由图片边缘决定）
         const QPointF delta = value.toPointF() - pos();
         if (!delta.isNull()) {
-            m_freeA += delta;
-            m_freeB += delta;
-            prepareGeometryChange();
-            return pos();   // 拒绝实际位移，位移由端点体现
+            if (!m_a) m_freeA += delta;
+            if (!m_b) m_freeB += delta;
+            refreshGeometry();
+            return pos();
         }
     }
     if (change == ItemSelectedHasChanged)

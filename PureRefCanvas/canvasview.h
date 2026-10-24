@@ -13,7 +13,7 @@ class ArrowItem;
 class PenItem;
 class ImageItem;
 class QGraphicsRectItem;
-class QGraphicsLineItem;
+class QGraphicsPathItem;
 class CanvasView;
 
 // Minimap widget - shows bird's eye view of the entire canvas
@@ -121,7 +121,7 @@ private:
     bool m_linkPending = false;          // 已选起点，等待第二击
     QPointF m_linkStartPt;               // 起点（锚图为图片中心）
     ImageItem *m_linkStartImg = nullptr; // 起点锚图（可为空 = 自由点）
-    QGraphicsLineItem *m_linkPreview = nullptr; // 虚线预览（置顶、不拦截鼠标）
+    QGraphicsPathItem *m_linkPreview = nullptr; // 虚线预览（置顶、不拦截鼠标）
     void createToolBar();
     void setLinkToolActive(bool on);
     void clearLinkState();
