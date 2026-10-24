@@ -18,6 +18,7 @@
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QGraphicsRectItem>
+#include <QGraphicsLineItem>
 #include <QTimer>
 #include <QShowEvent>
 #include <QtMath>
@@ -290,6 +291,7 @@ CanvasView::CanvasView(CanvasScene *scene, QWidget *parent)
     minimapTimer->start(80);
 
     createZoomBar();
+    createToolBar();
     positionOverlays();
 }
 
@@ -356,6 +358,61 @@ void CanvasView::setZoomBarOpacity(qreal opacity)
     }
 }
 
+// ========== 链接线工具（左上角浮动工具条） ==========
+
+void CanvasView::createToolBar()
+{
+    m_toolBar = new QWidget(this);
+    m_toolBar->setStyleSheet(
+        "background: rgba(18,28,40,0.85);"
+        "border: 1px solid rgba(102,192,244,0.4);"
+        "border-radius: 8px;");
+    QHBoxLayout *lay = new QHBoxLayout(m_toolBar);
+    lay->setContentsMargins(6, 4, 6, 4);
+    lay->setSpacing(2);
+
+    m_linkBtn = new QToolButton(m_toolBar);
+    m_linkBtn->setText(QStringLiteral("链接"));
+    m_linkBtn->setToolTip(QStringLiteral("链接线：依次点击两张图（或空白处）画参考连线，Esc 退出"));
+    m_linkBtn->setCheckable(true);
+    m_linkBtn->setCursor(Qt::PointingHandCursor);
+    m_linkBtn->setFixedSize(54, 26);
+    m_linkBtn->setStyleSheet(
+        "QToolButton { background: transparent; border: none; border-radius: 5px;"
+        " color: #c7d5e0; font-size: 13px; font-weight: 600; }"
+        "QToolButton:hover { background: rgba(102,192,244,0.18); color: #66c0f4; }"
+        "QToolButton:checked { background: rgba(102,192,244,0.35); color: #ffffff; }");
+    lay->addWidget(m_linkBtn);
+    m_toolBar->adjustSize();
+
+    connect(m_linkBtn, &QToolButton::toggled, this, &CanvasView::setLinkToolActive);
+}
+
+void CanvasView::setLinkToolActive(bool on)
+{
+    m_linkToolActive = on;
+    if (on) {
+        m_canvasScene->setCurrentTool(CanvasScene::LinkTool);
+        setCursor(Qt::CrossCursor);
+    } else {
+        clearLinkState();
+        if (m_canvasScene->currentTool() == CanvasScene::LinkTool)
+            m_canvasScene->setCurrentTool(CanvasScene::SelectTool);
+        unsetCursor();
+    }
+}
+
+void CanvasView::clearLinkState()
+{
+    m_linkPending = false;
+    m_linkStartImg = nullptr;
+    if (m_linkPreview) {
+        m_canvasScene->removeItem(m_linkPreview);
+        delete m_linkPreview;
+        m_linkPreview = nullptr;
+    }
+}
+
 QPoint CanvasView::clampOverlayPos(const QSize &size, const QPoint &pos) const
 {
     // On windows too small to hold the overlay plus its margin, prefer the
@@ -373,6 +430,14 @@ void CanvasView::positionOverlays()
     if (m_minimap) {
         m_minimap->move(width() - m_minimap->width() - OVERLAY_MARGIN,
                         height() - m_minimap->height() - OVERLAY_MARGIN);
+    }
+
+    // Link-line tool bar: top-left corner（与缩放条互不干扰）
+    if (m_toolBar) {
+        m_toolBar->adjustSize();
+        m_toolBar->move(clampOverlayPos(m_toolBar->size(),
+                                        QPoint(OVERLAY_MARGIN, OVERLAY_MARGIN)));
+        m_toolBar->raise();
     }
 
     if (!m_zoomBar) return;
@@ -551,6 +616,39 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
 {
     CanvasScene::Tool tool = m_canvasScene->currentTool();
 
+    // Link line tool: 第一击选起点（图片或空白），第二击完成连线（可连续画）
+    if (event->button() == Qt::LeftButton && tool == CanvasScene::LinkTool && !m_spacePressed) {
+        const QPointF scenePos = mapToScene(event->pos());
+        // 命中检测需排除预览线：从命中列表里找第一张图
+        ImageItem *img = nullptr;
+        const QList<QGraphicsItem *> hits =
+            m_canvasScene->items(scenePos, Qt::IntersectsItemShape);
+        for (QGraphicsItem *h : hits) {
+            if (h == m_linkPreview)
+                continue;
+            if (auto *im = dynamic_cast<ImageItem *>(h)) { img = im; break; }
+        }
+
+        if (!m_linkPending) {
+            m_linkPending = true;
+            m_linkStartImg = img;
+            m_linkStartPt = img ? img->sceneContentCenter() : scenePos;
+            m_linkPreview = m_canvasScene->addLine(
+                QLineF(m_linkStartPt, m_linkStartPt),
+                QPen(QColor(255, 255, 255), 1.5, Qt::DashLine));
+            m_linkPreview->setZValue(1e9);   // 预览置顶
+            m_linkPreview->setAcceptedMouseButtons(Qt::NoButton);
+            m_linkPreview->setFlag(QGraphicsItem::ItemIsSelectable, false);
+        } else {
+            ImageItem *endImg = img;
+            const QPointF endPt = img ? img->sceneContentCenter() : scenePos;
+            m_canvasScene->createLink(m_linkStartImg, m_linkStartPt, endImg, endPt);
+            clearLinkState();   // 保持链接模式，可继续画下一条
+        }
+        event->accept();
+        return;
+    }
+
     // Annotation drawing with left button
     if (event->button() == Qt::LeftButton && tool != CanvasScene::SelectTool && !m_spacePressed) {
         QPointF scenePos = mapToScene(event->pos());
@@ -619,6 +717,12 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
 
 void CanvasView::mouseMoveEvent(QMouseEvent *event)
 {
+    if (m_linkToolActive && m_linkPending && m_linkPreview) {
+        m_linkPreview->setLine(QLineF(m_linkStartPt, mapToScene(event->pos())));
+        event->accept();
+        return;
+    }
+
     if (m_drawing) {
         QPointF scenePos = mapToScene(event->pos());
         CanvasScene::Tool tool = m_canvasScene->currentTool();
@@ -672,6 +776,14 @@ void CanvasView::mouseReleaseEvent(QMouseEvent *event)
 
 void CanvasView::keyPressEvent(QKeyEvent *event)
 {
+    if (event->key() == Qt::Key_Escape) {
+        // Esc 退出链接线模式（取消已选的起点/预览）
+        if (m_linkToolActive) {
+            m_linkBtn->setChecked(false);   // 触发 setLinkToolActive(false)
+            event->accept();
+            return;
+        }
+    }
     if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
         m_spacePressed = true;
         if (!m_panning) setCursor(Qt::OpenHandCursor);

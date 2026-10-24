@@ -21,6 +21,10 @@ public:
     QPixmap pixmap() const { return m_pixmap; }
     QSizeF imageSize() const { return m_size; }
 
+    // 图片内容（不含选择手柄/旋转手柄内边距）在场景中的中心点，
+    // 用于链接线端点吸附。
+    QPointF sceneContentCenter() const;
+
     void bringToFront();
     void sendToBack();
 

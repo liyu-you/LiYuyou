@@ -84,6 +84,11 @@ void ImageItem::setPixmap(const QPixmap &pixmap)
     update();
 }
 
+QPointF ImageItem::sceneContentCenter() const
+{
+    return mapToScene(QPointF(m_size.width() / 2.0, m_size.height() / 2.0));
+}
+
 QRectF ImageItem::boundingRect() const
 {
     qreal pad = HANDLE + 4;
@@ -437,6 +442,11 @@ QVariant ImageItem::itemChange(GraphicsItemChange change, const QVariant &value)
                 hideGuides();
             }
         }
+    }
+    if (change == ItemPositionHasChanged || change == ItemScenePositionHasChanged) {
+        // 图片位置变化后通知场景刷新吸附到它的链接线（setPos / moveBy / 拖动）
+        if (auto *sc = dynamic_cast<CanvasScene *>(scene()))
+            sc->refreshLinksFor(this);
     }
     return QGraphicsObject::itemChange(change, value);
 }

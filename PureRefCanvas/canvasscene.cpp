@@ -15,6 +15,7 @@
 #include <QGraphicsTextItem>
 #include <QGraphicsRectItem>
 #include <QFont>
+#include <utility>   // std::as_const
 
 CanvasScene::CanvasScene(QObject *parent)
     : QGraphicsScene(parent)
@@ -24,6 +25,16 @@ CanvasScene::CanvasScene(QObject *parent)
     connect(this, &QGraphicsScene::selectionChanged, this, [this]() {
         emit selectionChangedInfo(selectedImageItems().size());
     });
+}
+
+void CanvasScene::refreshLinksFor(QGraphicsItem *moved)
+{
+    // 图片移动后，吸附到它的链接线端点跟随（锚点由 sceneBoundingRect 实时计算）
+    for (LinkItem *link : std::as_const(m_links)) {
+        if (link->anchorItem(LinkItem::EndA) == moved ||
+            link->anchorItem(LinkItem::EndB) == moved)
+            link->refreshGeometry();
+    }
 }
 
 ImageItem *CanvasScene::addImage(const QPixmap &pixmap, const QPointF &pos)
@@ -56,7 +67,18 @@ void CanvasScene::removeSelectedItems()
 {
     auto items = selectedItems();
     for (auto *it : items) {
+        // 锚图删除：先把链接端点回退为当前位置（防悬空/跳到旧坐标）
+        if (auto *img = dynamic_cast<ImageItem *>(it)) {
+            for (LinkItem *link : std::as_const(m_links)) {
+                if (link->anchorItem(LinkItem::EndA) == img)
+                    link->setFreePoint(LinkItem::EndA, link->pointA());
+                if (link->anchorItem(LinkItem::EndB) == img)
+                    link->setFreePoint(LinkItem::EndB, link->pointB());
+            }
+        }
         removeItem(it);
+        if (auto *link = dynamic_cast<LinkItem *>(it))
+            m_links.removeAll(link);
         delete it;
     }
     emit itemCountChanged(imageItems().size());
@@ -67,11 +89,14 @@ void CanvasScene::selectAllItems()
     for (auto *it : imageItems()) {
         it->setSelected(true);
     }
+    for (LinkItem *link : std::as_const(m_links))
+        link->setSelected(true);
 }
 
 void CanvasScene::clearAll()
 {
     QGraphicsScene::clear();
+    m_links.clear();       // clear() 已删除全部链接项，仅清列表
     m_nextZ = 0;
     m_pngCache.clear(); // encoded bytes for images that no longer exist
     emit itemCountChanged(0);
@@ -211,6 +236,23 @@ QByteArray CanvasScene::saveState() const
         next.insert(e.first, e.second);
     }
     m_pngCache = next;
+
+    // ---- 链接线（参考关联） ----
+    // 锚点存「图片在本次保存列表中的序号」；同时保存端点坐标作为
+    // 图片缺失（如锚图被删/序号越界）时的回退自由点。
+    out << (quint32)m_links.size();
+    for (LinkItem *link : std::as_const(m_links)) {
+        const QColor c = link->color();
+        out << c.redF() << c.greenF() << c.blueF();
+        out << link->width();
+        out << link->zValue();
+        out << (bool)link->isAnchored(LinkItem::EndA);
+        out << (qint32)imgs.indexOf(link->anchorItem(LinkItem::EndA));
+        out << link->pointA().x() << link->pointA().y();
+        out << (bool)link->isAnchored(LinkItem::EndB);
+        out << (qint32)imgs.indexOf(link->anchorItem(LinkItem::EndB));
+        out << link->pointB().x() << link->pointB().y();
+    }
     return data;
 }
 
@@ -227,6 +269,7 @@ bool CanvasScene::loadState(const QByteArray &data)
 
     clearAll();
     qint64 cachedBytes = 0;
+    QList<ImageItem *> loadedImgs;
     for (quint32 i = 0; i < count; ++i) {
         QByteArray pngData;
         in >> pngData;
@@ -247,7 +290,35 @@ bool CanvasScene::loadState(const QByteArray &data)
             item->setScale(scale);
             item->setZValue(z);
             item->setTransform(transform);
+            loadedImgs.append(item);
         }
+    }
+
+    // ---- 链接线 ----
+    // 旧版画布文件没有链接段：读计数即越界，直接按无链接处理（画布本身已恢复）。
+    quint32 linkCount = 0;
+    in >> linkCount;
+    if (in.status() != QDataStream::Ok)
+        return true;
+    for (quint32 i = 0; i < linkCount; ++i) {
+        qreal cr, cg, cb, w, z;
+        bool anchoredA, anchoredB;
+        qint32 idxA, idxB;
+        qreal ax, ay, bx, by;
+        in >> cr >> cg >> cb >> w >> z;
+        in >> anchoredA >> idxA >> ax >> ay;
+        in >> anchoredB >> idxB >> bx >> by;
+        if (in.status() != QDataStream::Ok)
+            break;   // 截断文件：丢弃剩余链接，已读部分有效
+        ImageItem *imgA = (anchoredA && idxA >= 0 && idxA < loadedImgs.size())
+                              ? loadedImgs[idxA] : nullptr;
+        ImageItem *imgB = (anchoredB && idxB >= 0 && idxB < loadedImgs.size())
+                              ? loadedImgs[idxB] : nullptr;
+        LinkItem *link = createLink(imgA, QPointF(ax, ay), imgB, QPointF(bx, by));
+        link->setColor(QColor::fromRgbF(cr, cg, cb));
+        link->setWidth(w);
+        link->setZValue(z);
+        link->refreshGeometry();
     }
     return true;
 }
@@ -329,6 +400,21 @@ PenItem *CanvasScene::createPen()
     addItem(pen);
     emit itemCountChanged(imageItems().size());
     return pen;
+}
+
+LinkItem *CanvasScene::createLink(ImageItem *imgA, const QPointF &ptA,
+                                  ImageItem *imgB, const QPointF &ptB)
+{
+    // 参考关联线默认白色（与参考图谱工作流一致），线宽沿用标注宽度
+    LinkItem *link = new LinkItem(ptA, ptB, imgA, imgB);
+    link->setColor(QColor(255, 255, 255));
+    link->setWidth(m_annoWidth);
+    link->setZValue(++m_nextZ);
+    addItem(link);
+    m_links.append(link);
+    link->refreshGeometry();   // 锚点端立即吸附到图片中心
+    emit itemCountChanged(imageItems().size());
+    return link;
 }
 
 void CanvasScene::addTextAnnotation(const QPointF &pos)

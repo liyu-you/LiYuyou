@@ -10,12 +10,13 @@ class QPixmap;
 class ImageItem;
 class ArrowItem;
 class PenItem;
+class LinkItem;
 
 class CanvasScene : public QGraphicsScene
 {
     Q_OBJECT
 public:
-    enum Tool { SelectTool, ArrowTool, TextTool, RectTool, PenTool };
+    enum Tool { SelectTool, ArrowTool, TextTool, RectTool, PenTool, LinkTool };
 
     explicit CanvasScene(QObject *parent = nullptr);
 
@@ -60,6 +61,14 @@ public:
     void addTextAnnotation(const QPointF &pos);
     void addRectAnnotation(const QPointF &start, const QPointF &end);
 
+    // 链接线：连接两张图（或自由点）的参考线。imgA/imgB 为空表示对应端为自由点 pt。
+    LinkItem *createLink(ImageItem *imgA, const QPointF &ptA,
+                         ImageItem *imgB, const QPointF &ptB);
+    QList<LinkItem *> links() const { return m_links; }
+
+    // 由 ImageItem::itemChange 在图片位置变化后调用，刷新吸附到该图的链接
+    void refreshLinksFor(QGraphicsItem *moved);
+
 signals:
     void itemCountChanged(int count);
     void selectionChangedInfo(int count);
@@ -71,6 +80,7 @@ protected:
 
 private:
     QList<QPixmap> m_clipboard;
+    QList<LinkItem *> m_links;   // 当前画布上的全部链接线（随图片移动同步）
     qreal m_nextZ = 0;
     Tool m_currentTool = SelectTool;
     QColor m_annoColor = QColor(255, 50, 50);

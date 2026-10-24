@@ -11,7 +11,9 @@ class QLabel;
 class CanvasScene;
 class ArrowItem;
 class PenItem;
+class ImageItem;
 class QGraphicsRectItem;
+class QGraphicsLineItem;
 class CanvasView;
 
 // Minimap widget - shows bird's eye view of the entire canvas
@@ -111,6 +113,18 @@ private:
     ArrowItem *m_currentArrow = nullptr;
     PenItem *m_currentPen = nullptr;
     QGraphicsRectItem *m_currentRect = nullptr;
+
+    // Link-line tool state（链接线：点两张图/空白处连线）
+    QWidget *m_toolBar = nullptr;
+    QToolButton *m_linkBtn = nullptr;
+    bool m_linkToolActive = false;
+    bool m_linkPending = false;          // 已选起点，等待第二击
+    QPointF m_linkStartPt;               // 起点（锚图为图片中心）
+    ImageItem *m_linkStartImg = nullptr; // 起点锚图（可为空 = 自由点）
+    QGraphicsLineItem *m_linkPreview = nullptr; // 虚线预览（置顶、不拦截鼠标）
+    void createToolBar();
+    void setLinkToolActive(bool on);
+    void clearLinkState();
 
     static constexpr qreal MIN_ZOOM = 0.05;
     static constexpr qreal MAX_ZOOM = 20.0;

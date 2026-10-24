@@ -19,6 +19,16 @@ qt_add_executable(notetest
 target_include_directories(notetest PRIVATE ${SRC})
 target_link_libraries(notetest PRIVATE Qt6::Widgets Qt6::PrintSupport)
 
+# Canvas link-line tests (LinkItem geometry/anchors + scene serialization).
+qt_add_executable(linktest
+    linktest.cpp
+    ${SRC}/canvasscene.h ${SRC}/canvasscene.cpp
+    ${SRC}/imageitem.h ${SRC}/imageitem.cpp
+    ${SRC}/annotationitems.h ${SRC}/annotationitems.cpp
+)
+target_include_directories(linktest PRIVATE ${SRC})
+target_link_libraries(linktest PRIVATE Qt6::Widgets)
+
 # Editor-page screenshot probe (visual check of the toolbar/layout).
 qt_add_executable(edshot
     edshot.cpp
