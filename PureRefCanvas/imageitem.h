@@ -5,8 +5,9 @@
 #include <QGraphicsLineItem>
 #include <QPixmap>
 #include <QTimer>
+#include "canvasnode.h"
 
-class ImageItem : public QGraphicsObject
+class ImageItem : public QGraphicsObject, public CanvasNode
 {
     Q_OBJECT
 public:
@@ -24,6 +25,13 @@ public:
     // 图片内容（不含选择手柄/旋转手柄内边距）在场景中的中心点，
     // 用于链接线端点吸附。
     QPointF sceneContentCenter() const;
+
+    // CanvasNode：链接线锚点查询
+    QPointF sceneNodeCenter() const override { return sceneContentCenter(); }
+    QRectF sceneNodeRect() const override;
+    QRectF localNodeRect() const override {
+        return QRectF(0, 0, m_size.width(), m_size.height());
+    }
 
     void bringToFront();
     void sendToBack();

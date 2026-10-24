@@ -33,6 +33,8 @@ qt_add_executable(PureRefCanvas
     lyricspanel.h lyricspanel.cpp
     canvasview.h canvasview.cpp
     canvasscene.h canvasscene.cpp
+    canvasnode.h canvasnode.cpp
+    carditem.h carditem.cpp
     imageitem.h imageitem.cpp
     imageformats.h
     imageio.h

@@ -1,11 +1,14 @@
 #include "canvasview.h"
 #include "canvasscene.h"
 #include "imageitem.h"
+#include "carditem.h"
+#include "canvasnode.h"
 #include "annotationitems.h"
 
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QKeyEvent>
+#include <QContextMenuEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
@@ -16,7 +19,7 @@
 #include <QApplication>
 #include <QToolButton>
 #include <QLabel>
-#include <QLabel>
+#include <QMenu>
 #include <QHBoxLayout>
 #include <QGraphicsRectItem>
 #include <QGraphicsPathItem>
@@ -361,16 +364,19 @@ void CanvasView::setZoomBarOpacity(qreal opacity)
     }
 }
 
-// ========== 链接线：图片右键「创建链接」，待选第二端 ==========
+// ========== 链接线：节点右键「创建链接」，待选第二端 ==========
 
-void CanvasView::startLinkFrom(ImageItem *img)
+void CanvasView::startLinkFrom(QGraphicsObject *node)
 {
-    if (!img)
+    if (!node)
+        return;
+    const CanvasNode *cn = canvasNodeOf(node);
+    if (!cn)
         return;
     clearLinkState();
     m_linkPending = true;
-    m_linkStartImg = img;
-    m_linkStartPt = img->sceneContentCenter();
+    m_linkStartNode = node;
+    m_linkStartPt = cn->sceneNodeCenter();
     m_linkPreview = m_canvasScene->addPath(
         QPainterPath(), QPen(QColor(170, 176, 182), 1.5, Qt::DashLine));
     m_linkPreview->setZValue(1e9);   // 预览置顶
@@ -383,7 +389,7 @@ void CanvasView::clearLinkState()
 {
     const bool wasPending = m_linkPending;
     m_linkPending = false;
-    m_linkStartImg = nullptr;
+    m_linkStartNode = nullptr;
     if (m_linkPreview) {
         m_canvasScene->removeItem(m_linkPreview);
         delete m_linkPreview;
@@ -588,22 +594,24 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
 {
     CanvasScene::Tool tool = m_canvasScene->currentTool();
 
-    // 链接待选：图片右键「创建链接」后，第二击完成连线（图片或空白处）
+    // 链接待选：节点右键「创建链接」后，第二击完成连线（节点或空白处）
     if (event->button() == Qt::LeftButton && m_linkPending && !m_spacePressed) {
         const QPointF scenePos = mapToScene(event->pos());
-        // 命中检测需排除预览线：从命中列表里找第一张图
-        ImageItem *img = nullptr;
+        // 命中检测需排除预览线：从命中列表里找第一个画布节点
+        QGraphicsObject *node = nullptr;
         const QList<QGraphicsItem *> hits =
             m_canvasScene->items(scenePos, Qt::IntersectsItemShape);
         for (QGraphicsItem *h : hits) {
             if (h == m_linkPreview)
                 continue;
-            if (auto *im = dynamic_cast<ImageItem *>(h)) { img = im; break; }
+            if (auto *obj = dynamic_cast<QGraphicsObject *>(h)) {
+                if (canvasNodeOf(obj)) { node = obj; break; }
+            }
         }
 
-        ImageItem *endImg = img;
-        const QPointF endPt = img ? img->sceneContentCenter() : scenePos;
-        m_canvasScene->createLink(m_linkStartImg, m_linkStartPt, endImg, endPt);
+        const QPointF endPt = node ? canvasNodeOf(node)->sceneNodeCenter()
+                                   : scenePos;
+        m_canvasScene->createLink(m_linkStartNode, m_linkStartPt, node, endPt);
         clearLinkState();   // 完成后自动退出待选状态
         event->accept();
         return;
@@ -735,6 +743,58 @@ void CanvasView::mouseReleaseEvent(QMouseEvent *event)
     // Reset from rubber-band selection back to normal
     if (dragMode() == QGraphicsView::RubberBandDrag) {
         setDragMode(QGraphicsView::NoDrag);
+    }
+}
+
+// 命中处是否有画布节点（图片/卡片）
+static bool hasCanvasNodeAt(CanvasScene *scene, const QPointF &scenePos)
+{
+    const QList<QGraphicsItem *> hits = scene->items(scenePos);
+    for (QGraphicsItem *h : hits) {
+        if (auto *obj = dynamic_cast<QGraphicsObject *>(h)) {
+            if (canvasNodeOf(obj))
+                return true;
+        }
+    }
+    return false;
+}
+
+void CanvasView::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        const QPointF scenePos = mapToScene(event->pos());
+        if (!hasCanvasNodeAt(m_canvasScene, scenePos)) {
+            // 双击空白：在该点创建文本卡片并立即进入编辑
+            CardItem *card = m_canvasScene->addCard(scenePos);
+            card->beginEdit();
+            event->accept();
+            return;
+        }
+    }
+    QGraphicsView::mouseDoubleClickEvent(event);
+}
+
+void CanvasView::contextMenuEvent(QContextMenuEvent *event)
+{
+    const QPointF scenePos = mapToScene(event->pos());
+    if (hasCanvasNodeAt(m_canvasScene, scenePos)) {
+        // 节点上的右键：交给场景/节点自身菜单
+        QGraphicsView::contextMenuEvent(event);
+        return;
+    }
+
+    // 空白处右键：画布菜单
+    QMenu menu;
+    QAction *cardAct = menu.addAction(QStringLiteral("添加卡片"));
+    menu.addSeparator();
+    QAction *pasteAct = menu.addAction(QStringLiteral("粘贴"));
+
+    QAction *chosen = menu.exec(event->globalPos());
+    if (chosen == cardAct) {
+        CardItem *card = m_canvasScene->addCard(scenePos);
+        card->beginEdit();
+    } else if (chosen == pasteAct) {
+        m_canvasScene->paste();
     }
 }
 

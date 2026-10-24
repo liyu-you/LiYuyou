@@ -1,8 +1,11 @@
 #include "canvasscene.h"
 #include "imageitem.h"
+#include "carditem.h"
+#include "canvasnode.h"
 #include "annotationitems.h"
 
 #include <QGraphicsSceneMouseEvent>
+#include <QGraphicsObject>
 #include <QKeyEvent>
 #include <QPainter>
 #include <QBuffer>
@@ -17,6 +20,12 @@
 #include <QFont>
 #include <utility>   // std::as_const
 
+namespace {
+// 画布文件格式：magic + 版本号（旧格式无此头，首字段为图片数量）。
+constexpr qint32 FORMAT_MAGIC = 0x4C595943;   // 'LYYC'
+constexpr qint32 FORMAT_VERSION = 1;
+}   // namespace
+
 CanvasScene::CanvasScene(QObject *parent)
     : QGraphicsScene(parent)
 {
@@ -29,7 +38,7 @@ CanvasScene::CanvasScene(QObject *parent)
 
 void CanvasScene::refreshLinksFor(QGraphicsItem *moved)
 {
-    // 图片移动后，吸附到它的链接线端点跟随（锚点由 sceneBoundingRect 实时计算）
+    // 节点移动后，吸附到它的链接线端点跟随（锚点由场景几何实时计算）
     for (LinkItem *link : std::as_const(m_links)) {
         if (link->anchorItem(LinkItem::EndA) == moved ||
             link->anchorItem(LinkItem::EndB) == moved)
@@ -63,17 +72,53 @@ void CanvasScene::addImages(const QList<QPixmap> &pixmaps)
     }
 }
 
+CardItem *CanvasScene::addCard(const QPointF &pos, const QString &text)
+{
+    auto *card = new CardItem;
+    // 新卡片中心落在点击处（与图片定位语义一致）
+    card->setPos(pos - QPointF(card->cardSize().width() / 2.0,
+                               card->cardSize().height() / 2.0));
+    card->setZValue(m_nextZ++);
+    addItem(card);
+    if (!text.isEmpty())
+        card->setText(text);
+    connect(card, &CardItem::cardChanged, this, [this]() {
+        emit itemCountChanged(imageItems().size());
+    });
+    return card;
+}
+
+QList<CardItem *> CanvasScene::cards() const
+{
+    QList<CardItem *> result;
+    for (QGraphicsItem *it : items()) {
+        if (auto *card = dynamic_cast<CardItem *>(it))
+            result.append(card);
+    }
+    return result;
+}
+
+qreal CanvasScene::lowestZ()
+{
+    qreal minZ = 0;
+    for (QGraphicsItem *it : items())
+        minZ = qMin(minZ, it->zValue());
+    return minZ - 1;
+}
+
 void CanvasScene::removeSelectedItems()
 {
     auto items = selectedItems();
     for (auto *it : items) {
-        // 锚图删除：先把链接端点回退为当前位置（防悬空/跳到旧坐标）
-        if (auto *img = dynamic_cast<ImageItem *>(it)) {
-            for (LinkItem *link : std::as_const(m_links)) {
-                if (link->anchorItem(LinkItem::EndA) == img)
-                    link->setFreePoint(LinkItem::EndA, link->pointA());
-                if (link->anchorItem(LinkItem::EndB) == img)
-                    link->setFreePoint(LinkItem::EndB, link->pointB());
+        // 锚节点删除：先把链接端点回退为当前位置（防悬空/跳到旧坐标）
+        if (auto *obj = dynamic_cast<QGraphicsObject *>(it)) {
+            if (dynamic_cast<CanvasNode *>(obj)) {
+                for (LinkItem *link : std::as_const(m_links)) {
+                    if (link->anchorItem(LinkItem::EndA) == obj)
+                        link->setFreePoint(LinkItem::EndA, link->pointA());
+                    if (link->anchorItem(LinkItem::EndB) == obj)
+                        link->setFreePoint(LinkItem::EndB, link->pointB());
+                }
             }
         }
         removeItem(it);
@@ -86,9 +131,10 @@ void CanvasScene::removeSelectedItems()
 
 void CanvasScene::selectAllItems()
 {
-    for (auto *it : imageItems()) {
+    for (auto *it : imageItems())
         it->setSelected(true);
-    }
+    for (CardItem *card : cards())
+        card->setSelected(true);
     for (LinkItem *link : std::as_const(m_links))
         link->setSelected(true);
 }
@@ -193,7 +239,13 @@ QByteArray CanvasScene::saveState() const
     QDataStream out(&buffer);
     out.setVersion(QDataStream::Qt_6_0);
 
+    // 格式头：magic + 版本
+    out << FORMAT_MAGIC;
+    out << FORMAT_VERSION;
+
     const auto imgs = imageItems();
+    const auto allCards = cards();
+
     out << (quint32)imgs.size();
 
     // Re-encoding every image made each save a full PNG pass over the canvas
@@ -237,9 +289,32 @@ QByteArray CanvasScene::saveState() const
     }
     m_pngCache = next;
 
+    // ---- 文本卡片 ----
+    out << (quint32)allCards.size();
+    for (CardItem *card : allCards) {
+        out << card->text();
+        out << card->pos().x() << card->pos().y();
+        out << card->cardSize().width() << card->cardSize().height();
+        out << card->zValue();
+    }
+
     // ---- 链接线（参考关联） ----
-    // 锚点存「图片在本次保存列表中的序号」；同时保存端点坐标作为
-    // 图片缺失（如锚图被删/序号越界）时的回退自由点。
+    // 锚点索引：图片 k 存 k；卡片 k 存 -(k+1)；同时保存端点坐标作为
+    // 节点缺失时的回退自由点。
+    auto indexOfNode = [&](QGraphicsObject *obj) -> qint32 {
+        if (auto *img = dynamic_cast<ImageItem *>(obj)) {
+            const int i = imgs.indexOf(img);
+            if (i >= 0)
+                return i;
+        }
+        if (auto *card = dynamic_cast<CardItem *>(obj)) {
+            const int k = allCards.indexOf(card);
+            if (k >= 0)
+                return static_cast<qint32>(-(k + 1));
+        }
+        return -1;
+    };
+
     out << (quint32)m_links.size();
     for (LinkItem *link : std::as_const(m_links)) {
         const QColor c = link->color();
@@ -247,10 +322,10 @@ QByteArray CanvasScene::saveState() const
         out << link->width();
         out << link->zValue();
         out << (bool)link->isAnchored(LinkItem::EndA);
-        out << (qint32)imgs.indexOf(link->anchorItem(LinkItem::EndA));
+        out << indexOfNode(link->anchorItem(LinkItem::EndA));
         out << link->pointA().x() << link->pointA().y();
         out << (bool)link->isAnchored(LinkItem::EndB);
-        out << (qint32)imgs.indexOf(link->anchorItem(LinkItem::EndB));
+        out << indexOfNode(link->anchorItem(LinkItem::EndB));
         out << link->pointB().x() << link->pointB().y();
     }
     return data;
@@ -263,8 +338,21 @@ bool CanvasScene::loadState(const QByteArray &data)
     QDataStream in(&buffer);
     in.setVersion(QDataStream::Qt_6_0);
 
-    quint32 count;
-    in >> count;
+    // 首字段：magic（新格式）或图片数量（旧格式）
+    qint32 head = 0;
+    in >> head;
+    if (in.status() != QDataStream::Ok) return false;
+
+    const bool newFormat = (head == FORMAT_MAGIC);
+    if (newFormat) {
+        qint32 version = 0;
+        in >> version;
+        if (in.status() != QDataStream::Ok) return false;
+    }
+
+    quint32 count = newFormat ? 0 : static_cast<quint32>(head);
+    if (newFormat)
+        in >> count;
     if (in.status() != QDataStream::Ok) return false;
 
     clearAll();
@@ -294,12 +382,45 @@ bool CanvasScene::loadState(const QByteArray &data)
         }
     }
 
+    // ---- 文本卡片（仅新格式；旧格式无此段） ----
+    QList<CardItem *> loadedCards;
+    if (newFormat) {
+        quint32 cardCount = 0;
+        in >> cardCount;
+        if (in.status() != QDataStream::Ok)
+            return true;
+        for (quint32 i = 0; i < cardCount; ++i) {
+            QString text;
+            qreal x, y, w, h, z;
+            in >> text >> x >> y >> w >> h >> z;
+            if (in.status() != QDataStream::Ok)
+                break;
+            auto *card = addCard(QPointF(x, y), text);
+            card->setCardSize(QSizeF(w, h));
+            card->setPos(x, y);
+            card->setZValue(z);
+            loadedCards.append(card);
+        }
+    }
+
     // ---- 链接线 ----
-    // 旧版画布文件没有链接段：读计数即越界，直接按无链接处理（画布本身已恢复）。
+    // 旧版画布文件没有链接段：读计数即越界，直接按无链接处理。
     quint32 linkCount = 0;
     in >> linkCount;
     if (in.status() != QDataStream::Ok)
         return true;
+
+    auto nodeAt = [&](qint32 idx) -> QGraphicsObject * {
+        if (idx >= 0 && idx < loadedImgs.size())
+            return loadedImgs[idx];
+        if (idx < 0) {
+            const qint32 k = -idx - 1;
+            if (k >= 0 && k < loadedCards.size())
+                return loadedCards[k];
+        }
+        return nullptr;
+    };
+
     for (quint32 i = 0; i < linkCount; ++i) {
         qreal cr, cg, cb, w, z;
         bool anchoredA, anchoredB;
@@ -310,11 +431,10 @@ bool CanvasScene::loadState(const QByteArray &data)
         in >> anchoredB >> idxB >> bx >> by;
         if (in.status() != QDataStream::Ok)
             break;   // 截断文件：丢弃剩余链接，已读部分有效
-        ImageItem *imgA = (anchoredA && idxA >= 0 && idxA < loadedImgs.size())
-                              ? loadedImgs[idxA] : nullptr;
-        ImageItem *imgB = (anchoredB && idxB >= 0 && idxB < loadedImgs.size())
-                              ? loadedImgs[idxB] : nullptr;
-        LinkItem *link = createLink(imgA, QPointF(ax, ay), imgB, QPointF(bx, by));
+        QGraphicsObject *nodeA = anchoredA ? nodeAt(idxA) : nullptr;
+        QGraphicsObject *nodeB = anchoredB ? nodeAt(idxB) : nullptr;
+        LinkItem *link = createLink(nodeA, QPointF(ax, ay),
+                                    nodeB, QPointF(bx, by));
         link->setColor(QColor::fromRgbF(cr, cg, cb));
         link->setWidth(w);
         link->setZValue(z);
@@ -402,16 +522,21 @@ PenItem *CanvasScene::createPen()
     return pen;
 }
 
-QList<LinkItem *> CanvasScene::linksForImage(const ImageItem *img) const
+QList<LinkItem *> CanvasScene::linksForNode(const QGraphicsObject *node) const
 {
     QList<LinkItem *> result;
     for (LinkItem *l : m_links) {
-        if (l->anchorItem(LinkItem::EndA) == img ||
-            l->anchorItem(LinkItem::EndB) == img) {
+        if (l->anchorItem(LinkItem::EndA) == node ||
+            l->anchorItem(LinkItem::EndB) == node) {
             result.append(l);
         }
     }
     return result;
+}
+
+QList<LinkItem *> CanvasScene::linksForImage(const ImageItem *img) const
+{
+    return linksForNode(img);
 }
 
 void CanvasScene::setLinkWidth(qreal w)
@@ -422,17 +547,17 @@ void CanvasScene::setLinkWidth(qreal w)
     emit linkWidthChanged(w);
 }
 
-LinkItem *CanvasScene::createLink(ImageItem *imgA, const QPointF &ptA,
-                                  ImageItem *imgB, const QPointF &ptB)
+LinkItem *CanvasScene::createLink(QGraphicsObject *nodeA, const QPointF &ptA,
+                                  QGraphicsObject *nodeB, const QPointF &ptB)
 {
     // 参考关联线：流程图式灰色曲线箭头（默认灰色，粗细取场景链接线宽度）
-    LinkItem *link = new LinkItem(ptA, ptB, imgA, imgB);
+    LinkItem *link = new LinkItem(ptA, ptB, nodeA, nodeB);
     link->setColor(QColor(170, 176, 182));
     link->setWidth(m_linkWidth);
     link->setZValue(++m_nextZ);
     addItem(link);
     m_links.append(link);
-    link->refreshGeometry();   // 锚点端立即吸附到图片边缘
+    link->refreshGeometry();   // 锚点端立即吸附到节点边缘
     emit itemCountChanged(imageItems().size());
     return link;
 }

@@ -1,5 +1,5 @@
 #include "annotationitems.h"
-#include "imageitem.h"   // dynamic_cast 到 ImageItem（端点吸附）
+#include "canvasnode.h"   // CanvasNode 锚点接口
 
 #include <QPainter>
 #include <QPainterPathStroker>
@@ -91,12 +91,13 @@ void PenItem::addPoint(const QPointF &p)
 
 // ========== LinkItem：曲线箭头参考链接 ==========
 
-LinkItem::LinkItem(const QPointF &a, const QPointF &b, ImageItem *imgA, ImageItem *imgB,
+LinkItem::LinkItem(const QPointF &a, const QPointF &b,
+                   QGraphicsObject *nodeA, QGraphicsObject *nodeB,
                    QGraphicsItem *parent)
     : QGraphicsItem(parent), m_freeA(a), m_freeB(b)
 {
-    m_a = imgA;
-    m_b = imgB;
+    m_a = nodeA;
+    m_b = nodeB;
     setFlag(QGraphicsItem::ItemIsSelectable, true);
     setFlag(QGraphicsItem::ItemIsMovable, true);
     setAcceptHoverEvents(true);
@@ -105,12 +106,22 @@ LinkItem::LinkItem(const QPointF &a, const QPointF &b, ImageItem *imgA, ImageIte
 
 QPointF LinkItem::centerA() const
 {
-    return m_a ? m_a->sceneContentCenter() : m_freeA;
+    if (m_a) {
+        if (const CanvasNode *n = canvasNodeOf(m_a))
+            return n->sceneNodeCenter();
+        return m_a->sceneBoundingRect().center();
+    }
+    return m_freeA;
 }
 
 QPointF LinkItem::centerB() const
 {
-    return m_b ? m_b->sceneContentCenter() : m_freeB;
+    if (m_b) {
+        if (const CanvasNode *n = canvasNodeOf(m_b))
+            return n->sceneNodeCenter();
+        return m_b->sceneBoundingRect().center();
+    }
+    return m_freeB;
 }
 
 void LinkItem::setFreePoint(EndPoint e, const QPointF &p)
@@ -120,9 +131,9 @@ void LinkItem::setFreePoint(EndPoint e, const QPointF &p)
     refreshGeometry();
 }
 
-void LinkItem::setAnchor(EndPoint e, ImageItem *img)
+void LinkItem::setAnchor(EndPoint e, QGraphicsObject *node)
 {
-    if (e == EndA) m_a = img; else m_b = img;
+    if (e == EndA) m_a = node; else m_b = node;
     refreshGeometry();
 }
 
@@ -193,8 +204,11 @@ void LinkItem::refreshGeometry()
     Edge eA, eB;
 
     if (m_a) {
-        // 边缘点在图片自身坐标系中求（天然处理旋转/缩放）
-        const QRectF local(0, 0, m_a->imageSize().width(), m_a->imageSize().height());
+        // 边缘点在节点自身坐标系中求（天然处理旋转/缩放）
+        const CanvasNode *n = canvasNodeOf(m_a);
+        const QRectF local = n ? n->localNodeRect()
+                               : QRectF(0, 0, m_a->boundingRect().width(),
+                                        m_a->boundingRect().height());
         QPointF hitL;
         eA = rayEdge(local, m_a->mapFromScene(cA), m_a->mapFromScene(cB), hitL);
         m_edgeA = m_a->mapToScene(hitL);
@@ -204,7 +218,10 @@ void LinkItem::refreshGeometry()
     }
 
     if (m_b) {
-        const QRectF local(0, 0, m_b->imageSize().width(), m_b->imageSize().height());
+        const CanvasNode *n = canvasNodeOf(m_b);
+        const QRectF local = n ? n->localNodeRect()
+                               : QRectF(0, 0, m_b->boundingRect().width(),
+                                        m_b->boundingRect().height());
         QPointF hitL;
         eB = rayEdge(local, m_b->mapFromScene(cB), m_b->mapFromScene(cA), hitL);
         m_edgeB = m_b->mapToScene(hitL);
@@ -303,16 +320,18 @@ void LinkItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     if (m_draggingEndpoint) {
         m_draggingEndpoint = false;
-        // 松手处若命中图片 → 吸附
+        // 松手处若命中画布节点（图片/卡片）→ 吸附
         if (scene()) {
             const QList<QGraphicsItem *> hits =
                 scene()->items(event->scenePos(), Qt::IntersectsItemShape);
             for (QGraphicsItem *h : hits) {
                 if (h == this)
                     continue;
-                if (auto *img = dynamic_cast<ImageItem *>(h)) {
-                    setAnchor(m_dragEnd, img);
-                    break;
+                if (auto *obj = dynamic_cast<QGraphicsObject *>(h)) {
+                    if (canvasNodeOf(obj)) {
+                        setAnchor(m_dragEnd, obj);
+                        break;
+                    }
                 }
             }
         }

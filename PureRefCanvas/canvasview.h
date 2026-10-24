@@ -8,6 +8,7 @@
 class QTimer;
 class QToolButton;
 class QLabel;
+class QGraphicsObject;
 class CanvasScene;
 class ArrowItem;
 class PenItem;
@@ -84,6 +85,8 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
@@ -114,12 +117,12 @@ private:
     PenItem *m_currentPen = nullptr;
     QGraphicsRectItem *m_currentRect = nullptr;
 
-    // 链接线待选状态（图片右键「创建链接」启动：点第二张图/空白处完成，Esc 取消）
+    // 链接线待选状态（节点右键「创建链接」启动：点第二节点/空白处完成，Esc 取消）
     bool m_linkPending = false;          // 已选起点，等待第二击
-    QPointF m_linkStartPt;               // 起点（锚图为图片中心）
-    ImageItem *m_linkStartImg = nullptr; // 起点锚图
+    QPointF m_linkStartPt;               // 起点（锚节点为节点中心）
+    QGraphicsObject *m_linkStartNode = nullptr; // 起点锚节点
     QGraphicsPathItem *m_linkPreview = nullptr; // 虚线预览（置顶、不拦截鼠标）
-    void startLinkFrom(ImageItem *img);  // 从图片开始一次链接
+    void startLinkFrom(QGraphicsObject *node);  // 从节点开始一次链接
     void clearLinkState();
 
     static constexpr qreal MIN_ZOOM = 0.05;

@@ -3,6 +3,7 @@
 
 #include <QGraphicsItem>
 #include <QGraphicsPathItem>
+#include <QGraphicsObject>
 #include <QPainterPath>
 #include <QPointF>
 #include <QColor>
@@ -61,20 +62,23 @@ public:
     enum EndPoint { EndA, EndB };
     enum Edge { LeftEdge, RightEdge, TopEdge, BottomEdge };
 
-    LinkItem(const QPointF &a, const QPointF &b, ImageItem *imgA = nullptr,
-             ImageItem *imgB = nullptr, QGraphicsItem *parent = nullptr);
+    LinkItem(const QPointF &a, const QPointF &b,
+             QGraphicsObject *nodeA = nullptr, QGraphicsObject *nodeB = nullptr,
+             QGraphicsItem *parent = nullptr);
 
-    QPointF centerA() const;   // 吸附时=图片中心；自由时=自由点（用于射线方向）
+    QPointF centerA() const;   // 吸附时=节点中心；自由时=自由点（用于射线方向）
     QPointF centerB() const;
-    QPointF edgePointA() const { return m_edgeA; }   // 实际线端（图片边缘/自由点）
+    QPointF edgePointA() const { return m_edgeA; }   // 实际线端（节点边缘/自由点）
     QPointF edgePointB() const { return m_edgeB; }
     QPointF pointA() const { return edgePointA(); }   // 兼容旧名
     QPointF pointB() const { return edgePointB(); }
 
     void setFreePoint(EndPoint e, const QPointF &p);   // 解除吸附并设为自由点
-    void setAnchor(EndPoint e, ImageItem *img);        // 吸附到图片
+    void setAnchor(EndPoint e, QGraphicsObject *node);  // 吸附到节点
 
-    ImageItem *anchorItem(EndPoint e) const { return (e == EndA ? m_a : m_b).data(); }
+    QGraphicsObject *anchorItem(EndPoint e) const {
+        return (e == EndA ? m_a : m_b).data();
+    }
     bool isAnchored(EndPoint e) const { return (e == EndA ? m_a : m_b) != nullptr; }
 
     void setColor(const QColor &c) { m_color = c; update(); }
@@ -112,7 +116,7 @@ private:
     // 从 from 到 to 的射线与矩形 r 的交点；返回命中边，hit=交点
     static Edge rayEdge(const QRectF &r, const QPointF &from, const QPointF &to, QPointF &hit);
 
-    QPointer<ImageItem> m_a, m_b;      // 吸附目标（图片删除后自动置空）
+    QPointer<QGraphicsObject> m_a, m_b;  // 吸附目标（节点删除后自动置空）
     QPointF m_freeA, m_freeB;          // 自由端点/回退落点
     QPointF m_edgeA, m_edgeB;          // 实际线端
     QPainterPath m_path;               // 当前贝塞尔

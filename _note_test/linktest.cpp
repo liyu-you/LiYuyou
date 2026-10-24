@@ -16,6 +16,8 @@
 
 #include "canvasscene.h"
 #include "canvasview.h"
+#include "canvasnode.h"
+#include "carditem.h"
 #include "imageitem.h"
 #include "annotationitems.h"
 
@@ -382,6 +384,136 @@ int main(int argc, char **argv)
         scene.clearAll();
         CHECK(scene.links().isEmpty());
         CHECK(scene.items().isEmpty());
+    }
+
+    // ---- 文本卡片：默认尺寸 / 文本 / 高度自适应 / 建卡定位 ----
+    {
+        CardItem card;
+        CHECK(card.cardSize() == QSizeF(250, 60));
+        CHECK(card.text().isEmpty());
+        CHECK(card.localNodeRect() == QRectF(0, 0, 250, 60));
+
+        // 多行文本 → 卡片高度增长（最小 60）
+        card.setText("a\nb\nc\nd\ne\nf\ng");
+        CHECK(card.text() == "a\nb\nc\nd\ne\nf\ng");
+        CHECK(card.cardSize().height() > 60);
+
+        // 空文本卡片可设置任意尺寸（fitHeight 不回缩）
+        CardItem blank;
+        blank.setCardSize(QSizeF(300, 120));
+        CHECK(blank.cardSize() == QSizeF(300, 120));
+
+        CanvasScene scene;
+        CardItem *c = scene.addCard(QPointF(300, 200));
+        CHECK(c != nullptr);
+        CHECK(scene.cards().size() == 1);
+        // 卡片中心落在点击处
+        CHECK(near(c->sceneNodeCenter(), QPointF(300, 200)));
+        CHECK(near(c->sceneNodeRect().center(), QPointF(300, 200)));
+    }
+
+    // ---- 卡片作为链接锚点：边缘命中 / 移动跟随 / 删除回退 ----
+    {
+        CanvasScene scene;
+        CardItem *c0 = scene.addCard(QPointF(0, 0));
+        CardItem *c1 = scene.addCard(QPointF(500, 0));
+        // c0 pos=(-125,-30) 中心(0,0)；c1 pos=(375,-30) 中心(500,0)
+        LinkItem *link = scene.createLink(c0, c0->sceneNodeCenter(),
+                                          c1, c1->sceneNodeCenter());
+        CHECK(link->isAnchored(LinkItem::EndA));
+        CHECK(link->isAnchored(LinkItem::EndB));
+        CHECK(link->anchorItem(LinkItem::EndA) == c0);
+        CHECK(link->anchorItem(LinkItem::EndB) == c1);
+        // 线端落在卡片边缘（c0 右边、c1 左边）
+        CHECK(near(link->edgePointA(), QPointF(125, 0)));
+        CHECK(near(link->edgePointB(), QPointF(375, 0)));
+
+        // linksForNode：节点右键菜单的作用范围
+        CHECK(scene.linksForNode(c0).size() == 1);
+        CHECK(scene.linksForNode(c1).size() == 1);
+        CHECK(scene.linksForNode(c0).contains(link));
+
+        // 卡片移动 → 链接跟随（保持 y=-30 使中心 y=0）
+        c0->setPos(200, -30);
+        CHECK(near(c0->sceneNodeCenter(), QPointF(325, 0)));
+        CHECK(near(link->edgePointA(), QPointF(450, 0)));
+
+        // 卡片删除 → 端点回退为最后边缘点
+        c0->setSelected(true);
+        scene.removeSelectedItems();
+        CHECK(scene.cards().size() == 1);
+        CHECK(link->anchorItem(LinkItem::EndA) == nullptr);
+        CHECK(near(link->edgePointA(), QPointF(450, 0)));
+    }
+
+    // ---- 双击空白建卡（视图入口） ----
+    {
+        CanvasScene scene;
+        CanvasView view(&scene);
+        view.resize(1200, 800);
+        QMouseEvent dbl(QEvent::MouseButtonDblClick,
+                        view.mapFromScene(QPointF(300, 300)),
+                        Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(view.viewport(), &dbl);
+        CHECK(scene.cards().size() == 1);
+        CHECK(near(scene.cards().first()->sceneNodeCenter(), QPointF(300, 300)));
+    }
+
+    // ---- 序列化往返：卡片 + 卡片↔卡片 / 图片↔卡片链接 ----
+    {
+        CanvasScene s1;
+        CardItem *c0 = s1.addCard(QPointF(0, 0));
+        c0->setText("卡片一");
+        CardItem *c1 = s1.addCard(QPointF(500, 0));
+        ImageItem *img = s1.addImage(makePix(100, 100), QPointF(0, 400));
+        LinkItem *l1 = s1.createLink(c0, c0->sceneNodeCenter(),
+                                     c1, c1->sceneNodeCenter());
+        LinkItem *l2 = s1.createLink(img, img->sceneContentCenter(),
+                                     c1, c1->sceneNodeCenter());
+        CHECK(s1.links().size() == 2);
+
+        CanvasScene s2;
+        CHECK(s2.loadState(s1.saveState()));
+        CHECK(s2.cards().size() == 2);
+        CHECK(s2.imageItems().size() == 1);
+        CHECK(s2.links().size() == 2);
+
+        // 卡片文本保留
+        CardItem *loadedText = nullptr;
+        for (CardItem *c : s2.cards()) {
+            if (c->text() == "卡片一")
+                loadedText = c;
+        }
+        CHECK(loadedText != nullptr);
+
+        // 链接类型：一条卡片↔卡片、一条图片↔卡片，均双锚定
+        bool foundCardCard = false, foundImgCard = false;
+        for (LinkItem *l : s2.links()) {
+            const bool ca = dynamic_cast<CardItem *>(l->anchorItem(LinkItem::EndA)) != nullptr;
+            const bool cb = dynamic_cast<CardItem *>(l->anchorItem(LinkItem::EndB)) != nullptr;
+            const bool ia = dynamic_cast<ImageItem *>(l->anchorItem(LinkItem::EndA)) != nullptr;
+            if (ca && cb)
+                foundCardCard = true;
+            if (ia && cb)
+                foundImgCard = true;
+        }
+        CHECK(foundCardCard);
+        CHECK(foundImgCard);
+
+        // 加载后链接仍跟随卡片移动
+        loadedText->setPos(loadedText->pos() + QPointF(0, 100));
+        Q_UNUSED(l1)
+    }
+
+    // ---- 全选包含卡片 ----
+    {
+        CanvasScene scene;
+        CardItem *c0 = scene.addCard(QPointF(0, 0));
+        scene.selectAllItems();
+        CHECK(c0->isSelected());
+        // 全选后删除：卡片一并删除
+        scene.removeSelectedItems();
+        CHECK(scene.cards().isEmpty());
     }
 
     printf("\n=== %d passed, %d failed ===\n", g_passed, g_failed);

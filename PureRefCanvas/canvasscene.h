@@ -7,7 +7,9 @@
 #include <QHash>
 
 class QPixmap;
+class QGraphicsObject;
 class ImageItem;
+class CardItem;
 class ArrowItem;
 class PenItem;
 class LinkItem;
@@ -23,6 +25,10 @@ public:
     ImageItem *addImage(const QPixmap &pixmap, const QPointF &pos = QPointF());
     void addImageAtCenter(const QPixmap &pixmap);
     void addImages(const QList<QPixmap> &pixmaps);
+
+    // 文本卡片（白板）
+    CardItem *addCard(const QPointF &pos, const QString &text = QString());
+    QList<CardItem *> cards() const;
 
     void removeSelectedItems();
     void selectAllItems();
@@ -43,6 +49,10 @@ public:
     void bringSelectedToFront();
     void sendSelectedToBack();
 
+    // z 序分配
+    qreal nextZ() { return m_nextZ++; }
+    qreal lowestZ();
+
     // Annotation tools
     void setCurrentTool(Tool tool) { m_currentTool = tool; }
     Tool currentTool() const { return m_currentTool; }
@@ -61,19 +71,20 @@ public:
     void addTextAnnotation(const QPointF &pos);
     void addRectAnnotation(const QPointF &start, const QPointF &end);
 
-    // 链接线：连接两张图（或自由点）的参考线。imgA/imgB 为空表示对应端为自由点 pt。
-    LinkItem *createLink(ImageItem *imgA, const QPointF &ptA,
-                         ImageItem *imgB, const QPointF &ptB);
+    // 链接线：连接两个画布节点（图片/卡片）或自由点。node 为空表示对应端为自由点 pt。
+    LinkItem *createLink(QGraphicsObject *nodeA, const QPointF &ptA,
+                         QGraphicsObject *nodeB, const QPointF &ptB);
     QList<LinkItem *> links() const { return m_links; }
 
-    // 吸附到指定图片的全部链接（图片右键「线条粗细」用）
+    // 吸附到指定节点的全部链接（右键「线条粗细」用）
+    QList<LinkItem *> linksForNode(const QGraphicsObject *node) const;
     QList<LinkItem *> linksForImage(const ImageItem *img) const;
 
-    // 链接线默认粗细（工具栏粗细选择器/右键菜单写入；新链接采用）
+    // 链接线默认粗细（右键菜单写入；新链接采用）
     void setLinkWidth(qreal w);
     qreal linkWidth() const { return m_linkWidth; }
 
-    // 由 ImageItem::itemChange 在图片位置变化后调用，刷新吸附到该图的链接
+    // 由节点 itemChange 在位置变化后调用，刷新吸附到它的链接
     void refreshLinksFor(QGraphicsItem *moved);
 
 signals:
@@ -81,8 +92,8 @@ signals:
     void selectionChangedInfo(int count);
     void toolChanged(Tool tool);
     void linkWidthChanged(qreal width);
-    // 图片右键「创建链接」：请求视图从该图开始一次链接（等待第二击）
-    void linkStartRequested(ImageItem *img);
+    // 节点右键「创建链接」：请求视图从该节点开始一次链接（等待第二击）
+    void linkStartRequested(QGraphicsObject *node);
 
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;
@@ -90,7 +101,7 @@ protected:
 
 private:
     QList<QPixmap> m_clipboard;
-    QList<LinkItem *> m_links;   // 当前画布上的全部链接线（随图片移动同步）
+    QList<LinkItem *> m_links;   // 当前画布上的全部链接线（随节点移动同步）
     qreal m_nextZ = 0;
     Tool m_currentTool = SelectTool;
     QColor m_annoColor = QColor(255, 50, 50);

@@ -90,6 +90,11 @@ QPointF ImageItem::sceneContentCenter() const
     return mapToScene(QPointF(m_size.width() / 2.0, m_size.height() / 2.0));
 }
 
+QRectF ImageItem::sceneNodeRect() const
+{
+    return mapToScene(QRectF(0, 0, m_size.width(), m_size.height())).boundingRect();
+}
+
 QRectF ImageItem::boundingRect() const
 {
     qreal pad = HANDLE + 4;

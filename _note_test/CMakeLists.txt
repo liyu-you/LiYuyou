@@ -23,6 +23,8 @@ target_link_libraries(notetest PRIVATE Qt6::Widgets Qt6::PrintSupport)
 qt_add_executable(linktest
     linktest.cpp
     ${SRC}/canvasscene.h ${SRC}/canvasscene.cpp
+    ${SRC}/canvasnode.h ${SRC}/canvasnode.cpp
+    ${SRC}/carditem.h ${SRC}/carditem.cpp
     ${SRC}/imageitem.h ${SRC}/imageitem.cpp
     ${SRC}/canvasview.h ${SRC}/canvasview.cpp
     ${SRC}/annotationitems.h ${SRC}/annotationitems.cpp
